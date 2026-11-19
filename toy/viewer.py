@@ -47,7 +47,13 @@ from mosaic_model.goals import zone_fraction  # noqa: E402
 from mosaic_model.graph import SQRT3  # noqa: E402
 from mosaic_model.level import map_zones, terrain_to_json  # noqa: E402
 from mosaic_model.observables import observe  # noqa: E402
-from mosaic_model.raster import fit_size, render_rgb, view_pixel_map, world_centre  # noqa: E402
+from mosaic_model.raster import (  # noqa: E402
+    cut_mask,
+    fit_size,
+    render_rgb,
+    view_pixel_map,
+    world_centre,
+)
 from mosaic_model.reactions import ARITY, Block, Reaction  # noqa: E402
 from palette import (  # noqa: E402
     colour_names,
@@ -150,6 +156,7 @@ class Viewer:
             shuffled=self.shuffled,
             holes=self.hole,
             fixed=self.fixed,
+            cuts=self.sim0.cuts,
         )
         self.tracker = GoalTracker(self.level.goals, self.level.fail, zones=self.zones)
         self.hist_t: list[float] = [0.0]
@@ -221,6 +228,11 @@ class Viewer:
             # inner hexagon of each cell (fixed-cell marker) and wall hatching
             dot = self.cfg["terrain"]["fixed_dot"]
             self.inner = view_pixel_map(g, self.size, gw, h, 1.0 - dot, self.centre)
+            # hermetic edges (cuts), drawn as dark lines on the shared side
+            self.cut_line = None
+            if len(self.sim.cuts):
+                idx0, dx, dy = view_pixel_map(g, self.size, gw, h, 0.0, self.centre, True)
+                self.cut_line = cut_mask(g, idx0, dx, dy, self.sim.cuts)
             ys, xs = np.mgrid[0:h, 0:gw]
             self.stripe = ((xs + ys) // self.cfg["terrain"]["wall_stripe_px"]) % 2 == 0
             # zone outlines (2 px, inside the zone) and label positions
@@ -349,6 +361,8 @@ class Viewer:
         self._remap()
         rgb = render_rgb(self.pixmap, self.sim.colours, self.pal, self.bg)
         self._draw_terrain(rgb)
+        if self.cut_line is not None:
+            rgb[self.cut_line] = DARK
         if self.zones:
             rgb[self.zone_line] = DARK
         pg.surfarray.blit_array(self.grid_surf, rgb.swapaxes(0, 1))
@@ -1125,7 +1139,7 @@ class Viewer:
             "fail": [],
             "meta": {"from": "sandbox", "source": str(self.level.path or "")},
         }
-        ter = terrain_to_json(self.sim0.graph, self.hole, self.fixed, self.fixed_col)
+        ter = terrain_to_json(self.sim0.graph, self.hole, self.fixed, self.fixed_col, self.sim.cuts)
         if ter:
             d["terrain"] = ter
         folder = folder or ROOT / "levels" / "sandbox"

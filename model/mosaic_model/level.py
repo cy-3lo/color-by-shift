@@ -1,8 +1,10 @@
 """JSON level loader (format shared with Godot, see CLAUDE.md, Levels).
 
 Optional terrain, in axial cell coordinates (q, r) of the level's world:
-    "terrain": {"holes": [[q, r], ...], "fixed": [[q, r, colour], ...]}
-Holes are walls (not part of the world); fixed cells keep their colour forever.
+    "terrain": {"holes": [[q, r], ...], "fixed": [[q, r, colour], ...],
+                "cuts": [[q1, r1, q2, r2], ...]}
+Holes are walls (not part of the world); fixed cells keep their colour forever; a cut is a
+hermetic edge (outline) between two neighbouring cells: nothing reacts across it.
 
 Drawn start (instead of random fractions): an ASCII map, one string per row of an odd-r hex
 block (odd rows drawn half a cell to the right), and a legend from character to cell:
@@ -94,11 +96,13 @@ def load_level(path: str | Path) -> Level:
 
 @dataclass
 class Terrain:
-    """Per-cell masks: hole, fixed, and the colour of each fixed cell (0 elsewhere)."""
+    """Per-cell masks: hole, fixed, and the colour of each fixed cell (0 elsewhere); cuts:
+    (m, 2) pairs of neighbouring cell indices with a hermetic edge between them."""
 
     hole: np.ndarray
     fixed: np.ndarray
     colour: np.ndarray
+    cuts: np.ndarray = field(default_factory=lambda: np.zeros((0, 2), np.int64))
 
     @classmethod
     def empty(cls, n_cells: int) -> Terrain:
@@ -139,10 +143,23 @@ def terrain_from_json(g: Graph, spec: dict | None, palette: int) -> Terrain:
         t.fixed[i] = True
         t.colour[i] = int(c)
     t.fixed &= ~t.hole
+    t.cuts = cuts_from_json(g, spec.get("cuts", []))
     return t
 
 
-def terrain_to_json(g: Graph, hole: np.ndarray, fixed: np.ndarray, colours) -> dict:
+def cuts_from_json(g: Graph, cuts: list) -> np.ndarray:
+    """Cell-index pairs from axial [q1, r1, q2, r2] cuts (not checked for adjacency here)."""
+    idx = axial_index(g)
+    out = []
+    for q1, r1, q2, r2 in cuts:
+        try:
+            out.append([idx[(int(q1), int(r1))], idx[(int(q2), int(r2))]])
+        except KeyError:
+            raise ValueError(f"cut ({q1}, {r1}) | ({q2}, {r2}) is not in the world") from None
+    return np.array(out, dtype=np.int64).reshape(-1, 2)
+
+
+def terrain_to_json(g: Graph, hole: np.ndarray, fixed: np.ndarray, colours, cuts=None) -> dict:
     """Inverse of terrain_from_json (empty dict if there is no terrain)."""
     ax = g.axial.tolist()
     col = np.asarray(colours)
@@ -152,6 +169,8 @@ def terrain_to_json(g: Graph, hole: np.ndarray, fixed: np.ndarray, colours) -> d
     fx = np.asarray(fixed) & ~np.asarray(hole)
     if np.any(fx):
         out["fixed"] = [[*ax[i], int(col[i])] for i in np.flatnonzero(fx)]
+    if cuts is not None and len(cuts):
+        out["cuts"] = [[*ax[int(a)], *ax[int(b)]] for a, b in np.asarray(cuts).tolist()]
     return out
 
 
@@ -253,6 +272,7 @@ def make_sim(
         st = dict(level.start)
         st["seed"] = seed
         cols, ter, _ = map_start(g, level.map, level.palette, st)
+        ter.cuts = cuts_from_json(g, (level.terrain or {}).get("cuts", []))
     else:
         ter = terrain_from_json(g, level.terrain, level.palette)
         cols = ter.apply(initial_colours(g.n_cells, level.start["fractions"], seed))
@@ -264,6 +284,7 @@ def make_sim(
         shuffled=shuffled,
         holes=ter.hole,
         fixed=ter.fixed,
+        cuts=ter.cuts,
     )
     if burn_in:
         sim.sweep(int(level.start.get("burn_in_sweeps", 0)))

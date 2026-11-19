@@ -305,3 +305,81 @@ def test_zone_goal_rect_zones_and_random_fills(tmp_path) -> None:
     assert tr.update(0.0, sim.counts(), observe(sim, size=False)) == "running"
     sim.advance(30.0)  # red invades blue
     assert tr.update(sim.t, sim.counts(), observe(sim, size=False)) == "won"
+
+
+# ---- cuts (hermetic edges) -----------------------------------------------------------------
+def test_cut_removes_one_edge_and_two_vertices() -> None:
+    g = hex_torus(16)
+    rs = ReactionSet(
+        [
+            Reaction("edge", [0, 1], [0, 0], 1.0),
+            Reaction("vertex", [0, 0, 1], [0, 0, 0], 1.0, chiral=False),
+        ],
+        2,
+    )
+    sim = Sim(g, rs, np.zeros(g.n_cells, int), seed=0)
+    ne, nv = len(sim._edges), len(sim._verts)
+    a, b = (int(v) for v in g.edges[17])
+    sim.set_terrain(cuts=[[b, a]])
+    assert len(sim._edges) == ne - 1 and len(sim._verts) == nv - 2
+    assert all({a, b} != {e[0], e[1]} for e in sim._edges)
+    assert all(not ({a, b} <= set(v)) for v in sim._verts)
+    sim.set_terrain()  # None keeps the cuts
+    assert len(sim._edges) == ne - 1
+    sim.set_terrain(cuts=[])
+    assert len(sim._edges) == ne and len(sim._verts) == nv
+
+
+def test_cut_must_join_neighbours() -> None:
+    g = hex_torus(16)
+    rs = ReactionSet([Reaction("edge", [0, 1], [0, 0], 1.0)], 2)
+    with pytest.raises(ValueError):
+        Sim(g, rs, np.zeros(g.n_cells, int), seed=0, cuts=[[0, 40]])
+
+
+def _disc_cuts(g, centre: int, radius: float):
+    d = np.linalg.norm(g.centers - g.centers[centre], axis=1)
+    inside = d <= radius
+    cuts = [[a, b] for a, b in g.edges.tolist() if inside[a] != inside[b]]
+    return inside, cuts
+
+
+def test_closed_outline_is_hermetic() -> None:
+    """Voter and majority (edge and vertex) cannot cross a closed ring of cuts."""
+    from mosaic_model import hex_hexagon
+
+    g = hex_hexagon(12, periodic=False)
+    inside, cuts = _disc_cuts(g, g.n_cells // 2, 4.5)
+    reacts = [Reaction("edge", [a, 1 - a], [a, a], 1.0) for a in (0, 1)]
+    reacts += [Reaction("vertex", [a, a, 1 - a], [a, a, a], 1.0, chiral=False) for a in (0, 1)]
+    start = np.where(inside, 0, 1)
+    sim = Sim(g, ReactionSet(reacts, 2), start, seed=3, cuts=cuts)
+    sim.advance(50.0)
+    assert (sim.colours == start).all()
+    # control: without the cuts the front moves
+    sim2 = Sim(g, ReactionSet(reacts, 2), start, seed=3)
+    sim2.advance(50.0)
+    assert (sim2.colours != start).any()
+
+
+def test_cuts_json_round_trip_and_level() -> None:
+    from mosaic_model import hex_hexagon
+
+    g = hex_hexagon(8, periodic=False)
+    _, cuts = _disc_cuts(g, g.n_cells // 2, 2.5)
+    z = np.zeros(g.n_cells, bool)
+    spec = terrain_to_json(g, z, z, np.zeros(g.n_cells, int), cuts)
+    assert set(spec) == {"cuts"}
+    t = terrain_from_json(g, json.loads(json.dumps(spec)), 2)
+    assert {tuple(sorted(c)) for c in t.cuts.tolist()} == {tuple(sorted(c)) for c in cuts}
+
+
+def test_cut_mask_draws_on_the_shared_side() -> None:
+    from mosaic_model.raster import cut_mask, hex_pixel_map
+
+    g = hex_torus(8)
+    a, b = (int(v) for v in g.edges[5])
+    idx, dx, dy = hex_pixel_map(g, 12.0, with_local=True)
+    m = cut_mask(g, idx, dx, dy, [[a, b]])
+    assert m.any()
+    assert set(np.unique(idx[m]).tolist()) == {a, b}  # drawn on both cells, nowhere else

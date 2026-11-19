@@ -24,6 +24,10 @@ Terrain (optional per-cell masks):
          channel that would change a fixed cell is rejected as a whole (so exchanges stay
          conservative and a fixed cell reflects mobility). The channel was picked with
          probability k / K, so every allowed channel still fires at its rate k.
+  cut    a hermetic edge between two neighbouring cells (an outline): the edge and the two
+         vertices that contain both cells are removed, so nothing reacts across it, while
+         the two cells still react with their other neighbours. Cuts change the element
+         counts (attempt weights) but not the cell counts.
 Fractions, counts and goals use the free cells only (neither hole nor fixed).
 """
 
@@ -37,6 +41,24 @@ from .graph import Graph
 from .reactions import Block, ReactionSet
 
 
+def _pair_key(a: np.ndarray, b: np.ndarray, n: int) -> np.ndarray:
+    """Order-free integer key of cell pairs."""
+    a, b = np.asarray(a, np.int64), np.asarray(b, np.int64)
+    return np.minimum(a, b) * n + np.maximum(a, b)
+
+
+def _check_cuts(g: Graph, cuts: Iterable[Iterable[int]]) -> np.ndarray:
+    """(m, 2) array of cut cell pairs, each sorted; error if a pair is not an edge."""
+    c = np.array([list(p) for p in cuts], dtype=np.int64).reshape(-1, 2)
+    if len(c):
+        ek = _pair_key(g.edges[:, 0], g.edges[:, 1], g.n_cells)
+        bad = ~np.isin(_pair_key(c[:, 0], c[:, 1], g.n_cells), ek)
+        if bad.any():
+            raise ValueError(f"cut {c[bad][0].tolist()} is not a pair of neighbouring cells")
+        c = np.unique(np.sort(c, axis=1), axis=0)
+    return c
+
+
 class Sim:
     def __init__(
         self,
@@ -48,6 +70,7 @@ class Sim:
         shuffle: str = "attempt",
         holes: Iterable[bool] | None = None,
         fixed: Iterable[bool] | None = None,
+        cuts: Iterable[Iterable[int]] | None = None,
     ) -> None:
         self.graph = graph
         self.reactions = reactions
@@ -65,14 +88,21 @@ class Sim:
         self._pos = 0  # attempts done in the current sweep
         self._carry = 0.0  # fractional attempts owed by advance()
         self.fires = [0] * len(reactions.reactions)
-        self.set_terrain(holes, fixed)
+        self.cuts = np.zeros((0, 2), np.int64)
+        self.set_terrain(holes, fixed, cuts)
 
     def set_terrain(
-        self, holes: Iterable[bool] | None = None, fixed: Iterable[bool] | None = None
+        self,
+        holes: Iterable[bool] | None = None,
+        fixed: Iterable[bool] | None = None,
+        cuts: Iterable[Iterable[int]] | None = None,
     ) -> None:
         """Set the hole and fixed masks (None = none) and rebuild the element lists. The
-        colours of fixed cells are their current colours."""
+        colours of fixed cells are their current colours. cuts: pairs of neighbouring cell
+        indices (None = keep the current cuts, [] = remove them)."""
         n = self.graph.n_cells
+        if cuts is not None:
+            self.cuts = _check_cuts(self.graph, cuts)
         self.hole = np.zeros(n, bool) if holes is None else np.asarray(holes, bool).copy()
         self.fixed = np.zeros(n, bool) if fixed is None else np.asarray(fixed, bool).copy()
         if self.hole.shape != (n,) or self.fixed.shape != (n,):
@@ -86,6 +116,13 @@ class Sim:
         g = self.graph
         ok_e = ~self.hole[g.edges].any(axis=1) if len(g.edges) else np.zeros(0, bool)
         ok_v = ~self.hole[g.vertices].any(axis=1) if len(g.vertices) else np.zeros(0, bool)
+        if len(self.cuts) and len(g.edges):
+            ck = _pair_key(self.cuts[:, 0], self.cuts[:, 1], n)
+            ok_e &= ~np.isin(_pair_key(g.edges[:, 0], g.edges[:, 1], n), ck)
+            if len(g.vertices):
+                v = g.vertices
+                for a, b in ((0, 1), (1, 2), (2, 0)):
+                    ok_v &= ~np.isin(_pair_key(v[:, a], v[:, b], n), ck)
         self.edge_arr = g.edges[ok_e]
         self.vert_arr = g.vertices[ok_v]
         self._cells = [(i,) for i in self._open]

@@ -25,9 +25,11 @@ def fit_size(g: Graph, width: float, height: float) -> float:
     return min(width / w1, height / h1)
 
 
-def hex_pixel_map(g: Graph, size: float, border: float = 0.0) -> np.ndarray:
+def hex_pixel_map(g: Graph, size: float, border: float = 0.0, with_local: bool = False):
     """(H, W) int array of cell indices, -1 on borders and outside the world, for hexes of
-    circumradius `size` px. `border` is the fraction of the inradius drawn as a dark gap."""
+    circumradius `size` px. `border` is the fraction of the inradius drawn as a dark gap.
+    with_local: also return (dx, dy), each pixel's offset from its hex centre (unit
+    circumradius), for cut_mask."""
     w, h = world_pixel_size(g, size)
     x0 = g.centers[:, 0].min() - SQRT3 / 2
     y0 = g.centers[:, 1].min() - 1.0
@@ -62,6 +64,8 @@ def hex_pixel_map(g: Graph, size: float, border: float = 0.0) -> np.ndarray:
             [np.abs(ddx), np.abs(0.5 * ddx + SQRT3 / 2 * ddy), np.abs(0.5 * ddx - SQRT3 / 2 * ddy)]
         )
         idx = np.where(d <= SQRT3 / 2 * (1 - border), idx, -1)
+    if with_local:
+        return idx, x - SQRT3 * (q + 0.5 * r), y - 1.5 * r
     return idx
 
 
@@ -80,13 +84,14 @@ def view_pixel_map(
     height: int,
     border: float = 0.0,
     centre: tuple[float, float] | None = None,
-) -> np.ndarray:
+    with_local: bool = False,
+):
     """(height, width) cell-index map of a viewport showing the point `centre` (world
     coordinates, unit circumradius; default the world's centre) at its middle.
 
     Periodic worlds are tiled to the edges of the viewport (each pixel shows the periodic
     image of its cell), so any centre works; for open worlds pixels outside the world are
-    -1 (background)."""
+    -1 (background). with_local: also return each pixel's offset from its hex centre."""
     cxw, cyw = world_centre(g) if centre is None else centre
     ys, xs = np.mgrid[0:height, 0:width].astype(float)
     x = (xs + 0.5 - width / 2) / size + cxw
@@ -139,7 +144,57 @@ def view_pixel_map(
             [np.abs(ddx), np.abs(0.5 * ddx + SQRT3 / 2 * ddy), np.abs(0.5 * ddx - SQRT3 / 2 * ddy)]
         )
         idx = np.where(d <= SQRT3 / 2 * (1 - border), idx, -1)
+    if with_local:
+        return idx, x - SQRT3 * (q + 0.5 * r), y - 1.5 * r
     return idx
+
+
+def side_neighbours(g: Graph) -> np.ndarray:
+    """(n_cells, 6) neighbour across each side, -1 if none. Side k faces the direction at
+    angle k * 60 degrees (y down): 0 = E, 1 = SE, 2 = SW, 3 = W, 4 = NW, 5 = NE."""
+    nb = -np.ones((g.n_cells, 6), dtype=np.int64)
+    if not len(g.edges):
+        return nb
+    a, b = g.edges[:, 0], g.edges[:, 1]
+    d = g.centers[b] - g.centers[a]
+    if len(g.shifts):  # minimal image
+        s1, s2 = g.shifts
+        cands = np.stack([d - i * s1 - j * s2 for i in (-1, 0, 1) for j in (-1, 0, 1)])
+        d = cands[np.argmin((cands**2).sum(axis=2), axis=0), np.arange(len(d))]
+    k = np.round(np.arctan2(d[:, 1], d[:, 0]) / (np.pi / 3)).astype(np.int64) % 6
+    nb[a, k] = b
+    nb[b, (k + 3) % 6] = a
+    return nb
+
+
+def cut_mask(
+    g: Graph,
+    idx: np.ndarray,
+    dx: np.ndarray,
+    dy: np.ndarray,
+    cuts: np.ndarray,
+    width: float = 0.15,
+    nb: np.ndarray | None = None,
+) -> np.ndarray:
+    """Pixels on cut sides: within `width` (unit circumradius) of a side whose neighbour is
+    cut from the pixel's cell (each cut is drawn on both cells, 2 * width thick)."""
+    cuts = np.asarray(cuts, dtype=np.int64).reshape(-1, 2)
+    out = np.zeros(idx.shape, bool)
+    if not len(cuts):
+        return out
+    nb = side_neighbours(g) if nb is None else nb
+    n = g.n_cells
+    key = np.minimum(cuts[:, 0], cuts[:, 1]) * n + np.maximum(cuts[:, 0], cuts[:, 1])
+    cells = np.repeat(np.arange(n), 6)
+    nbf = nb.ravel()
+    cutdir = (
+        (nbf >= 0) & np.isin(np.minimum(cells, nbf) * n + np.maximum(cells, nbf), key)
+    ).reshape(n, 6)
+    k = np.round(np.arctan2(dy, dx) / (np.pi / 3)).astype(np.int64) % 6
+    proj = dx * np.cos(k * np.pi / 3) + dy * np.sin(k * np.pi / 3)
+    ok = idx >= 0
+    out[ok] = cutdir[idx[ok], k[ok]] & (proj[ok] > SQRT3 / 2 - width)
+    return out
 
 
 def render_rgb(
