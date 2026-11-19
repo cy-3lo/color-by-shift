@@ -2,6 +2,7 @@
 swap rule (input <-> input, output <-> output) can reach.
 
     python tools/classify.py [--colours 3] [--families cell3,edge2,edge3,mix12] [--ics 8]
+                             [--workers N]
 
 Families: cellR = R cell reactions, edgeR = R edge reactions, mixCE = C cell + E edge.
 Every reaction has rate k = 1. Mean field (meanfield.py): dx/dt = sum_r w_r x_in(r) nu_r with
@@ -28,8 +29,10 @@ from __future__ import annotations
 
 import argparse
 import itertools
+import multiprocessing as mp
 import sys
 import time
+import zlib
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -188,6 +191,14 @@ def classify(traj: np.ndarray, d0: np.ndarray) -> list[str]:
     return out
 
 
+def _label_chunk(args) -> list[str]:
+    chunk, n, x0, t_max, dt = args
+    ins, w, nu = build(chunk, n)
+    x = np.broadcast_to(x0, (len(chunk), len(x0), n)).copy()
+    d0 = np.abs(rhs(x, ins, w, nu)).max(axis=(1, 2))
+    return classify(integrate(x, ins, w, nu, t_max, dt, 200), d0)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--colours", type=int, default=3)
@@ -195,10 +206,10 @@ def main() -> None:
     ap.add_argument("--ics", type=int, default=8)
     ap.add_argument("--t-max", type=float, default=400.0)
     ap.add_argument("--dt", type=float, default=0.02)
-    ap.add_argument("--batch", type=int, default=2000)
+    ap.add_argument("--batch", type=int, default=500)
+    ap.add_argument("--workers", type=int, default=max(1, mp.cpu_count() - 1))
     a = ap.parse_args()
     n = a.colours
-    rng = np.random.default_rng(0)
     d = new_run_dir("classify", f"n{n}", vars(a))
     lines = [f"Mean-field census, {n} colours, all rates k = 1, {a.ics} starts, t_max {a.t_max}"]
     rows = []
@@ -211,15 +222,11 @@ def main() -> None:
             nc, ne = int(fam[3]), int(fam[4])
         t0 = time.perf_counter()
         sets = family_sets(nc, ne, n)
+        rng = np.random.default_rng([n, zlib.crc32(fam.encode())])  # starts depend on family only
         x0 = rng.dirichlet(np.ones(n), size=a.ics)
-        labels: list[str] = []
-        for b in range(0, len(sets), a.batch):
-            chunk = sets[b : b + a.batch]
-            ins, w, nu = build(chunk, n)
-            x = np.broadcast_to(x0, (len(chunk), a.ics, n)).copy()
-            d0 = np.abs(rhs(x, ins, w, nu)).max(axis=(1, 2))
-            traj = integrate(x, ins, w, nu, a.t_max, a.dt, 200)
-            labels += classify(traj, d0)
+        jobs = [(sets[b : b + a.batch], n, x0, a.t_max, a.dt) for b in range(0, len(sets), a.batch)]
+        with mp.get_context("fork").Pool(a.workers) as pool:
+            labels = [lab for part in pool.map(_label_chunk, jobs) for lab in part]
         census = Counter(labels)
         orbits: dict[tuple, set] = defaultdict(set)
         members: dict[tuple, int] = Counter()
