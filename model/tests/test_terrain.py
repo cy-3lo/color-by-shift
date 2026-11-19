@@ -275,3 +275,33 @@ def test_vine_follows_the_wall_and_mirrors_with_one_swap() -> None:
         sim.advance(5.0)
         red = np.flatnonzero(sim.colours[20:40] == 1)
         assert len(red) > 2 and (red.max() == 9 if side == "left" else red.min() == 9)
+
+
+def test_zone_goal_rect_zones_and_random_fills(tmp_path) -> None:
+    rows = ["<<<<>>>>"] * 4
+    level = {
+        "id": "Z",
+        "palette": 3,
+        "map": {
+            "rows": rows,
+            "legend": {"<": {"random": [0.0, 1.0, 0.0]}, ">": {"random": [0.0, 0.0, 1.0]}},
+            "zones": {"L": {"rect": [0, 3, 0, 3]}, "R": ">"},
+        },
+        "reactions": [{"shape": "edge", "in": [1, 2], "out": [1, 1], "rate": 1.0}],
+        "start": {"seed": 1},
+        "goals": [{"type": "zone", "zone": "R", "color": 1, "range": [0.5, 1.0]}],
+        "fail": [{"type": "zone", "zone": "L", "color": 1, "range": [0.0, 0.0]}],
+    }
+    p = tmp_path / "Z.json"
+    p.write_text(json.dumps(level))
+    lv = load_level(p)
+    sim = make_sim(lv)
+    assert (sim.colours[[r * 8 + c for r in range(4) for c in range(4)]] == 1).all()
+    assert (sim.colours[[r * 8 + c for r in range(4) for c in range(4, 8)]] == 2).all()
+    tr = lv.tracker(sim.graph)
+    assert sorted(tr.zones) == ["L", "R"] and len(tr.zones["L"]) == 16
+    from mosaic_model.observables import observe
+
+    assert tr.update(0.0, sim.counts(), observe(sim, size=False)) == "running"
+    sim.advance(30.0)  # red invades blue
+    assert tr.update(sim.t, sim.counts(), observe(sim, size=False)) == "won"

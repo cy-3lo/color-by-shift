@@ -43,8 +43,9 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "toy"))
 
 from mosaic_model import GoalTracker, Level, Sim, load_level, make_sim  # noqa: E402
+from mosaic_model.goals import zone_fraction  # noqa: E402
 from mosaic_model.graph import SQRT3  # noqa: E402
-from mosaic_model.level import terrain_to_json  # noqa: E402
+from mosaic_model.level import map_zones, terrain_to_json  # noqa: E402
 from mosaic_model.observables import observe  # noqa: E402
 from mosaic_model.raster import fit_size, render_rgb, view_pixel_map, world_centre  # noqa: E402
 from mosaic_model.reactions import ARITY, Block, Reaction  # noqa: E402
@@ -117,6 +118,7 @@ class Viewer:
         self.fixed_col = self.sim0.colours.astype(np.int64)  # colour of each fixed cell
         g = self.sim0.graph
         self._nb = g.neighbours()
+        self.zones = map_zones(g, level.map)
         gw = cfg["window"]["grid_width"]
         self.fit = fit_size(g, gw - 20, h - 20)  # whole world visible; periodic worlds tile out
         self.zoom_reset()
@@ -149,7 +151,7 @@ class Viewer:
             holes=self.hole,
             fixed=self.fixed,
         )
-        self.tracker = GoalTracker(self.level.goals, self.level.fail)
+        self.tracker = GoalTracker(self.level.goals, self.level.fail, zones=self.zones)
         self.hist_t: list[float] = [0.0]
         self.hist_x: list[np.ndarray] = [self.sim.fractions()]
         self.measure_size()
@@ -221,6 +223,21 @@ class Viewer:
             self.inner = view_pixel_map(g, self.size, gw, h, 1.0 - dot, self.centre)
             ys, xs = np.mgrid[0:h, 0:gw]
             self.stripe = ((xs + ys) // self.cfg["terrain"]["wall_stripe_px"]) % 2 == 0
+            # zone outlines (2 px, inside the zone) and label positions
+            self.zone_line = np.zeros(self.pixmap.shape, bool)
+            self.zone_labels = []
+            for name, cells in self.zones.items():
+                zm = np.isin(self.pixmap, cells)
+                if not zm.any():
+                    continue
+                edge = np.zeros_like(zm)
+                for ax in (0, 1):
+                    for d in (1, -1):
+                        edge |= zm & ~np.roll(zm, d, axis=ax)
+                edge |= zm & (np.roll(edge, 1, 0) | np.roll(edge, 1, 1))
+                self.zone_line |= edge
+                ys_, xs_ = np.nonzero(zm)
+                self.zone_labels.append((name, int(xs_.min()) + 4, int(ys_.min()) + 3))
             self.map_dirty = False
 
     # ---- terrain and patch size ---------------------------------------------------------------
@@ -332,8 +349,14 @@ class Viewer:
         self._remap()
         rgb = render_rgb(self.pixmap, self.sim.colours, self.pal, self.bg)
         self._draw_terrain(rgb)
+        if self.zones:
+            rgb[self.zone_line] = DARK
         pg.surfarray.blit_array(self.grid_surf, rgb.swapaxes(0, 1))
         self.screen.blit(self.grid_surf, self.grid_rect)
+        for name, zx, zy in getattr(self, "zone_labels", []):
+            lab = self.big.render(name, True, DARK)
+            pg.draw.rect(self.screen, (245, 242, 235), lab.get_rect(topleft=(zx, zy)).inflate(6, 2))
+            self.screen.blit(lab, (zx, zy))
         y = self._draw_header(10)
         y = self._draw_equations(y + 10)
         self._draw_chart(y + 10)
@@ -918,6 +941,22 @@ class Viewer:
             for c, v in enumerate(g["target"]):
                 seg += [c, f"{v:g}"]
             return seg + [f"(+/- {g['tol']:g}) for t = {g['duration']:g}"]
+        if g["type"] == "zone":
+            c, z = g["color"], g["zone"]
+            lo, hi = g["range"]
+            if hi <= 0:
+                rng = "extinct"
+            elif hi >= 1:
+                rng = f">= {lo:.0%}"
+            elif lo <= 0:
+                rng = f"<= {hi:.0%}"
+            else:
+                rng = f"{lo:.0%}-{hi:.0%}"
+            now = zone_fraction({**self.obs, "zones": self.zones}, z, c)
+            seg = [prefix, c, nm[c], f"in zone {z}: {rng}"]
+            if g.get("duration"):
+                seg.append(f"for t = {g['duration']:g}")
+            return seg + [f"(now {now:.0%})"]
         if g["type"] == "contact":
             a, b = g["colors"]
             verb = "touches" if fail else "bring"

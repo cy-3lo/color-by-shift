@@ -16,6 +16,11 @@ Goal types (durations in sim time units):
                                                            with "all": true, every cell of
                                                            colour b must have been touched
                                                            (touches are remembered)
+  {"type": "zone", "zone": "G", "color": c, "range": [lo, hi], "duration": T}
+                                                           fraction of colour c among the
+                                                           free cells of zone G (map zones)
+                                                           within [lo, hi] for T; [0, 0] =
+                                                           c extinct in the zone
 Fractions and counts are over the free cells (terrain: holes and fixed cells excluded).
 Each goal latches once met; the level is won when all goals have latched.
 Failure conditions use the same types and fail the level as soon as one is met
@@ -45,6 +50,12 @@ class _Cond:
             return all(lo <= xi <= hi for xi, (lo, hi) in zip(x, s["bands"], strict=True))
         if s["type"] == "reach":
             return float(np.max(np.abs(x - np.asarray(s["target"])))) <= s["tol"]
+        if s["type"] == "zone":
+            if obs is None:
+                return False
+            v = zone_fraction(obs, s["zone"], s["color"])
+            lo, hi = s["range"]
+            return lo <= v <= hi
         if s["type"] == "contact":
             if obs is None:
                 return False
@@ -89,11 +100,22 @@ class _Cond:
         return 1.0 if d == 0 else min(1.0, (t - self.since) / d)
 
 
+def zone_fraction(obs: dict, zone: str, colour: int) -> float:
+    """Fraction of colour among the free cells of a zone (obs from observables.observe,
+    with "zones" filled in by the tracker)."""
+    cells = obs["zones"][zone]
+    cells = cells[obs["free"][cells]]
+    if len(cells) == 0:
+        return 0.0
+    return float(np.mean(obs["col"][cells] == colour))
+
+
 @dataclass
 class GoalTracker:
     goals: list[dict]
     fail: list[dict] = field(default_factory=list)
     status: str = "running"  # running | won | failed
+    zones: dict = field(default_factory=dict)  # zone name -> cell indices
 
     def __post_init__(self) -> None:
         self._goals = [_Cond(g) for g in self.goals]
@@ -107,7 +129,8 @@ class GoalTracker:
     @property
     def needs_obs(self) -> bool:
         """Whether update() needs the obs dict (spatial goals)."""
-        return any(c.spec["type"] in ("size", "contact") for c in self._goals + self._fails)
+        spatial = ("size", "contact", "zone")
+        return any(c.spec["type"] in spatial for c in self._goals + self._fails)
 
     def update(self, t: float, counts: np.ndarray, obs: dict | None = None) -> str:
         """obs (observables.observe): {"size": S, "size_c": per-colour S, "col": colours,
@@ -116,6 +139,8 @@ class GoalTracker:
             return self.status
         counts = np.asarray(counts)
         x = counts / max(1, counts.sum())
+        if obs is not None and "zones" not in obs:
+            obs = {**obs, "zones": self.zones}
         if any(f.update(t, x, counts, obs) for f in self._fails):
             self.status = "failed"
             return self.status

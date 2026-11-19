@@ -74,7 +74,9 @@ def sim_patch_sizes(sim) -> tuple[float, np.ndarray]:
 
 def observe(sim, size: bool = True) -> dict:
     """Snapshot for spatial goals: colours, world edges and (optionally) patch sizes."""
-    obs = {"col": sim.colours, "edges": sim.edge_arr}
+    free = np.zeros(sim.graph.n_cells, bool)
+    free[sim.free_idx] = True
+    obs = {"col": sim.colours, "edges": sim.edge_arr, "free": free}
     if size:
         obs["size"], obs["size_c"] = sim_patch_sizes(sim)
     return obs

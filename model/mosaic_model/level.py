@@ -8,6 +8,11 @@ Drawn start (instead of random fractions): an ASCII map, one string per row of a
 block (odd rows drawn half a cell to the right), and a legend from character to cell:
     "map": {"rows": ["#####", "#R.y#", ...],
             "legend": {"#": "wall", ".": 0, "y": 4, "R": [1, "fixed"]}}
+A legend value "random" draws the cell's colour from start "fractions" (seed start "seed");
+{"random": [f0, f1, ...]} uses its own fractions for that character.
+Zones (for zone goals): "map": {..., "zones": {"G": "g", "M": {"rect": [r0, r1, c0, c1]}}}:
+a string names the cells drawn with any of its characters, a rect the cells in rows r0..r1
+and columns c0..c1 (inclusive).
 The grid is then {"type": "hex", "w": len(row), "h": len(rows), "periodic": false} unless
 the level gives one of that size. The map replaces "terrain" and start "fractions".
 Optional "colours" (hex strings) and "names" override the viewer palette for this level.
@@ -60,8 +65,9 @@ class Level:
             rows = self.map["rows"]
             self.grid = {"type": "hex", "w": len(rows[0]), "h": len(rows), "periodic": False}
 
-    def tracker(self) -> GoalTracker:
-        return GoalTracker(self.goals, self.fail)
+    def tracker(self, g: Graph | None = None) -> GoalTracker:
+        zones = map_zones(g if g is not None else self.graph(), self.map)
+        return GoalTracker(self.goals, self.fail, zones=zones)
 
 
 def load_level(path: str | Path) -> Level:
@@ -149,9 +155,12 @@ def terrain_to_json(g: Graph, hole: np.ndarray, fixed: np.ndarray, colours) -> d
     return out
 
 
-def map_start(g: Graph, spec: dict, palette: int) -> tuple[np.ndarray, Terrain, dict]:
+def map_start(
+    g: Graph, spec: dict, palette: int, start: dict | None = None
+) -> tuple[np.ndarray, Terrain, dict]:
     """(colours, terrain, tags) from an ASCII map. tags maps every legend character to the
-    indices of its cells (e.g. room labels for bots and tools)."""
+    indices of its cells (e.g. room labels for bots and tools). Cells whose legend value is
+    "random" get colours drawn from start["fractions"] with start["seed"]."""
     rows = spec["rows"]
     h, w = len(rows), len(rows[0])
     if any(len(r) != w for r in rows):
@@ -161,6 +170,8 @@ def map_start(g: Graph, spec: dict, palette: int) -> tuple[np.ndarray, Terrain, 
     t = Terrain.empty(g.n_cells)
     col = np.zeros(g.n_cells, np.int64)
     tags: dict[str, list[int]] = {}
+    rnd: list[int] = []
+    own: dict[str, list[int]] = {}
     legend = spec["legend"]
     for r, line in enumerate(rows):
         for c, ch in enumerate(line):
@@ -173,6 +184,12 @@ def map_start(g: Graph, spec: dict, palette: int) -> tuple[np.ndarray, Terrain, 
             if v == "wall":
                 t.hole[i] = True
                 continue
+            if v == "random":
+                rnd.append(i)
+                continue
+            if isinstance(v, dict):
+                own.setdefault(ch, []).append(i)
+                continue
             fixed = isinstance(v, list)
             k = int(v[0] if fixed else v)
             if not 0 <= k < palette:
@@ -181,7 +198,37 @@ def map_start(g: Graph, spec: dict, palette: int) -> tuple[np.ndarray, Terrain, 
             if fixed:
                 t.fixed[i] = True
                 t.colour[i] = k
+    if rnd:
+        if not start or "fractions" not in start:
+            raise ValueError('map uses "random" cells but start has no "fractions"')
+        col[rnd] = initial_colours(len(rnd), start["fractions"], int(start.get("seed", 0)))
+    seed0 = int((start or {}).get("seed", 0))
+    for k, (ch, cells) in enumerate(sorted(own.items())):
+        col[cells] = initial_colours(len(cells), legend[ch]["random"], seed0 + 7919 * (k + 1))
     return col, t, {k: np.array(v) for k, v in tags.items()}
+
+
+def map_zones(g: Graph, spec: dict) -> dict[str, np.ndarray]:
+    """Zone name -> cell indices, from "map": {"zones": {"G": "g"}} (empty if none)."""
+    if not spec or "zones" not in spec:
+        return {}
+    w = len(spec["rows"][0])
+    out: dict[str, np.ndarray] = {}
+    h = len(spec["rows"])
+    for name, z in spec["zones"].items():
+        if isinstance(z, dict):
+            r0, r1, c0, c1 = z["rect"]
+            sel = [r * w + c for r in range(max(0, r0), min(h, r1 + 1)) for c in range(c0, c1 + 1)]
+            sel = [i for i in sel if i % w <= min(c1, w - 1)]
+        else:
+            sel = [
+                r * w + c
+                for r, line in enumerate(spec["rows"])
+                for c, ch in enumerate(line)
+                if ch in z
+            ]
+        out[name] = np.array(sel, dtype=np.int64)
+    return out
 
 
 def initial_colours(n_cells: int, fractions: list[float], seed: int) -> np.ndarray:
@@ -203,7 +250,9 @@ def make_sim(
     seed = int(level.start.get("seed", 0)) if seed is None else seed
     g = graph if graph is not None else level.graph()
     if level.map:
-        cols, ter, _ = map_start(g, level.map, level.palette)
+        st = dict(level.start)
+        st["seed"] = seed
+        cols, ter, _ = map_start(g, level.map, level.palette, st)
     else:
         ter = terrain_from_json(g, level.terrain, level.palette)
         cols = ter.apply(initial_colours(g.n_cells, level.start["fractions"], seed))
