@@ -244,3 +244,34 @@ def test_maze_level_loads() -> None:
     rs = sim.reactions
     free = [b for b in rs.blocks() if b not in rs.locked]
     assert sorted(free) == [(1, "in", 1), (2, "in", 0)]
+
+
+def test_contact_all_remembers_touched_targets() -> None:
+    edges = np.array([[0, 1], [1, 2], [2, 3], [3, 4]])
+    tr = GoalTracker([{"type": "contact", "colors": [1, 3], "all": True}])
+    col = np.array([3, 1, 0, 0, 3])  # red touches the first green only
+    assert tr.update(0.0, np.array([2, 1]), {"col": col, "edges": edges}) == "running"
+    assert tr.progress(0.0) == [0.5]
+    col = np.array([3, 0, 0, 1, 3])  # red moved on: the first touch is remembered
+    assert tr.update(1.0, np.array([2, 1]), {"col": col, "edges": edges}) == "won"
+
+
+def test_vine_follows_the_wall_and_mirrors_with_one_swap() -> None:
+    """(R, W, S) -> (R, R, S): red grows along the top wall in one direction only; swapping
+    the two input blocks reverses it."""
+    from mosaic_model.graph import hex_rect
+    from mosaic_model.level import map_start
+
+    rows = ["S" * 20, "S" + "." * 8 + "R" + "." * 9 + "S"] + ["S" + "." * 18 + "S"] * 3
+    rows += ["S" * 20]
+    legend = {"S": [2, "fixed"], ".": 0, "R": [1, "fixed"]}
+    g = hex_rect(20, 6)
+    col, ter, _ = map_start(g, {"rows": rows, "legend": legend}, 3)
+    for swap, side in ((False, "left"), (True, "right")):
+        rs = ReactionSet([Reaction("vertex", [1, 0, 2], [1, 1, 2], 1.0)], 3)
+        sim = Sim(g, rs, col, seed=3, holes=ter.hole, fixed=ter.fixed)
+        if swap:
+            sim.swap((0, "in", 0), (0, "in", 1))
+        sim.advance(5.0)
+        red = np.flatnonzero(sim.colours[20:40] == 1)
+        assert len(red) > 2 and (red.max() == 9 if side == "left" else red.min() == 9)

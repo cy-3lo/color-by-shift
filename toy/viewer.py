@@ -349,7 +349,12 @@ class Viewer:
             rgb[h & self.stripe] = ta
             rgb[h & ~self.stripe] = tb
         if self.fixed.any():
-            f = np.append(self.fixed, False)[self.inner]
+            # mark fixed cells only where their colour also occurs on free cells (a red
+            # source among red cells); stone, targets and traps need no mark
+            cols = self.sim.colours
+            free_cols = np.unique(cols[self.sim.free_idx])
+            show = self.fixed & np.isin(cols, free_cols)
+            f = np.append(show, False)[self.inner]
             if f.any():
                 mark = np.array(
                     [self.ui["bg"] if luminance(c) > 0.3 else self.ui["fg"] for c in self.pal],
@@ -617,7 +622,8 @@ class Viewer:
         between y and the chart; never below half size."""
         reacts = self.sim.reactions.reactions
         nat = sum(2 * RB + (1.5 * RB * GAP if r.shape == "vertex" else 0) + 10 for r in reacts)
-        n_lines = len(self.level.goals) + len(self.level.fail)
+        n_lines = len(self.level.goals) + len(self.level.fail) - len(self._contact_rows())
+        nat += len(self._contact_rows()) * (2 * RB + 14)
         ch = self.cfg["chart"]
         below = ch["height"] + ch["size_height"] + 26 + 22 * n_lines + 34
         avail = self.screen.get_height() - y - below
@@ -653,7 +659,91 @@ class Viewer:
             if r.shape == "vertex":
                 info += "  cw only" if r.chiral else "  either hand"
             self._text(info, (xi, cy - 7), self.small, self.ui["mid"])
-        return rows[-1][1] + rows[-1][2] + int(1.4 * self.row_gap) if rows else y
+        y = rows[-1][1] + rows[-1][2] + int(1.4 * self.row_gap) if rows else y
+        return self._draw_goal_rows(y)
+
+    def _contact_rows(self) -> list[tuple[dict, int | None]]:
+        """Contact goals and failures shown as locked reactions: (spec, goal index or None)."""
+        out: list[tuple[dict, int | None]] = []
+        out += [(g, k) for k, g in enumerate(self.level.goals) if g["type"] == "contact"]
+        out += [(f, None) for f in self.level.fail if f["type"] == "contact"]
+        return out
+
+    def _draw_goal_rows(self, y: int) -> int:
+        """a | b -> victory (star) or failure (skull), drawn like fully locked edge reactions;
+        the progress of a goal ("all": touched / targets) on the right."""
+        rows = self._contact_rows()
+        if not rows:
+            return y
+        pg = self.pg
+        rb = self.rb
+        w = SQRT3 * rb * GAP
+        x_in = self.panel_x + EQ_DX + rb
+        x_out = x_in + 2 * w + 60
+        pg.draw.line(self.screen, self.ui["btn_on"], (self.panel_x, y - 4), (x_out + 3 * w, y - 4))
+        for spec, k in rows:
+            cy = y + rb + 2
+            for j, c in enumerate(spec["colors"]):
+                cc = (x_in + j * w, cy)
+                pg.draw.polygon(self.screen, self.ui["mid"], self._hex_points(cc, rb + 3))
+                self._swatch(cc, rb, c)
+                pg.draw.polygon(self.screen, DARK, self._hex_points(cc, rb), 2)
+            self._draw_arrow(self.panel_x + EQ_DX + 2 * rb + w + 8, cy, 1.0)
+            self._draw_icon("victory" if k is not None else "failure", (x_out, cy), rb)
+            if k is not None:
+                pr = self.tracker.progress(self.sim.t)[k]
+                info = "victory"
+                if spec.get("all"):
+                    g = self.tracker._goals[k]
+                    info += f"  {len(g.touched)}/{g.n_targets or '?'}"
+                info += "  done" if pr >= 1 else ""
+            else:
+                info = "failure"
+            self._text(
+                info, (self.panel_x + EQ_DX + 4 * w + 90, cy - 7), self.small, self.ui["mid"]
+            )
+            y += int(2 * rb + self.row_gap) + 4
+        return y + int(0.4 * self.row_gap)
+
+    def _draw_icon(self, kind: str, c: tuple[float, float], rb: float) -> None:
+        """Hex tile with a star (victory) or a skull (failure)."""
+        pg = self.pg
+        x, y = c
+        if kind == "victory":
+            pg.draw.polygon(self.screen, (232, 190, 70), self._hex_points(c, rb + 2))
+            pts = [
+                (
+                    x + (0.72 if k % 2 == 0 else 0.3) * rb * math.cos(math.radians(36 * k - 90)),
+                    y + (0.72 if k % 2 == 0 else 0.3) * rb * math.sin(math.radians(36 * k - 90)),
+                )
+                for k in range(10)
+            ]
+            pg.draw.polygon(self.screen, (255, 250, 235), pts)
+            pg.draw.polygon(self.screen, DARK, self._hex_points(c, rb + 2), 2)
+            return
+        bone, ink = (236, 232, 222), (30, 30, 34)
+        pg.draw.polygon(self.screen, ink, self._hex_points(c, rb + 2))
+        pg.draw.polygon(self.screen, bone, self._hex_points(c, rb + 2), 2)
+        r = 0.48 * rb
+        pg.draw.circle(self.screen, bone, (x, y - 0.15 * rb), r)  # cranium
+        jaw = pg.Rect(0, 0, 0.62 * rb, 0.42 * rb)
+        jaw.center = (int(x), int(y + 0.38 * rb))
+        pg.draw.rect(self.screen, bone, jaw)
+        for dx in (-0.2, 0.2):  # eye sockets
+            pg.draw.circle(self.screen, ink, (x + dx * rb, y - 0.15 * rb), 0.14 * rb)
+        pg.draw.polygon(  # nose
+            self.screen,
+            ink,
+            [(x, y + 0.05 * rb), (x - 0.07 * rb, y + 0.17 * rb), (x + 0.07 * rb, y + 0.17 * rb)],
+        )
+        for dx in (-0.15, 0.0, 0.15):  # teeth gaps
+            pg.draw.line(
+                self.screen,
+                ink,
+                (x + dx * rb, y + 0.3 * rb),
+                (x + dx * rb, y + 0.58 * rb),
+                1,
+            )
 
     def _draw_arrow(self, ax: float, cy: float, frac: float) -> None:
         """Reaction arrow, 42 px; the head is the same for every reaction. Rate k / k_max:
@@ -752,9 +842,13 @@ class Viewer:
         self._text("fractions (free cells) vs time", (x + 4, y + 3), self.small, self.ui["fg"])
         yy = self._draw_size_chart(x, y + h + 6, w, t0, t1) + 10
         for k, goal in enumerate(self.level.goals):
+            if goal["type"] == "contact":
+                continue  # drawn as a locked reaction in the panel
             pr = self.tracker.progress(self.sim.t)[k]
             yy += self._draw_segments(self._goal_segments(goal, f"[{pr:4.0%}]  goal:"), x, yy)
         for f in self.level.fail:
+            if f["type"] == "contact":
+                continue
             yy += self._draw_segments(
                 self._goal_segments(f, "fail if:", fail=True), x, yy, self.ui["mid"]
             )

@@ -12,7 +12,10 @@ Goal types (durations in sim time units):
                                                            "color": c, the patches of c only
   {"type": "contact", "colors": [a, b]}                   some world edge joins a cell of
                                                            colour a and one of colour b
-                                                           (e.g. red reaches a green target)
+                                                           (e.g. red reaches a green target);
+                                                           with "all": true, every cell of
+                                                           colour b must have been touched
+                                                           (touches are remembered)
 Fractions and counts are over the free cells (terrain: holes and fixed cells excluded).
 Each goal latches once met; the level is won when all goals have latched.
 Failure conditions use the same types and fail the level as soon as one is met
@@ -31,6 +34,8 @@ class _Cond:
     spec: dict
     since: float | None = None  # time the condition became continuously true
     done: bool = False
+    touched: set = field(default_factory=set)  # contact "all": b cells touched so far
+    n_targets: int = 0
 
     def instant(self, x: np.ndarray, counts: np.ndarray, obs: dict | None = None) -> bool:
         s = self.spec
@@ -46,7 +51,12 @@ class _Cond:
             a, b = s["colors"]
             col, e = obs["col"], obs["edges"]
             ca, cb = col[e[:, 0]], col[e[:, 1]]
-            return bool(np.any(((ca == a) & (cb == b)) | ((ca == b) & (cb == a))))
+            if not s.get("all"):
+                return bool(np.any(((ca == a) & (cb == b)) | ((ca == b) & (cb == a))))
+            hit = np.concatenate([e[(ca == a) & (cb == b), 1], e[(ca == b) & (cb == a), 0]])
+            self.touched.update(hit.tolist())
+            self.n_targets = max(self.n_targets, int(np.sum(col == b)))
+            return len(self.touched) >= max(1, self.n_targets)
         if s["type"] == "size":
             if obs is None:
                 return False
@@ -71,6 +81,8 @@ class _Cond:
         """Fraction of the required duration achieved (0..1)."""
         if self.done:
             return 1.0
+        if self.spec.get("all") and self.n_targets:
+            return len(self.touched) / self.n_targets
         if self.since is None:
             return 0.0
         d = float(self.spec.get("duration", 0.0))
