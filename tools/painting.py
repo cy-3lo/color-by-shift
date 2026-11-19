@@ -37,6 +37,7 @@ Images, GIFs and CSV in runs/painting/<name>_<time>/.
 from __future__ import annotations
 
 import argparse
+import json
 import multiprocessing as mp
 import sys
 import time
@@ -51,7 +52,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from mosaic_model import Reaction, ReactionSet, Sim  # noqa: E402
 from mosaic_model.graph import SQRT3, hex_rect  # noqa: E402
-from mosaic_model.observables import interface_density  # noqa: E402
+from mosaic_model.level import terrain_to_json  # noqa: E402
+from mosaic_model.observables import interface_density, pace_frames  # noqa: E402
 from mosaic_model.raster import cut_mask, hex_pixel_map, render_rgb  # noqa: E402
 from runlog import new_run_dir, write_csv  # noqa: E402
 
@@ -198,17 +200,7 @@ def dissolve(job: dict) -> dict:
 
 def pick_frames(r: dict, how: str, m: int) -> np.ndarray:
     """m frame indices from start to end, equally spaced in time or in amount of change."""
-    nf = len(r["frames"])
-    if how == "linear":
-        s = r["t"]
-    else:
-        parts = []
-        for y in (r["acc"], r["rho"]):
-            span = y.max() - y.min()
-            parts.append(np.diff(y) / span if span > 1e-9 else np.zeros(nf - 1))
-        s = np.concatenate([[0.0], np.cumsum(np.hypot(*parts))])
-    want = np.linspace(0, s[-1], m)
-    return np.minimum(np.searchsorted(s, want), nf - 1)
+    return pace_frames(r["t"], [r["acc"], r["rho"]], how, m)
 
 
 def write_gif(path: Path, imgs: list[np.ndarray], ms: int, hold_first: int, hold_last: int):
@@ -217,6 +209,37 @@ def write_gif(path: Path, imgs: list[np.ndarray], ms: int, hold_first: int, hold
     durs[0] += hold_first
     durs[-1] += hold_last
     pil[0].save(path, save_all=True, append_images=pil[1:], duration=durs, loop=0, optimize=True)
+
+
+def export_level(path: Path, a, g, target, pal, reacts, cuts) -> None:
+    """Level JSON for toy/viewer.py: the quantised painting as a drawn start (one character
+    per cell, colour index), the painting's palette, the given reactions, no goals."""
+    w = a.w
+    rows = [
+        "".join(str(int(c)) for c in target[r * w : (r + 1) * w]) for r in range(len(target) // w)
+    ]
+    level = {
+        "id": a.image.stem,
+        "title": f"{a.image.stem} ({len(pal)} colours)",
+        "palette": len(pal),
+        "colours": ["#{:02X}{:02X}{:02X}".format(*(int(v) for v in p)) for p in pal],
+        "map": {"rows": rows, "legend": {str(c): c for c in range(len(pal))}},
+        "reactions": [
+            {"shape": r.shape, "in": list(r.inp), "out": list(r.out), "rate": r.rate}
+            | ({"chiral": False} if r.shape == "vertex" and not r.chiral else {})
+            for r in reacts
+        ],
+        "locked": [],
+        "start": {"seed": a.seed, "burn_in_sweeps": 0},
+        "goals": [],
+        "fail": [],
+        "meta": {"from": "tools/painting.py", "image": str(a.image), "smooth": a.smooth},
+    }
+    ter = terrain_to_json(g, np.zeros(g.n_cells, bool), np.zeros(g.n_cells, bool), target, cuts)
+    if ter:
+        level["terrain"] = ter
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(level, separators=(",", ":")).replace('","', '",\n"') + "\n")
 
 
 def main() -> None:
@@ -240,8 +263,18 @@ def main() -> None:
     ap.add_argument("--size", type=float, default=3.0, help="hex radius in px for PNG")
     ap.add_argument("--gif-size", type=float, default=3.0, help="hex radius in px for GIF")
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument(
+        "--export-level",
+        type=Path,
+        default=None,
+        help="write a viewer level (painting as drawn start, first rule set, first outlines)",
+    )
     a = ap.parse_args()
-    d = new_run_dir("painting", f"{a.image.stem}_{a.mode}", {**vars(a), "image": str(a.image)})
+    d = new_run_dir(
+        "painting",
+        f"{a.image.stem}_{a.mode}",
+        {k: str(v) if isinstance(v, Path) else v for k, v in vars(a).items()},
+    )
     img = Image.open(a.image)
     g, rgb = sample(img, a.w, a.smooth)
     _, rgb_blur = sample(img, a.w, a.blur)
@@ -269,6 +302,10 @@ def main() -> None:
     print("\n".join(out), flush=True)
     names = a.rules.split(",")
     rng = np.random.default_rng(a.seed)
+    if a.export_level:
+        export_level(a.export_level, a, g, target, pal, rules(names[0], n), cuts[qs[0]])
+        print(f"level written to {a.export_level}")
+        return
 
     if a.mode == "regrow":
         fixed = rng.random(g.n_cells) < a.fixed

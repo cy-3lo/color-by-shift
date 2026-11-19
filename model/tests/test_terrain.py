@@ -383,3 +383,32 @@ def test_cut_mask_draws_on_the_shared_side() -> None:
     m = cut_mask(g, idx, dx, dy, [[a, b]])
     assert m.any()
     assert set(np.unique(idx[m]).tolist()) == {a, b}  # drawn on both cells, nowhere else
+
+
+# ---- rewind pacing and painting levels -----------------------------------------------------
+def test_pace_frames_linear_and_change() -> None:
+    from mosaic_model.observables import pace_frames
+
+    t = np.array([0.0, 1.0, 2.0, 10.0, 100.0])
+    y = np.array([1.0, 0.5, 0.4, 0.4, 0.4])  # all the change happens before t = 2
+    lin = pace_frames(t, [y], "linear", 11)
+    chg = pace_frames(t, [y], "change", 11)
+    assert lin[0] == 0 and lin[-1] == 4 and chg[0] == 0
+    assert (np.diff(lin) >= 0).all() and (np.diff(chg) >= 0).all()
+    assert (lin <= 2).sum() <= 2  # linear pacing rushes through the early frames
+    assert (chg <= 2).sum() >= 10  # change pacing dwells on them
+    flat_ = pace_frames(t, [np.ones(5)], "change", 5)  # no change: falls back to time
+    assert flat_[0] == 0 and flat_[-1] == 4
+
+
+def test_painting_level_starts_from_the_painting() -> None:
+    from pathlib import Path
+
+    p = Path(__file__).resolve().parents[2] / "levels" / "paintings" / "great_wave.json"
+    lv = load_level(p)
+    sim = make_sim(lv, seed=1)
+    rows = lv.map["rows"]
+    want = np.array([int(ch) for line in rows for ch in line])
+    assert sim.graph.n_cells == len(want) == 150 * 116
+    assert (sim.colours == want).all() and not sim.fixed.any() and not sim.hole.any()
+    assert len(lv.colours) == lv.palette == 3

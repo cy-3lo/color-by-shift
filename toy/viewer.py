@@ -4,7 +4,8 @@
     python toy/viewer.py levels/T02_rps.json --smoke 120   # headless test, saves a PNG
 
 Click two unlocked blocks to swap them (only while running, not while paused).
-Buttons or keys: Space pause, 1/2/3/4 speed x1/4, x1, x4, x16, R restart, S screenshot, Esc quit.
+Buttons or keys: Space pause, 1/2/3/4 speed x1/4, x1, x4, x16, R restart, B rewind (play the
+run backwards), S screenshot, Esc quit.
 Zoom: mouse wheel or +/- (about the cursor), drag the grid to pan, 0 to see the whole world.
 --n N plays on an N x N rectangular torus instead of the level's world.
 --world torus:64 | open:64 | hextorus:37 | hexagon:37 overrides the world shape
@@ -46,7 +47,7 @@ from mosaic_model import GoalTracker, Level, Sim, load_level, make_sim  # noqa: 
 from mosaic_model.goals import zone_fraction  # noqa: E402
 from mosaic_model.graph import SQRT3  # noqa: E402
 from mosaic_model.level import map_zones, terrain_to_json  # noqa: E402
-from mosaic_model.observables import observe  # noqa: E402
+from mosaic_model.observables import observe, pace_frames  # noqa: E402
 from mosaic_model.raster import (  # noqa: E402
     cut_mask,
     fit_size,
@@ -174,6 +175,54 @@ class Viewer:
         self.speed_i = mults.index(1) if 1 in mults else 0
         self.due = 0.0
         self.rate_meas = 0.0
+        # record of the run for Rewind: colour arrays at (nearly) geometric sim times
+        self.rec_t: list[float] = [0.0]
+        self.rec: list[np.ndarray] = [self.sim.colours.copy()]
+        self.rec_next = self.cfg["rewind"]["t0"]
+        self.replay: dict | None = None
+
+    # ---- rewind -------------------------------------------------------------------------------
+    def _record(self) -> None:
+        rw = self.cfg["rewind"]
+        t = self.sim.t
+        self.rec_t.append(t)
+        self.rec.append(self.sim.colours.copy())
+        self.rec_next = t + min(max(t * (rw["ratio"] - 1.0), rw["t0"]), rw["max_dt"])
+        if len(self.rec) > rw["max_frames"]:  # thin: keep every other frame and the last
+            keep = sorted(set(range(0, len(self.rec), 2)) | {len(self.rec) - 1})
+            self.rec = [self.rec[i] for i in keep]
+            self.rec_t = [self.rec_t[i] for i in keep]
+
+    def start_rewind(self) -> None:
+        """Play the recorded run backwards, from now to the start, paced by amount of change
+        (or linearly in time, [rewind] pacing)."""
+        if self.sim.t > self.rec_t[-1]:
+            self._record()
+        if len(self.rec) < 3:
+            self._notify("nothing to rewind yet: press Play first")
+            return
+        rw = self.cfg["rewind"]
+        f = np.array(self.rec)
+        e = self.sim.edge_arr
+        acc = (f == f[0][None]).mean(axis=1)
+        rho = (f[:, e[:, 0]] != f[:, e[:, 1]]).mean(axis=1) if len(e) else np.zeros(len(f))
+        n = max(2, int(rw["duration_s"] * self.cfg["window"]["fps"]))
+        idx = pace_frames(np.array(self.rec_t), [acc, rho], rw["pacing"], n)[::-1]
+        self.replay = {"idx": idx, "pos": 0.0, "n": n}
+        self.paused = True
+        self.selected = None
+        self.session.append({"event": "rewind", "t": self.sim.t, "frames": len(self.rec)})
+
+    def replay_step(self, dt_wall: float) -> None:
+        if self.replay is not None:
+            r = self.replay
+            r["pos"] = min(r["pos"] + dt_wall * self.cfg["window"]["fps"], r["n"] - 1)
+
+    def shown_colours(self) -> np.ndarray:
+        if self.replay is None:
+            return self.sim.colours
+        r = self.replay
+        return self.rec[int(r["idx"][int(r["pos"])])]
 
     def swap(self, a: Block, b: Block) -> None:
         self.sim.swap(a, b)
@@ -312,8 +361,8 @@ class Viewer:
     def step(self, dt_wall: float) -> None:
         """Advance base_time_per_s * multiplier sim time units per wall second, in chunks of
         attempts (partial sweeps), within a per-frame time budget."""
-        if self.paused or self.sim.n_elig == 0 or self.sim.K <= 0:
-            return  # paused, or nothing can fire (every reaction off)
+        if self.replay is not None or self.paused or self.sim.n_elig == 0 or self.sim.K <= 0:
+            return  # rewinding, paused, or nothing can fire (every reaction off)
         sp = self.cfg["speed"]
         sim = self.sim
         rate = sp["base_time_per_s"] * sp["multipliers"][self.speed_i]
@@ -326,6 +375,8 @@ class Viewer:
             t0 = sim.t
             sim.attempts(n)
             self.due -= sim.t - t0
+            if sim.t >= self.rec_next:
+                self._record()
             self.hist_t.append(sim.t)
             self.hist_x.append(sim.fractions())
             self.tracker.update(sim.t, sim.counts(), self.obs)
@@ -359,7 +410,7 @@ class Viewer:
         pg = self.pg
         self.screen.fill(self.bg)
         self._remap()
-        rgb = render_rgb(self.pixmap, self.sim.colours, self.pal, self.bg)
+        rgb = render_rgb(self.pixmap, self.shown_colours(), self.pal, self.bg)
         self._draw_terrain(rgb)
         if self.cut_line is not None:
             rgb[self.cut_line] = DARK
@@ -427,11 +478,15 @@ class Viewer:
         mults = self.cfg["speed"]["multipliers"]
         labels = [("pause", "Play" if self.paused else "Pause", 70)]
         labels += [(f"speed{i}", _mult_label(m), 48) for i, m in enumerate(mults)]
-        labels += [("restart", "Restart", 70)]
+        labels += [("restart", "Restart", 70), ("rewind", "Rewind", 66)]
         self.buttons = {}
         for key, text, w in labels:
             r = pg.Rect(x, y, w, 26)
-            active = (key == "pause" and self.paused) or key == f"speed{self.speed_i}"
+            active = (
+                (key == "pause" and self.paused)
+                or key == f"speed{self.speed_i}"
+                or (key == "rewind" and self.replay is not None)
+            )
             pg.draw.rect(
                 self.screen, self.ui["btn_on"] if active else self.ui["btn"], r, border_radius=5
             )
@@ -460,6 +515,15 @@ class Viewer:
         x = self.panel_x
         if self.notice and time.time() < self.notice_until:
             self._text(self.notice, (x, y2 + 32), self.small, (240, 180, 90))
+        elif self.replay is not None:
+            r = self.replay
+            done = r["pos"] >= r["n"] - 1
+            msg = (
+                "rewound to the start: Play continues, Restart starts again"
+                if done
+                else "rewinding"
+            )
+            self._text(msg, (x, y2 + 32), self.small, (240, 180, 90))
         elif self.paused and not self.edit:
             self._text("paused: no switching", (x, y2 + 32), self.small, self.ui["mid"])
         elif self.sim.n_elig == 0 or self.sim.K <= 0:
@@ -1182,6 +1246,14 @@ class Viewer:
         self.notice_until = time.time() + 2.0
 
     def button(self, key: str, d: int = 1) -> None:
+        if key == "rewind":
+            if self.replay is None:
+                self.start_rewind()
+            else:
+                self.replay = None
+            return
+        if key in ("pause", "restart", "random", "startn", "mode"):
+            self.replay = None  # back to the live mosaic
         if key.startswith("shape"):
             self.cycle_shape(int(key[5:]), d)
         elif key.startswith("rate"):
@@ -1322,6 +1394,8 @@ class Viewer:
                         self.zoom_reset()
                     elif ev.key == pg.K_r:
                         self.button("restart")
+                    elif ev.key == pg.K_b:
+                        self.button("rewind")
                     elif ev.key == pg.K_s:
                         self.save(screenshot=True)
             if smoke_frames:
@@ -1360,6 +1434,15 @@ class Viewer:
                     self.click(self.block_centres[free[0]])
                     self.draw()
                     self.click(self.block_centres[free[-1]])
+                if frame == smoke_frames - 1:  # rewind: last replay frame is the start
+                    self.button("rewind")
+                    assert self.replay is not None and len(self.rec) >= 3
+                    self.replay["pos"] = self.replay["n"] - 1
+                    assert (self.shown_colours() == self.rec[0]).all()
+                    self.button("rewind")
+                    assert self.replay is None
+                    self.paused = False
+                    print(f"smoke: rewind OK ({len(self.rec)} frames)", flush=True)
                 if frame >= smoke_frames:
                     self.click(self.block_centres[free[0]])  # leave one block selected
                     self.draw()
@@ -1367,6 +1450,7 @@ class Viewer:
                     running = False
             self.apply_terrain()
             self.step(dt)
+            self.replay_step(dt)
             self.move_needles(dt)
             self.draw()
             pg.display.flip()

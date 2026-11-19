@@ -80,3 +80,27 @@ def observe(sim, size: bool = True) -> dict:
     if size:
         obs["size"], obs["size_c"] = sim_patch_sizes(sim)
     return obs
+
+
+def pace_frames(t: np.ndarray, measures: list[np.ndarray], how: str, m: int) -> np.ndarray:
+    """m frame indices from the first to the last frame of a recorded movie.
+
+    how = "linear": equally spaced in time t. how = "change": equally spaced in amount of
+    change, the arclength of the curve traced by the measures (each divided by its range over
+    the movie), so that a movie whose action is packed in a short interval plays evenly."""
+    t = np.asarray(t, dtype=float)
+    nf = len(t)
+    if nf < 2:
+        return np.zeros(m, dtype=np.int64)
+    if how == "linear":
+        s = t - t[0]
+    else:
+        parts = []
+        for y in measures:
+            y = np.asarray(y, dtype=float)
+            span = y.max() - y.min()
+            parts.append(np.diff(y) / span if span > 1e-9 else np.zeros(nf - 1))
+        s = np.concatenate([[0.0], np.cumsum(np.sqrt(np.sum(np.square(parts), axis=0)))])
+        if s[-1] <= 0:
+            s = t - t[0]
+    return np.minimum(np.searchsorted(s, np.linspace(0, s[-1], m)), nf - 1)

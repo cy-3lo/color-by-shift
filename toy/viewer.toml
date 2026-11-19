@@ -35,6 +35,15 @@ reactions = [
   { shape = "cell", in = [3], out = [4], rate = 0.0 },
 ]
 
+[rewind]
+# the run is recorded (colour arrays) so that Rewind (button or key B) plays it backwards
+t0 = 0.02                 # first recorded sim time; then nearly geometric spacing ...
+ratio = 1.02              # ... next frame at t * ratio ...
+max_dt = 0.5              # ... but never more than this apart (sim time units)
+max_frames = 2000         # beyond this, every other frame is dropped
+duration_s = 12.0         # length of the rewind (wall seconds)
+pacing = "change"         # "change": equal steps of change; "linear": equal steps of sim time
+
 [chart]
 window = 60.0             # sim time units shown
 height = 220
