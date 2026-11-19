@@ -12,6 +12,7 @@ dependencies = ["numpy", "pygame-ce"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
+tools = ["pillow"]
 
 [tool.setuptools.packages.find]
 where = ["model"]
