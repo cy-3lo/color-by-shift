@@ -70,3 +70,11 @@ def interface_density(colours: np.ndarray, edges: np.ndarray) -> float:
 def sim_patch_sizes(sim) -> tuple[float, np.ndarray]:
     """Patch sizes of a Sim's world (holes excluded)."""
     return patch_sizes(sim.colours, sim.edge_arr, sim.open_idx, sim.palette)
+
+
+def observe(sim, size: bool = True) -> dict:
+    """Snapshot for spatial goals: colours, world edges and (optionally) patch sizes."""
+    obs = {"col": sim.colours, "edges": sim.edge_arr}
+    if size:
+        obs["size"], obs["size_c"] = sim_patch_sizes(sim)
+    return obs

@@ -10,6 +10,9 @@ Goal types (durations in sim time units):
                                                            observables.py) within [lo, hi]
                                                            continuously for T; with
                                                            "color": c, the patches of c only
+  {"type": "contact", "colors": [a, b]}                   some world edge joins a cell of
+                                                           colour a and one of colour b
+                                                           (e.g. red reaches a green target)
 Fractions and counts are over the free cells (terrain: holes and fixed cells excluded).
 Each goal latches once met; the level is won when all goals have latched.
 Failure conditions use the same types and fail the level as soon as one is met
@@ -37,6 +40,13 @@ class _Cond:
             return all(lo <= xi <= hi for xi, (lo, hi) in zip(x, s["bands"], strict=True))
         if s["type"] == "reach":
             return float(np.max(np.abs(x - np.asarray(s["target"])))) <= s["tol"]
+        if s["type"] == "contact":
+            if obs is None:
+                return False
+            a, b = s["colors"]
+            col, e = obs["col"], obs["edges"]
+            ca, cb = col[e[:, 0]], col[e[:, 1]]
+            return bool(np.any(((ca == a) & (cb == b)) | ((ca == b) & (cb == a))))
         if s["type"] == "size":
             if obs is None:
                 return False
@@ -82,8 +92,14 @@ class GoalTracker:
         """Whether any goal or failure condition reads the patch size."""
         return any(c.spec["type"] == "size" for c in self._goals + self._fails)
 
+    @property
+    def needs_obs(self) -> bool:
+        """Whether update() needs the obs dict (spatial goals)."""
+        return any(c.spec["type"] in ("size", "contact") for c in self._goals + self._fails)
+
     def update(self, t: float, counts: np.ndarray, obs: dict | None = None) -> str:
-        """obs: {"size": S, "size_c": per-colour S} when needs_size (observables.py)."""
+        """obs (observables.observe): {"size": S, "size_c": per-colour S, "col": colours,
+        "edges": world edges}, needed by size and contact goals."""
         if self.status != "running":
             return self.status
         counts = np.asarray(counts)

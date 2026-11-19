@@ -138,6 +138,15 @@ def hex_torus(n: int, periodic: bool = True) -> Graph:
     return _build(cells, [(n, 0), (-n // 2, n)], "hex", n, periodic)
 
 
+def hex_rect(w: int, h: int, periodic: bool = False) -> Graph:
+    """w x h odd-r offset block of hexes (cell index r * w + c), as drawn from an ASCII map
+    (odd rows shifted half a cell to the right). Periodic needs h even."""
+    if w < 2 or h < 2 or (periodic and h % 2):
+        raise ValueError("hex_rect: w, h >= 2 (h even if periodic)")
+    cells = [(c - (r - (r & 1)) // 2, r) for r in range(h) for c in range(w)]
+    return _build(cells, [(w, 0), (-h // 2, h)], "hex", w, periodic)
+
+
 def hex_hexagon(side: int, periodic: bool = True) -> Graph:
     """Regular hexagon of `side` cells per side (3 side^2 - 3 side + 1 cells).
 
@@ -153,8 +162,11 @@ def hex_hexagon(side: int, periodic: bool = True) -> Graph:
 
 def make_graph(spec: dict) -> Graph:
     """Build a graph from a level's "grid" entry, e.g. {"type": "hex", "n": 64},
+    {"type": "hex", "w": 48, "h": 34, "periodic": false},
     {"type": "hexagon", "side": 37}, optionally "periodic": false."""
     periodic = bool(spec.get("periodic", True))
+    if spec.get("type") == "hex" and "w" in spec:
+        return hex_rect(int(spec["w"]), int(spec["h"]), periodic)
     if spec.get("type") == "hex":
         return hex_torus(int(spec["n"]), periodic)
     if spec.get("type") == "hexagon":

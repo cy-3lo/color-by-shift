@@ -201,3 +201,46 @@ def test_size_goal_and_fail() -> None:
     )
     assert tr.update(0.0, c, {"size": 4.0, "size_c": np.array([2.0, 9.0])}) == "failed"
     assert not GoalTracker([{"type": "extinct", "color": 1}]).needs_size
+
+
+# ---- drawn starts and contact goals ----------------------------------------------------------
+def test_map_start_and_contact_goal(tmp_path) -> None:
+    level = {
+        "id": "M",
+        "palette": 3,
+        "map": {
+            "rows": ["#####", "#R..#", "#.yG#", "#####"],
+            "legend": {"#": "wall", ".": 0, "y": 1, "R": [1, "fixed"], "G": [2, "fixed"]},
+        },
+        "reactions": [{"shape": "edge", "in": [1, 0], "out": [1, 1], "rate": 1.0}],
+        "goals": [{"type": "contact", "colors": [1, 2]}],
+    }
+    p = tmp_path / "M.json"
+    p.write_text(json.dumps(level))
+    lv = load_level(p)
+    assert lv.grid == {"type": "hex", "w": 5, "h": 4, "periodic": False}
+    sim = make_sim(lv)
+    assert sim.hole.sum() == 14 and sim.fixed.sum() == 2
+    assert sim.colours[1 * 5 + 1] == 1 and sim.colours[2 * 5 + 3] == 2
+    assert list(sim.counts()) == [3, 1, 0]  # free cells: three white, one yellow (colour 1)
+    from mosaic_model.observables import observe
+
+    tr = GoalTracker(lv.goals)
+    assert tr.needs_obs
+    # the yellow cell (colour 1) already touches green: contact is by colour
+    assert tr.update(0.0, sim.counts(), observe(sim, size=False)) == "won"
+    bad = dict(level, map=dict(level["map"], rows=["####", "#R.#"]))
+    p.write_text(json.dumps(bad | {"grid": {"type": "hex", "n": 8}}))
+    with pytest.raises(ValueError):
+        make_sim(load_level(p))
+
+
+def test_maze_level_loads() -> None:
+    from pathlib import Path
+
+    lv = load_level(Path(__file__).resolve().parents[2] / "levels" / "sandbox" / "X04_maze.json")
+    sim = make_sim(lv)
+    assert not sim.graph.periodic and sim.fixed.sum() > 0 and sim.hole.sum() > 0
+    rs = sim.reactions
+    free = [b for b in rs.blocks() if b not in rs.locked]
+    assert sorted(free) == [(1, "in", 1), (2, "in", 0)]

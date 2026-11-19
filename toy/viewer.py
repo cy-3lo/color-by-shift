@@ -45,7 +45,7 @@ sys.path.insert(0, str(ROOT / "toy"))
 from mosaic_model import GoalTracker, Level, Sim, load_level, make_sim  # noqa: E402
 from mosaic_model.graph import SQRT3  # noqa: E402
 from mosaic_model.level import terrain_to_json  # noqa: E402
-from mosaic_model.observables import sim_patch_sizes  # noqa: E402
+from mosaic_model.observables import observe  # noqa: E402
 from mosaic_model.raster import fit_size, render_rgb, view_pixel_map, world_centre  # noqa: E402
 from mosaic_model.reactions import ARITY, Block, Reaction  # noqa: E402
 from palette import (  # noqa: E402
@@ -97,11 +97,7 @@ class Viewer:
         self.small = pygame.font.Font(None, 17)
         self.big = pygame.font.Font(None, 36)
         pal = cfg["palette"]
-        self.palette_name = pal["default"]
-        self.pal = palette_rgb(cfg, level.palette, self.palette_name)
-        self.cnames = colour_names(cfg, level.palette, self.palette_name)
-        self.ui = ui_colours(cfg, self.palette_name, level.palette)  # from the palette
-        self.bg = self.ui["bg"]
+        self.set_palette("level" if level.colours else pal["default"])
         self.glyphs = glyphs(cfg, level.palette)
         self.show_glyphs = bool(pal.get("show_glyphs", False))
         self.menu_open = False
@@ -229,8 +225,8 @@ class Viewer:
 
     # ---- terrain and patch size ---------------------------------------------------------------
     def measure_size(self) -> None:
-        s, sc = sim_patch_sizes(self.sim)
-        self.obs = {"size": s, "size_c": sc}
+        """Snapshot for the size chart and spatial goals (observables.observe)."""
+        self.obs = observe(self.sim)
 
     def paint_terrain(self, pos, erase: bool = False) -> None:
         """Apply the terrain tool to the cells under the brush at screen position pos."""
@@ -496,6 +492,8 @@ class Viewer:
         pg = self.pg
         if getattr(self, "_menu", None) is None:
             self._menu = menu_names(self.cfg, self.level.palette)
+            if self.level.colours:
+                self._menu = [("level", 0.0), *self._menu]
         r0 = self.buttons["palette"]
         w = 330
         y = r0.bottom + 2
@@ -506,8 +504,15 @@ class Viewer:
             pg.draw.rect(self.screen, self.ui["mid"], r, 1)
             self._text(name, (r.x + 8, r.y + 8), self.small)
             self._text(f"dE {de:2.0f}", (r.x + 120, r.y + 8), self.small, self.ui["mid"])
-            sw = palette_rgb(self.cfg, self.level.palette, name)
-            dk = ui_colours(self.cfg, name, self.level.palette)["dark"]
+            if name == "level":
+                sw = [
+                    tuple(int(h.lstrip("#")[k : k + 2], 16) for k in (0, 2, 4))
+                    for h in self.level.colours
+                ]
+                dk = int(np.argmin([luminance(c) for c in sw]))
+            else:
+                sw = palette_rgb(self.cfg, self.level.palette, name)
+                dk = ui_colours(self.cfg, name, self.level.palette)["dark"]
             for j, c in enumerate(sw[:8]):
                 cc = (r.x + 180 + j * 24, r.centery)
                 if j == dk:
@@ -819,6 +824,12 @@ class Viewer:
             for c, v in enumerate(g["target"]):
                 seg += [c, f"{v:g}"]
             return seg + [f"(+/- {g['tol']:g}) for t = {g['duration']:g}"]
+        if g["type"] == "contact":
+            a, b = g["colors"]
+            verb = "touches" if fail else "bring"
+            if fail:
+                return [prefix, a, nm[a], verb, b, nm[b]]
+            return [prefix, verb, a, nm[a], "to", b, nm[b]]
         if g["type"] == "size":
             lo, hi = g["range"]
             c = g.get("color")
@@ -998,10 +1009,25 @@ class Viewer:
         return path
 
     def set_palette(self, name: str) -> None:
+        """Cell colours and interface tones of a named palette; "level" = the level's own
+        "colours" and "names" (interface tones from the default palette)."""
         self.palette_name = name
-        self.pal = palette_rgb(self.cfg, self.level.palette, name)
-        self.cnames = colour_names(self.cfg, self.level.palette, name)
-        self.ui = ui_colours(self.cfg, name, self.level.palette)
+        n = self.level.palette
+        if name == "level":
+            self.pal = np.array(
+                [
+                    [int(h.lstrip("#")[k : k + 2], 16) for k in (0, 2, 4)]
+                    for h in self.level.colours
+                ],
+                dtype=np.uint8,
+            )
+            self.cnames = list(self.level.names) or [f"colour {k}" for k in range(n)]
+            self.ui = ui_colours(self.cfg, self.cfg["palette"]["default"], n)
+            self.ui["dark"] = int(np.argmin([luminance(c) for c in self.pal]))
+        else:
+            self.pal = palette_rgb(self.cfg, n, name)
+            self.cnames = colour_names(self.cfg, n, name)
+            self.ui = ui_colours(self.cfg, name, n)
         self.bg = self.ui["bg"]
 
     def _notify(self, msg: str) -> None:
