@@ -30,6 +30,7 @@ Rule sets (every rate k = 1; n colours, all ordered pairs A != B):
             (curvature-driven, sharpens interfaces).
   both      voter + majority.
   cycle     cyclic invasion A|A+1 -> A|A (mod n) plus exchange A|B -> B|A (mobility).
+  explicit  a set written as "00>01;01>00;01>10" (colours 0 = darkest; one digit = cell).
 Images, GIFs and CSV in runs/painting/<name>_<time>/.
 """
 
@@ -100,6 +101,11 @@ def rules(name: str, n: int) -> list[Reaction]:
     if name == "cycle":
         out += [Reaction("edge", [a, (a + 1) % n], [a, a], 1.0) for a in range(n)]
         out += [Reaction("edge", [a, b], [b, a], 1.0) for a, b in pairs if a < b]
+    if ">" in name:  # explicit set, e.g. "00>01;01>00;0>1" (one digit = cell reaction)
+        for part in name.split(";"):
+            i, o = part.strip().split(">")
+            shape = "cell" if len(i) == 1 else "edge"
+            out.append(Reaction(shape, [int(c) for c in i], [int(c) for c in o], 1.0))
     if not out:
         raise ValueError(f"unknown rule set {name}")
     return out
@@ -295,7 +301,7 @@ def main() -> None:
     else:
         jobs = [
             {
-                "tag": f"{name}_q{q:g}",
+                "tag": f"{name.replace('>', '-').replace(';', '_').replace(' ', '')}_q{q:g}",
                 "rules": name,
                 "g": g,
                 "target": target,
