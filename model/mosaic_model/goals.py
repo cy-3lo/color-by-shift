@@ -6,6 +6,11 @@ Goal types (durations in sim time units):
                                                            continuously for T
   {"type": "reach", "target": [...], "tol": e, "duration": T}  max |x - target| <= e
                                                            continuously for T
+  {"type": "size", "range": [lo, hi], "duration": T}     patch size S (cells, see
+                                                           observables.py) within [lo, hi]
+                                                           continuously for T; with
+                                                           "color": c, the patches of c only
+Fractions and counts are over the free cells (terrain: holes and fixed cells excluded).
 Each goal latches once met; the level is won when all goals have latched.
 Failure conditions use the same types and fail the level as soon as one is met
 (e.g. {"type": "extinct", "color": 1} during a hold).
@@ -24,7 +29,7 @@ class _Cond:
     since: float | None = None  # time the condition became continuously true
     done: bool = False
 
-    def instant(self, x: np.ndarray, counts: np.ndarray) -> bool:
+    def instant(self, x: np.ndarray, counts: np.ndarray, obs: dict | None = None) -> bool:
         s = self.spec
         if s["type"] == "extinct":
             return counts[s["color"]] == 0
@@ -32,12 +37,18 @@ class _Cond:
             return all(lo <= xi <= hi for xi, (lo, hi) in zip(x, s["bands"], strict=True))
         if s["type"] == "reach":
             return float(np.max(np.abs(x - np.asarray(s["target"])))) <= s["tol"]
+        if s["type"] == "size":
+            if obs is None:
+                return False
+            v = obs["size"] if s.get("color") is None else obs["size_c"][s["color"]]
+            lo, hi = s["range"]
+            return lo <= v <= hi
         raise ValueError(f"unknown goal type {s['type']!r}")
 
-    def update(self, t: float, x: np.ndarray, counts: np.ndarray) -> bool:
+    def update(self, t: float, x: np.ndarray, counts: np.ndarray, obs: dict | None) -> bool:
         if self.done:
             return True
-        if not self.instant(x, counts):
+        if not self.instant(x, counts, obs):
             self.since = None
             return False
         if self.since is None:
@@ -66,15 +77,21 @@ class GoalTracker:
         self._goals = [_Cond(g) for g in self.goals]
         self._fails = [_Cond(f) for f in self.fail]
 
-    def update(self, t: float, counts: np.ndarray) -> str:
+    @property
+    def needs_size(self) -> bool:
+        """Whether any goal or failure condition reads the patch size."""
+        return any(c.spec["type"] == "size" for c in self._goals + self._fails)
+
+    def update(self, t: float, counts: np.ndarray, obs: dict | None = None) -> str:
+        """obs: {"size": S, "size_c": per-colour S} when needs_size (observables.py)."""
         if self.status != "running":
             return self.status
         counts = np.asarray(counts)
-        x = counts / counts.sum()
-        if any(f.update(t, x, counts) for f in self._fails):
+        x = counts / max(1, counts.sum())
+        if any(f.update(t, x, counts, obs) for f in self._fails):
             self.status = "failed"
             return self.status
-        met = [g.update(t, x, counts) for g in self._goals]
+        met = [g.update(t, x, counts, obs) for g in self._goals]
         if met and all(met):
             self.status = "won"
         return self.status

@@ -33,6 +33,7 @@ Working title "Mosaic Shift" (not cleared, see Open questions). This file is the
 - 2026-11-18: Chris's 5-colour tournament (S20261118-184837, each colour beats two): grid time-averages match the mean-field point A x* = 0 within 0.015; x*_i depends only on the rates of reactions not involving i; grid coexistence is stable (sd 0.02), shuffled runs lose 2 colours in 5 of 6 runs by t = 400 (tools/tournament.py).
 - 2026-11-18: Chris's 4-cycle with chiral ally swaps (S20261118-190742): the swaps have no measurable effect (level, swaps off and mirrored agree within seed scatter, 4 seeds, t = 600); grid locks x0 = x2, x1 = x3, alliance balance drifts by +-0.015; shuffled lost an alliance in 1 of 4 runs (tools/variants.py).
 - 2026-11-18: Chris's spiral attempt (S20261118-191619: zero-sum RPS + majority vertex invasions + chiral rotation): mean-field focus unstable (2 +- 6.9i, stronger than T04) but patches only a few cells wide, since mobility is missing; adding edge exchange at k = 10 grows the patterns to grid size (S20261118-191619_mobile, to be watched). Sandbox k button now goes up to 10.
+- 2026-11-19: terrain added (Chris: reject the whole channel, fractions over free cells, no emitters): holes (walls) and fixed cells in model, mean field (exact in shuffled mode, test passes at 2 %), level JSON, sandbox painting tools (Wall / Fixed / Erase, brush). Patch-size observable S, size goal (proposed) and a log-scale size chart under the fractions. Science check terrain: voter with fixed columns and a wall matches the discrete harmonic solution (max error 0.006, se 0.004). Demo levels levels/sandbox/X01–X03 (tools/terrain_levels.py).
 
 ## Deadline and jam
 
@@ -141,6 +142,8 @@ Level file (levels/Lxx.json):
   "meta": { "min_switches_found": 2, "timing_matters": true, "mean_field_wrong": true }
 }
 ```
+
+Optional terrain (2026-11-19), axial cell coordinates of the level's world: `"terrain": {"holes": [[q, r], ...], "fixed": [[q, r, colour], ...]}`. A hole is a wall (not part of the world: no edges or vertices touch it). A fixed cell keeps its colour forever and is read by every reaction; a channel that would change it is rejected whole. Fractions, counts and goals use free cells only. Optional goal (proposed, pending Chris): `{"type": "size", "range": [lo, hi], "duration": T, "color": c}` on the patch size S = sum s² / sum s of same-colour connected patches (cells; all colours if no "color").
 
 Campaign of 8–10 levels: learn the swap on a two-reaction level; voter-model coarsening; tip a balance; rock-paper-scissors: keep all three alive; rock-paper-scissors: make one extinct; a chiral level; a timing level (switch, wait, switch back); mixed. Chris picks and orders levels from solver output.
 

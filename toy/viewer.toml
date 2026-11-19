@@ -38,6 +38,13 @@ reactions = [
 [chart]
 window = 60.0             # sim time units shown
 height = 220
+size_height = 110         # patch-size chart (log scale) under the fractions chart
+
+[terrain]
+fixed_dot = 0.45          # fixed-cell marker: inner hexagon, fraction of the cell
+wall_tones = ["chart", "btn"]   # walls hatched in these two interface tones
+wall_stripe_px = 3        # width of the hatching stripes
+brush_radii = [0, 1, 2, 4]      # Brush button cycles through these (cells)
 
 [grid]
 border = 0.0              # dark gap between hexes, fraction of the inradius (0 = none)

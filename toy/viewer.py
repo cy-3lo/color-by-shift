@@ -17,6 +17,11 @@ Sandbox (design tool): python toy/viewer.py --sandbox [level.json] [--colours 5]
                k = 0 switches the slot off). Works while running or paused.
   Mode: play   the normal rules (swap two unlocked blocks while running).
   Random start draws a new uniform random mosaic; Save level writes levels/sandbox/S*.json.
+  Terrain (edit mode): choose Wall, Fixed (in the paint colour) or Erase, then click or drag
+  on the grid (right button erases); Brush sets the radius; Blocks gives the grid back to
+  panning. Walls are holes in the world; fixed cells keep their colour (dot) forever.
+The lower chart is the patch size S (area-weighted mean size of same-colour connected
+patches, cells, log scale): total in the text colour, each colour in its own.
 """
 
 from __future__ import annotations
@@ -39,9 +44,18 @@ sys.path.insert(0, str(ROOT / "toy"))
 
 from mosaic_model import GoalTracker, Level, Sim, load_level, make_sim  # noqa: E402
 from mosaic_model.graph import SQRT3  # noqa: E402
+from mosaic_model.level import terrain_to_json  # noqa: E402
+from mosaic_model.observables import sim_patch_sizes  # noqa: E402
 from mosaic_model.raster import fit_size, render_rgb, view_pixel_map, world_centre  # noqa: E402
 from mosaic_model.reactions import ARITY, Block, Reaction  # noqa: E402
-from palette import colour_names, glyphs, menu_names, palette_rgb, ui_colours  # noqa: E402
+from palette import (  # noqa: E402
+    colour_names,
+    glyphs,
+    luminance,
+    menu_names,
+    palette_rgb,
+    ui_colours,
+)
 
 RB = 16.0  # circumradius of an equation block (hexagon), px
 GAP = 1.08  # spacing factor between neighbouring blocks (1 = touching)
@@ -67,6 +81,10 @@ class Viewer:
         self.sandbox = sandbox
         self.edit = sandbox  # sandbox starts in edit mode
         self.paint = 0  # colour painted in edit mode
+        self.tool: str | None = None  # terrain tool in edit mode: wall | fix | erase | None
+        self.brush = 0  # terrain brush radius (cells)
+        self.painting = 0  # mouse button held while painting terrain (0 = none)
+        self.terrain_dirty = False
         self.arrow_style = cfg["arrows"]["style"]
         self.cfg = cfg
         self.shuffled = shuffled
@@ -98,7 +116,11 @@ class Viewer:
         self.sim0 = make_sim(level, seed=self.seed, shuffled=shuffled)
         print(f"burn-in done in {time.perf_counter() - t0:.1f} s", flush=True)
         self.start_cols = list(self.sim0.col)
+        self.hole = self.sim0.hole.copy()
+        self.fixed = self.sim0.fixed.copy()
+        self.fixed_col = self.sim0.colours.astype(np.int64)  # colour of each fixed cell
         g = self.sim0.graph
+        self._nb = g.neighbours()
         gw = cfg["window"]["grid_width"]
         self.fit = fit_size(g, gw - 20, h - 20)  # whole world visible; periodic worlds tile out
         self.zoom_reset()
@@ -120,16 +142,23 @@ class Viewer:
             self.restarts += 1
             self.session.append({"event": "restart", "wall": time.time()})
         keep = self.sandbox and hasattr(self, "sim")  # sandbox restarts keep the edits
+        cols = np.array(self.start_cols)
+        cols[self.fixed] = self.fixed_col[self.fixed]
         self.sim = Sim(
             self.sim0.graph,
             self.sim.reactions.copy() if keep else self.level.reaction_set(),
-            self.start_cols,
+            cols,
             seed=self.seed + 1 + 7919 * self.restarts,
             shuffled=self.shuffled,
+            holes=self.hole,
+            fixed=self.fixed,
         )
         self.tracker = GoalTracker(self.level.goals, self.level.fail)
         self.hist_t: list[float] = [0.0]
         self.hist_x: list[np.ndarray] = [self.sim.fractions()]
+        self.measure_size()
+        self.hist_st: list[float] = [0.0]
+        self.hist_s: list[tuple[float, np.ndarray]] = [(self.obs["size"], self.obs["size_c"])]
         self.lamps = np.zeros(len(self.sim.fires))
         self.needles = np.zeros(len(self.sim.fires))  # dial position in [0, 1]
         self.last_fires = list(self.sim.fires)
@@ -187,10 +216,65 @@ class Viewer:
     def _remap(self) -> None:
         if self.map_dirty:
             gw, h = self.cfg["window"]["grid_width"], self.cfg["window"]["height"]
+            g = self.sim0.graph
             self.pixmap = view_pixel_map(
-                self.sim0.graph, self.size, gw, h, self.cfg["grid"]["border"], self.centre
+                g, self.size, gw, h, self.cfg["grid"]["border"], self.centre
             )
+            # inner hexagon of each cell (fixed-cell marker) and wall hatching
+            dot = self.cfg["terrain"]["fixed_dot"]
+            self.inner = view_pixel_map(g, self.size, gw, h, 1.0 - dot, self.centre)
+            ys, xs = np.mgrid[0:h, 0:gw]
+            self.stripe = ((xs + ys) // self.cfg["terrain"]["wall_stripe_px"]) % 2 == 0
             self.map_dirty = False
+
+    # ---- terrain and patch size ---------------------------------------------------------------
+    def measure_size(self) -> None:
+        s, sc = sim_patch_sizes(self.sim)
+        self.obs = {"size": s, "size_c": sc}
+
+    def paint_terrain(self, pos, erase: bool = False) -> None:
+        """Apply the terrain tool to the cells under the brush at screen position pos."""
+        x, y = pos[0] - self.grid_rect.x, pos[1] - self.grid_rect.y
+        if not (0 <= y < self.pixmap.shape[0] and 0 <= x < self.pixmap.shape[1]):
+            return
+        i = int(self.pixmap[y, x])
+        if i < 0:
+            return
+        cells, front = {i}, [i]
+        for _ in range(self.brush):
+            front = [j for k in front for j in self._nb[k] if j not in cells]
+            cells.update(front)
+        idx = np.fromiter(cells, dtype=np.int64)
+        tool = "erase" if erase else self.tool
+        if tool == "erase":
+            self.hole[idx] = False
+            self.fixed[idx] = False
+        elif tool == "wall":
+            self.hole[idx] = True
+            self.fixed[idx] = False
+        elif tool == "fix":
+            self.hole[idx] = False
+            self.fixed[idx] = True
+            self.fixed_col[idx] = self.paint
+            for j in idx.tolist():
+                self.sim.col[j] = self.paint
+        self.terrain_dirty = True
+
+    def apply_terrain(self) -> None:
+        """Push painted terrain to the running sim (once per frame)."""
+        if not self.terrain_dirty:
+            return
+        self.sim.set_terrain(self.hole, self.fixed)
+        self.terrain_dirty = False
+        self.measure_size()
+        self.session.append(
+            {
+                "event": "terrain",
+                "t": self.sim.t,
+                "holes": int(self.hole.sum()),
+                "fixed": int(self.fixed.sum()),
+            }
+        )
 
     def move_needles(self, dt_wall: float) -> None:
         """Needles swing toward the smoothed firing rate (log dial), with a short lag."""
@@ -219,7 +303,12 @@ class Viewer:
             self.due -= sim.t - t0
             self.hist_t.append(sim.t)
             self.hist_x.append(sim.fractions())
-            self.tracker.update(sim.t, sim.counts())
+            self.tracker.update(sim.t, sim.counts(), self.obs)
+        if sim.t > t_start:  # patch size: once per frame (about 1 ms on 16 000 cells)
+            self.measure_size()
+            self.hist_st.append(sim.t)
+            self.hist_s.append((self.obs["size"], self.obs["size_c"]))
+            self.tracker.update(sim.t, sim.counts(), self.obs)
         if dt_wall > 0:
             self.rate_meas = 0.9 * self.rate_meas + 0.1 * (sim.t - t_start) / dt_wall
         # lamps: firing rate per cell per unit time, exponentially smoothed
@@ -236,6 +325,9 @@ class Viewer:
         while len(self.hist_t) > 2 and self.hist_t[1] < self.sim.t - w:
             self.hist_t.pop(0)
             self.hist_x.pop(0)
+        while len(self.hist_st) > 2 and self.hist_st[1] < self.sim.t - w:
+            self.hist_st.pop(0)
+            self.hist_s.pop(0)
 
     # ---- drawing ------------------------------------------------------------------------------
     def draw(self) -> None:
@@ -243,6 +335,7 @@ class Viewer:
         self.screen.fill(self.bg)
         self._remap()
         rgb = render_rgb(self.pixmap, self.sim.colours, self.pal, self.bg)
+        self._draw_terrain(rgb)
         pg.surfarray.blit_array(self.grid_surf, rgb.swapaxes(0, 1))
         self.screen.blit(self.grid_surf, self.grid_rect)
         y = self._draw_header(10)
@@ -250,6 +343,23 @@ class Viewer:
         self._draw_chart(y + 10)
         self._draw_status()
         self._draw_menu()
+
+    def _draw_terrain(self, rgb: np.ndarray) -> None:
+        """Walls hatched in two interface tones; a dot on fixed cells, dark on light colours
+        and light on dark ones."""
+        if self.hole.any():
+            h = np.append(self.hole, False)[self.pixmap]
+            ta, tb = (self.ui[k] for k in self.cfg["terrain"]["wall_tones"])
+            rgb[h & self.stripe] = ta
+            rgb[h & ~self.stripe] = tb
+        if self.fixed.any():
+            f = np.append(self.fixed, False)[self.inner]
+            if f.any():
+                mark = np.array(
+                    [self.ui["bg"] if luminance(c) > 0.3 else self.ui["fg"] for c in self.pal],
+                    dtype=np.uint8,
+                )
+                rgb[f] = mark[self.sim.colours[self.inner[f]]]
 
     def _text(self, s: str, pos, font=None, col=None) -> int:
         surf = (font or self.font).render(s, True, col or self.ui["fg"])
@@ -357,6 +467,24 @@ class Viewer:
             self.buttons[f"paint{c}"] = pg.Rect(x, y, 26, 26)
             x += 30
         self._text("click: paint   right-click: lock", (x + 10, y + 7), self.small, self.ui["mid"])
+        y += 32
+        x = self.panel_x
+        self._text("terrain:", (x, y + 6), self.font, self.ui["mid"])
+        x += 62
+        for key, text, w in (
+            ("tool:none", "Blocks", 64),
+            ("tool:wall", "Wall", 52),
+            ("tool:fix", "Fixed", 56),
+            ("tool:erase", "Erase", 56),
+            ("brush", f"Brush r={self.brush}", 92),
+        ):
+            act = key.startswith("tool:") and (key[5:] if self.tool else "none") == (
+                self.tool or "none"
+            )
+            self._button(key, text, x, y, w, active=act)
+            x += w + 6
+        nh, nf = int(self.hole.sum()), int(self.fixed.sum())
+        self._text(f"{nh} wall  {nf} fixed", (x + 4, y + 7), self.small, self.ui["mid"])
         return y
 
     def _draw_menu(self) -> None:
@@ -485,7 +613,8 @@ class Viewer:
         reacts = self.sim.reactions.reactions
         nat = sum(2 * RB + (1.5 * RB * GAP if r.shape == "vertex" else 0) + 10 for r in reacts)
         n_lines = len(self.level.goals) + len(self.level.fail)
-        below = self.cfg["chart"]["height"] + 20 + 22 * n_lines + 34
+        ch = self.cfg["chart"]
+        below = ch["height"] + ch["size_height"] + 26 + 22 * n_lines + 34
         avail = self.screen.get_height() - y - below
         s = min(1.0, max(0.5, avail / nat)) if nat > 0 else 1.0
         self.rb, self.row_gap, self.row_scale = RB * s, max(4.0, 10.0 * s), s
@@ -615,9 +744,8 @@ class Viewer:
             for c in range(xs.shape[1]):
                 pts = [px(t, v) for t, v in zip(ts[sel], xs[sel, c], strict=True)]
                 pg.draw.lines(self.screen, self.pal[c], False, pts, 2)
-        self._text("fractions vs time", (x + 4, y + 3), self.small, self.ui["fg"])
-        # goals
-        yy = y + h + 10
+        self._text("fractions (free cells) vs time", (x + 4, y + 3), self.small, self.ui["fg"])
+        yy = self._draw_size_chart(x, y + h + 6, w, t0, t1) + 10
         for k, goal in enumerate(self.level.goals):
             pr = self.tracker.progress(self.sim.t)[k]
             yy += self._draw_segments(self._goal_segments(goal, f"[{pr:4.0%}]  goal:"), x, yy)
@@ -627,8 +755,51 @@ class Viewer:
             )
         help_ = "click 2 blocks to swap | wheel zoom, drag pan, 0 reset | spc 1-4 R S"
         if self.sandbox and self.edit:
-            help_ = "edit: paint blocks, right-click lock, shape/k buttons | Mode: play to swap"
+            help_ = "edit: paint blocks, right-click lock, shape/k, terrain tools | Mode: play"
         self._text(help_, (x, self.screen.get_height() - 22), self.small, self.ui["mid"])
+
+    def _draw_size_chart(self, x: float, y: float, w: float, t0: float, t1: float) -> float:
+        """Patch size S on a log scale from 1 to the number of world cells, with size goal
+        bands; returns the bottom y."""
+        pg = self.pg
+        h = self.cfg["chart"]["size_height"]
+        rect = pg.Rect(x, y, w, h)
+        pg.draw.rect(self.screen, self.ui["chart"], rect)
+        top = math.log10(max(10.0, len(self.sim.open_idx)))
+        win = t1 - t0
+
+        def py(v: float) -> float:
+            return y + h - min(1.0, max(0.0, math.log10(max(v, 1.0)) / top)) * h
+
+        overlay = pg.Surface(rect.size, pg.SRCALPHA)
+        for g in self.level.goals + self.level.fail:
+            if g["type"] == "size":
+                lo, hi = g["range"]
+                c = g.get("color")
+                col = self.ui["fg"] if c is None else self.pal[c]
+                band = pg.Rect(0, py(hi) - y, w, py(lo) - py(hi))
+                pg.draw.rect(overlay, (*col, 50), band)
+        self.screen.blit(overlay, rect)
+        for k in range(1, int(top) + 1):
+            pg.draw.line(self.screen, self.ui["line"], (x, py(10**k)), (x + w, py(10**k)))
+            self._text(f"{10**k:g}", (x + w - 40, py(10**k) + 1), self.small, self.ui["line"])
+        ts = np.array(self.hist_st)
+        sel = ts >= t0
+        if sel.sum() >= 2:
+            idx = np.flatnonzero(sel)
+            xs = [x + (ts[i] - t0) / win * w for i in idx]
+            for c in range(self.level.palette):
+                pts = [(xx, py(self.hist_s[i][1][c])) for xx, i in zip(xs, idx, strict=True)]
+                pg.draw.lines(self.screen, self.pal[c], False, pts, 1)
+            pts = [(xx, py(self.hist_s[i][0])) for xx, i in zip(xs, idx, strict=True)]
+            pg.draw.lines(self.screen, self.ui["fg"], False, pts, 2)
+        self._text(
+            f"patch size S (cells, log): {self.obs['size']:.1f}",
+            (x + 4, y + 3),
+            self.small,
+            self.ui["fg"],
+        )
+        return y + h
 
     def _goal_segments(self, g: dict, prefix: str, fail: bool = False) -> list:
         """Goal as text pieces and colour swatches (ints), e.g. ["goal: make", 2, "coral",
@@ -648,6 +819,15 @@ class Viewer:
             for c, v in enumerate(g["target"]):
                 seg += [c, f"{v:g}"]
             return seg + [f"(+/- {g['tol']:g}) for t = {g['duration']:g}"]
+        if g["type"] == "size":
+            lo, hi = g["range"]
+            c = g.get("color")
+            seg = [prefix, "patch size", *([] if c is None else [c, nm[c]])]
+            rng = f">= {lo:g}" if hi >= len(self.sim.open_idx) else f"{lo:g}-{hi:g}"
+            seg += [f"{rng} cells"]
+            if g.get("duration"):
+                seg += [f"for t = {g['duration']:g}"]
+            return seg
         return [prefix, json.dumps(g)]
 
     def _draw_segments(self, segs: list, x: float, y: float, col=None) -> int:
@@ -686,6 +866,10 @@ class Viewer:
                 self.button(key, -1 if button == 3 else 1)
                 return
         if self.grid_rect.collidepoint(pos):
+            if self.sandbox and self.edit and self.tool:
+                self.painting = button
+                self.paint_terrain(pos, erase=button == 3)
+                return
             self.dragging = button == 1
             return
         hit = None
@@ -797,9 +981,17 @@ class Viewer:
             "fail": [],
             "meta": {"from": "sandbox", "source": str(self.level.path or "")},
         }
+        ter = terrain_to_json(self.sim0.graph, self.hole, self.fixed, self.fixed_col)
+        if ter:
+            d["terrain"] = ter
         folder = folder or ROOT / "levels" / "sandbox"
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / f"{d['id']}.json"
+        k = 1
+        while path.exists():  # never overwrite (two saves in the same second)
+            d["id"] = f"S{stamp}-{k}"
+            path = folder / f"{d['id']}.json"
+            k += 1
         path.write_text(json.dumps(d, indent=1))
         self._notify(f"saved {path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}")
         print(f"saved level {path}", flush=True)
@@ -823,6 +1015,12 @@ class Viewer:
             self.cycle_rate(int(key[4:]), d)
         elif key.startswith("paint"):
             self.paint = int(key[5:])
+        elif key.startswith("tool:"):
+            self.tool = None if key == "tool:none" else key[5:]
+        elif key == "brush":
+            radii = self.cfg["terrain"]["brush_radii"]
+            k = radii.index(self.brush) if self.brush in radii else 0
+            self.brush = radii[(k + d) % len(radii)]
         elif key == "mode":
             self.edit = not self.edit
             self.selected = None
@@ -885,8 +1083,32 @@ class Viewer:
         lv = load_level(p)
         assert len(lv.reactions) == sum(r.rate > 0 for r in rs.reactions)
         assert lv.locked == [[0, "in", 1]]
+        # terrain: a wall line and a fixed blob, saved and reloaded
+        self.click(self.buttons["tool:wall"].center)
+        self.brush = 1
+        cx, cy = self.grid_rect.center
+        for k in range(-120, 121, 6):
+            self.click((cx + k, cy - 80))
+        self.painting = 0
+        self.click(self.buttons["paint1"].center)
+        self.click(self.buttons["tool:fix"].center)
+        self.click((cx - 60, cy + 90))
+        self.painting = 0
+        self.apply_terrain()
+        assert self.sim.hole.any() and self.sim.fixed.any()
+        fx = np.flatnonzero(self.sim.fixed)
+        assert (self.sim.colours[fx] == 1).all()
+        self.sim.sweep(3)
+        assert (self.sim.colours[fx] == 1).all()
+        p2 = self.save_level(self.run_dir)
+        lv2 = load_level(p2)
+        assert len(lv2.terrain["holes"]) == int(self.hole.sum())
+        assert len(lv2.terrain["fixed"]) == int(self.fixed.sum())
+        self.click(self.buttons["tool:none"].center)
+        assert self.tool is None
         self.random_start()
-        print(f"smoke: sandbox edits OK ({p.name})", flush=True)
+        assert (self.sim.colours[fx] == 1).all() and self.sim.hole.any()
+        print(f"smoke: sandbox edits OK ({p.name}), terrain OK ({p2.name})", flush=True)
 
     def loop(self, smoke_frames: int = 0) -> None:
         pg = self.pg
@@ -900,8 +1122,11 @@ class Viewer:
                     running = False
                 elif ev.type == pg.MOUSEBUTTONDOWN and ev.button in (1, 3):
                     self.click(ev.pos, ev.button)
-                elif ev.type == pg.MOUSEBUTTONUP and ev.button == 1:
+                elif ev.type == pg.MOUSEBUTTONUP and ev.button in (1, 3):
                     self.dragging = False
+                    self.painting = 0
+                elif ev.type == pg.MOUSEMOTION and self.painting:
+                    self.paint_terrain(ev.pos, erase=self.painting == 3)
                 elif ev.type == pg.MOUSEMOTION and self.dragging:
                     self.pan(*ev.rel)
                 elif ev.type == pg.MOUSEWHEEL:
@@ -967,6 +1192,7 @@ class Viewer:
                     self.draw()
                     self.save(screenshot=True)
                     running = False
+            self.apply_terrain()
             self.step(dt)
             self.move_needles(dt)
             self.draw()

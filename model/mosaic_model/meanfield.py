@@ -8,6 +8,13 @@ contributes
     dx_c/dt += w_s * o_r * k_r * prod_q x_{in_q} * (#c in out_r - #c in in_r).
 
 Exact only for the shuffled control in the limit of a large grid and small change per sweep.
+
+Fixed cells (terrain): with f_c the fraction of world cells fixed at colour c and y_c the
+fraction of world cells that are free and of colour c, the input probability of position q
+is y_{in_q} if the reaction changes that position (a fixed cell there rejects the channel)
+and x_{in_q} = y_{in_q} + f_{in_q} if it does not. The equations are then for y; f = 0
+gives back the equations above. Holes change the attempt weights (elements per world cell),
+passed as `weights` (Sim.element_weights()).
 """
 
 from __future__ import annotations
@@ -21,28 +28,48 @@ from .reactions import ReactionSet, orientations
 WEIGHT = {"cell": 1.0, "edge": 3.0, "vertex": 2.0}
 
 
-def _terms(rs: ReactionSet) -> list[tuple[float, list[int], np.ndarray]]:
+def _terms(
+    rs: ReactionSet, weights: dict[str, float] | None = None
+) -> list[tuple[float, list[int], np.ndarray, list[bool]]]:
+    """(coefficient, inputs, net change, changed positions) per reaction."""
+    w = WEIGHT if weights is None else weights
     terms = []
     for r in rs.reactions:
-        coef = WEIGHT[r.shape] * len(orientations(r.shape, r.chiral)) * r.rate
+        coef = w[r.shape] * len(orientations(r.shape, r.chiral)) * r.rate
         delta = np.zeros(rs.palette)
         for c in r.out:
             delta[c] += 1
         for c in r.inp:
             delta[c] -= 1
         if coef and delta.any():
-            terms.append((coef, list(r.inp), delta))
+            changed = [a != b for a, b in zip(r.inp, r.out, strict=True)]
+            terms.append((coef, list(r.inp), delta, changed))
     return terms
 
 
-def rhs(rs: ReactionSet) -> Callable[[np.ndarray], np.ndarray]:
-    """dx/dt as a function of the fractions x (snapshot of the current arrangement)."""
-    terms = _terms(rs)
+def rhs(
+    rs: ReactionSet,
+    fixed: np.ndarray | None = None,
+    weights: dict[str, float] | None = None,
+) -> Callable[[np.ndarray], np.ndarray]:
+    """dx/dt as a function of the fractions x (snapshot of the current arrangement).
+    With `fixed` (fractions f of world cells fixed at each colour), x is the free part y
+    (fractions of world cells that are free and of each colour)."""
+    terms = _terms(rs, weights)
+    fx = None if fixed is None or not np.any(fixed) else np.asarray(fixed, dtype=float)
 
     def f(x: np.ndarray) -> np.ndarray:
         dx = np.zeros_like(x, dtype=float)
-        for coef, inp, delta in terms:
-            dx += coef * np.prod(x[inp]) * delta
+        if fx is None:
+            for coef, inp, delta, _ in terms:
+                dx += coef * np.prod(x[inp]) * delta
+            return dx
+        xt = x + fx
+        for coef, inp, delta, changed in terms:
+            pr = 1.0
+            for c, ch in zip(inp, changed, strict=True):
+                pr *= x[c] if ch else xt[c]
+            dx += coef * pr * delta
         return dx
 
     return f
@@ -53,7 +80,7 @@ def equations(rs: ReactionSet) -> list[str]:
     lines = []
     for c in range(rs.palette):
         parts = []
-        for coef, inp, delta in _terms(rs):
+        for coef, inp, delta, _ in _terms(rs):
             if delta[c]:
                 mono = " ".join(f"x{q}" for q in inp)
                 parts.append(f"{coef * delta[c]:+g} {mono}")

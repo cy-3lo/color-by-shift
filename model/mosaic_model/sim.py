@@ -16,6 +16,15 @@ Shuffled control (well-mixed), two variants:
   shuffle="sweep": the brief's original rule, cell colours permuted after each sweep. It
       only approaches mean field when each sweep changes a small fraction of cells
       (K large compared with the per-cell reaction rates); kept for comparison.
+
+Terrain (optional per-cell masks):
+  hole   the cell is not part of the world: every element touching it is removed (a
+         reflecting wall, like an open side). Holes are never counted.
+  fixed  the cell keeps its colour forever and is read as an input by every reaction. A
+         channel that would change a fixed cell is rejected as a whole (so exchanges stay
+         conservative and a fixed cell reflects mobility). The channel was picked with
+         probability k / K, so every allowed channel still fires at its rate k.
+Fractions, counts and goals use the free cells only (neither hole nor fixed).
 """
 
 from __future__ import annotations
@@ -37,6 +46,8 @@ class Sim:
         seed: int,
         shuffled: bool = False,
         shuffle: str = "attempt",
+        holes: Iterable[bool] | None = None,
+        fixed: Iterable[bool] | None = None,
     ) -> None:
         self.graph = graph
         self.reactions = reactions
@@ -54,10 +65,40 @@ class Sim:
         self._pos = 0  # attempts done in the current sweep
         self._carry = 0.0  # fractional attempts owed by advance()
         self.fires = [0] * len(reactions.reactions)
-        self._cells = [(i,) for i in range(graph.n_cells)]
-        self._edges = [tuple(e) for e in graph.edges.tolist()]
-        self._verts = [tuple(v) for v in graph.vertices.tolist()]
+        self.set_terrain(holes, fixed)
+
+    def set_terrain(
+        self, holes: Iterable[bool] | None = None, fixed: Iterable[bool] | None = None
+    ) -> None:
+        """Set the hole and fixed masks (None = none) and rebuild the element lists. The
+        colours of fixed cells are their current colours."""
+        n = self.graph.n_cells
+        self.hole = np.zeros(n, bool) if holes is None else np.asarray(holes, bool).copy()
+        self.fixed = np.zeros(n, bool) if fixed is None else np.asarray(fixed, bool).copy()
+        if self.hole.shape != (n,) or self.fixed.shape != (n,):
+            raise ValueError("terrain masks do not match the graph")
+        self.fixed &= ~self.hole
+        self._fixed = self.fixed.tolist()
+        self._has_fixed = bool(self.fixed.any())
+        self.open_idx = np.flatnonzero(~self.hole)  # cells of the world
+        self.free_idx = np.flatnonzero(~self.hole & ~self.fixed)  # cells that can change
+        self._open = self.open_idx.tolist()
+        g = self.graph
+        ok_e = ~self.hole[g.edges].any(axis=1) if len(g.edges) else np.zeros(0, bool)
+        ok_v = ~self.hole[g.vertices].any(axis=1) if len(g.vertices) else np.zeros(0, bool)
+        self.edge_arr = g.edges[ok_e]
+        self.vert_arr = g.vertices[ok_v]
+        self._cells = [(i,) for i in self._open]
+        self._edges = [tuple(e) for e in self.edge_arr.tolist()]
+        self._verts = [tuple(v) for v in self.vert_arr.tolist()]
+        self._pos = 0
         self.rebuild()
+
+    def element_weights(self) -> dict[str, float]:
+        """Elements per world cell of each shape (1 : 3 : 2 on a torus without holes), the
+        attempt weights of the mean-field equations."""
+        n = max(1, len(self._open))
+        return {"cell": 1.0, "edge": len(self._edges) / n, "vertex": len(self._verts) / n}
 
     # ---- set-up -------------------------------------------------------------------------
     def rebuild(self) -> None:
@@ -66,7 +107,7 @@ class Sim:
         tabs = rs.tables()
         self._tab = {s: tabs.get(s) for s in ("cell", "edge", "vertex")}
         used = rs.shapes_used()
-        self._nc = self.graph.n_cells if "cell" in used else 0
+        self._nc = len(self._cells) if "cell" in used else 0
         self._ne = len(self._edges) if "edge" in used else 0
         self._nv = len(self._verts) if "vertex" in used else 0
         self.n_elig = self._nc + self._ne + self._nv
@@ -82,10 +123,17 @@ class Sim:
         return np.asarray(self.col, dtype=np.int8)
 
     def counts(self) -> np.ndarray:
-        return np.bincount(self.col, minlength=self.palette)
+        """Colour counts over the free cells (holes and fixed cells excluded)."""
+        return np.bincount(np.asarray(self.col)[self.free_idx], minlength=self.palette)
 
     def fractions(self) -> np.ndarray:
-        return self.counts() / self.graph.n_cells
+        c = self.counts()
+        return c / max(1, int(c.sum()))
+
+    def fixed_fractions(self) -> np.ndarray:
+        """Colour counts of the fixed cells over the world cells (for the mean field)."""
+        fc = np.bincount(np.asarray(self.col)[self.fixed], minlength=self.palette)
+        return fc / max(1, len(self._open))
 
     # ---- dynamics -----------------------------------------------------------------------
     def sweep(self, n: int = 1) -> None:
@@ -113,7 +161,9 @@ class Sim:
                 self._pos = 0
                 self.sweeps += 1
                 if self.shuffled and self.shuffle == "sweep":
-                    self.col = self.rng.permutation(self.col).tolist()
+                    c = np.asarray(self.col)
+                    c[self.free_idx] = self.rng.permutation(c[self.free_idx])
+                    self.col = c.tolist()
 
     def advance(self, dt: float) -> int:
         """Advance sim time by about dt (whole attempts; the remainder is carried over).
@@ -136,6 +186,7 @@ class Sim:
         nc, ne = self._nc, self._ne
         cells, edges, verts = self._cells, self._edges, self._verts
         tc, te, tv = self._tab["cell"], self._tab["edge"], self._tab["vertex"]
+        fx, hf = self._fixed, self._has_fixed
         for e, u in zip(idx, us, strict=True):
             if e < nc:
                 a = cells[e][0]
@@ -145,7 +196,10 @@ class Sim:
                 j = 0
                 while u >= ent.cum[j]:
                     j += 1
-                col[a] = ent.new[j][0]
+                nw = ent.new[j]
+                if hf and fx[a] and nw[0] != col[a]:
+                    continue
+                col[a] = nw[0]
             elif e < nc + ne:
                 a, b = edges[e - nc]
                 ent = te[col[a] * p + col[b]]
@@ -154,7 +208,10 @@ class Sim:
                 j = 0
                 while u >= ent.cum[j]:
                     j += 1
-                col[a], col[b] = ent.new[j]
+                nw = ent.new[j]
+                if hf and ((fx[a] and nw[0] != col[a]) or (fx[b] and nw[1] != col[b])):
+                    continue
+                col[a], col[b] = nw
             else:
                 a, b, c = verts[e - nc - ne]
                 ent = tv[(col[a] * p + col[b]) * p + col[c]]
@@ -163,20 +220,29 @@ class Sim:
                 j = 0
                 while u >= ent.cum[j]:
                     j += 1
-                col[a], col[b], col[c] = ent.new[j]
+                nw = ent.new[j]
+                if hf and (
+                    (fx[a] and nw[0] != col[a])
+                    or (fx[b] and nw[1] != col[b])
+                    or (fx[c] and nw[2] != col[c])
+                ):
+                    continue
+                col[a], col[b], col[c] = nw
             fires[ent.rid[j]] += 1
 
     def _attempts_mixed(self, n: int) -> None:
         """Well-mixed attempts: the element's shape is drawn with the same weights as in
-        the normal run; its cells are drawn uniformly (an attempt with a repeated cell is
-        skipped, a bias of order 1 / n_cells)."""
+        the normal run; its cells are drawn uniformly among the world cells (an attempt with
+        a repeated cell is skipped, a bias of order 1 / n_cells). Fixed cells can be drawn
+        and reject any channel that would change them."""
         rng = self.rng
         idx = rng.integers(0, self.n_elig, size=n).tolist()
         us = (rng.random(n) * self.K).tolist()
-        nc_cells = self.graph.n_cells
-        ra = rng.integers(0, nc_cells, size=n).tolist()
-        rb = rng.integers(0, nc_cells, size=n).tolist()
-        rc = rng.integers(0, nc_cells, size=n).tolist()
+        op = self.open_idx
+        ra = op[rng.integers(0, len(op), size=n)].tolist()
+        rb = op[rng.integers(0, len(op), size=n)].tolist()
+        rc = op[rng.integers(0, len(op), size=n)].tolist()
+        fx, hf = self._fixed, self._has_fixed
         col = self.col
         fires = self.fires
         p = self.palette
@@ -190,7 +256,10 @@ class Sim:
                 j = 0
                 while u >= ent.cum[j]:
                     j += 1
-                col[a] = ent.new[j][0]
+                nw = ent.new[j]
+                if hf and fx[a] and nw[0] != col[a]:
+                    continue
+                col[a] = nw[0]
             elif e < nc + ne:
                 if a == b:
                     continue
@@ -200,7 +269,10 @@ class Sim:
                 j = 0
                 while u >= ent.cum[j]:
                     j += 1
-                col[a], col[b] = ent.new[j]
+                nw = ent.new[j]
+                if hf and ((fx[a] and nw[0] != col[a]) or (fx[b] and nw[1] != col[b])):
+                    continue
+                col[a], col[b] = nw
             else:
                 if a == b or b == c or a == c:
                     continue
@@ -210,7 +282,14 @@ class Sim:
                 j = 0
                 while u >= ent.cum[j]:
                     j += 1
-                col[a], col[b], col[c] = ent.new[j]
+                nw = ent.new[j]
+                if hf and (
+                    (fx[a] and nw[0] != col[a])
+                    or (fx[b] and nw[1] != col[b])
+                    or (fx[c] and nw[2] != col[c])
+                ):
+                    continue
+                col[a], col[b], col[c] = nw
             fires[ent.rid[j]] += 1
 
 

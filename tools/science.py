@@ -1,7 +1,7 @@
 """Headless science checks (CLAUDE.md, Python twin, checks 1-4). CSV + PNG snapshots + summary
 in runs/science/<check>_<timestamp>/.
 
-    python tools/science.py voter|rps|chiral|levels|all [--quick]
+    python tools/science.py voter|rps|chiral|levels|terrain|all [--quick]
 """
 
 from __future__ import annotations
@@ -105,6 +105,112 @@ def _summary(d: Path, lines: list[str]) -> None:
     text = "\n".join(lines) + "\n"
     (d / "summary.txt").write_text(text)
     print(text)
+
+
+# ---- check 5: voter model with fixed cells and a wall (exact harmonic benchmark) ----------
+def harmonic(g, edges: np.ndarray, fixed: np.ndarray, value: np.ndarray, world) -> np.ndarray:
+    """Discrete harmonic function on the world cells: u = value on fixed cells, and on free
+    cells u_i = mean of u over its neighbours along `edges` (holes are not connected, so
+    walls and open sides are no-flux boundaries). Dense solve."""
+    free = np.flatnonzero(world & ~fixed)
+    pos = -np.ones(g.n_cells, dtype=np.int64)
+    pos[free] = np.arange(len(free))
+    a = np.zeros((len(free), len(free)))
+    b = np.zeros(len(free))
+    for i, j in edges.tolist():
+        for u, v in ((i, j), (j, i)):
+            if pos[u] < 0:
+                continue
+            a[pos[u], pos[u]] += 1.0
+            if pos[v] >= 0:
+                a[pos[u], pos[v]] -= 1.0
+            else:
+                b[pos[u]] += value[v]
+    out = np.where(fixed, value, np.nan).astype(float)
+    out[free] = np.linalg.solve(a, b)
+    return out
+
+
+def grey_png(g, u: np.ndarray, hole: np.ndarray, path: Path, size: float = 10.0) -> None:
+    """u in [0, 1] as grey levels (white = 1), holes in mid blue."""
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    import pygame
+
+    pm = hex_pixel_map(g, size)
+    lev = np.clip(np.nan_to_num(u), 0, 1)
+    lut = np.stack([lev * 255] * 3, axis=1).astype(np.uint8)
+    lut[hole] = (70, 90, 150)
+    lut = np.vstack([lut, [30, 30, 36]])
+    rgb = lut[np.where(pm < 0, len(u), pm)]
+    pygame.image.save(pygame.surfarray.make_surface(rgb.swapaxes(0, 1)), str(path))
+
+
+def check_terrain(quick: bool) -> None:
+    """Voter model (A|B -> A|A, B|A -> B|B) on an open n x n grid, left column fixed at 0,
+    right column fixed at 1, a wall in the middle column with a gap at the bottom. The voter
+    model is linear in the mean: d<u_i>/dt = sum_j (<u_j> - <u_i>), u_i = 1[s_i = 0], so the
+    stationary mean is the discrete harmonic function with u = 1 / 0 on the fixed columns
+    and no flux through the wall and the open sides. Exact; the only error is statistical."""
+    p = {
+        "n": 24,
+        "wall_rows": 0.6,
+        "seeds": 2 if quick else 4,
+        "t_burn": 500.0,
+        "t_run": 4000.0 if quick else 40000.0,
+        "blocks": 10,
+    }
+    d = new_run_dir("science", "terrain", p)
+    n = p["n"]
+    g = hex_torus(n, periodic=False)
+    r, c = np.arange(g.n_cells) // n, np.arange(g.n_cells) % n
+    fixed = (c == 0) | (c == n - 1)
+    hole = (c == n // 2) & (r < int(p["wall_rows"] * n))
+    rs = ReactionSet(
+        [Reaction("edge", [0, 1], [0, 0], 1.0), Reaction("edge", [1, 0], [1, 1], 1.0)], 2
+    )
+    start = np.where(c < n // 2, 0, 1)
+    blocks = []
+    sim = None
+    for seed in range(p["seeds"]):
+        sim = Sim(g, rs, start, seed=seed + 500, holes=hole, fixed=fixed)
+        sim.sweep(int(p["t_burn"] * sim.K))
+        per_block = int(p["t_run"] / p["blocks"])
+        for _ in range(p["blocks"]):
+            acc = np.zeros(g.n_cells)
+            for _ in range(per_block):  # one sample per time unit
+                sim.sweep(int(sim.K))
+                acc += sim.colours == 0
+            blocks.append(acc / per_block)
+    world = ~hole
+    u_th = harmonic(g, sim.edge_arr, fixed, (c == 0).astype(float), world)
+    bl = np.array(blocks)
+    u = bl.mean(axis=0)
+    se = bl.std(axis=0, ddof=1) / np.sqrt(len(bl))
+    free = world & ~fixed
+    z = (u - u_th)[free] / np.maximum(se[free], 1e-9)
+    err = np.abs(u - u_th)[free]
+    left, right = free & (c < n // 2), free & (c > n // 2)
+    rows = [[i, int(r[i]), int(c[i]), u_th[i], u[i], se[i]] for i in np.flatnonzero(free)]
+    write_csv(d / "terrain_voter.csv", ["cell", "row", "col", "u_harmonic", "u_grid", "se"], rows)
+    grey_png(g, u_th, hole, d / "harmonic.png")
+    grey_png(g, u, hole, d / "grid_mean.png")
+    _summary(
+        d,
+        [
+            "Voter model with fixed columns (left = 0, right = 1) and a wall with a gap:",
+            f"grid {n} x {n} open, wall {int(hole.sum())} cells, {int(free.sum())} free cells,",
+            f"{p['seeds']} seeds x {p['blocks']} blocks of {p['t_run'] / p['blocks']:g} time"
+            " units (one sample per unit time).",
+            "u = time-averaged probability of colour 0 against the discrete harmonic function.",
+            f"  max |u - u_h| = {err.max():.4f}, rms = {np.sqrt((err**2).mean()):.4f}",
+            f"  mean standard error (block means) = {se[free].mean():.4f}",
+            f"  z = (u - u_h) / se: mean {z.mean():+.2f}, rms {np.sqrt((z**2).mean()):.2f}"
+            f" (expect about 0 and 1), |z| > 3 in {(np.abs(z) > 3).mean():.1%} of cells",
+            f"  mean u left of the wall {u[left].mean():.4f} (harmonic {u_th[left].mean():.4f}),"
+            f" right {u[right].mean():.4f} (harmonic {u_th[right].mean():.4f})",
+            "PNG: harmonic.png and grid_mean.png (white = colour 0 always, wall in blue).",
+        ],
+    )
 
 
 # ---- check 1: voter --------------------------------------------------------------------
@@ -583,6 +689,7 @@ CHECKS = {
     "levels": check_levels,
     "shapes": check_shapes,
     "handedness": check_handedness,
+    "terrain": check_terrain,
 }
 
 
