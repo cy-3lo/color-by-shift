@@ -1,0 +1,25 @@
+{
+  "id": "S01",
+  "title": "",
+  "grid": {
+    "w": 18,
+    "h": 12
+  },
+  "colours": [
+    "#26466e",
+    "#f0e2c4"
+  ],
+  "picture": {
+    "flag": "bands_v"
+  },
+  "program": [
+    {
+      "dir": "|",
+      "pair": [
+        0,
+        1
+      ]
+    }
+  ],
+  "cycles": 2
+}

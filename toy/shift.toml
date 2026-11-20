@@ -1,0 +1,11 @@
+# Shift toy (toy/shift_toy.py): reversible directional swaps, levels in levels/shift.
+
+[window]
+width = 1240
+height = 760
+canvas = 860              # width of the picture area (left); the panel takes the rest
+fps = 60
+
+[levels]
+folder = "levels/shift"
+max_reactions = 8         # rows of the player's list

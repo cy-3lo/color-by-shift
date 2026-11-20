@@ -1,0 +1,32 @@
+{
+  "id": "S03",
+  "title": "",
+  "grid": {
+    "w": 18,
+    "h": 12
+  },
+  "colours": [
+    "#26466e",
+    "#f0e2c4"
+  ],
+  "picture": {
+    "flag": "cross"
+  },
+  "program": [
+    {
+      "dir": "|",
+      "pair": [
+        0,
+        1
+      ]
+    },
+    {
+      "dir": "\\",
+      "pair": [
+        0,
+        1
+      ]
+    }
+  ],
+  "cycles": 2
+}
