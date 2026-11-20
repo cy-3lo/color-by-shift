@@ -1,0 +1,52 @@
+{
+ "id": "F07",
+ "title": "",
+ "foam": "grids/foam_a.json",
+ "colours": [
+  "#26466e",
+  "#f0e2c4",
+  "#d6604d",
+  "#6fae8c",
+  "#e9b44c"
+ ],
+ "picture": {
+  "flag": "bands_d"
+ },
+ "scramble": [
+  {
+   "group": 0,
+   "pair": [
+    2,
+    3
+   ]
+  },
+  {
+   "group": 4,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    3,
+    4
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    2,
+    3
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    1,
+    2
+   ]
+  }
+ ]
+}

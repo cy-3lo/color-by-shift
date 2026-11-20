@@ -1,0 +1,37 @@
+{
+ "id": "F05",
+ "title": "",
+ "foam": "grids/foam_a.json",
+ "colours": [
+  "#26466e",
+  "#f0e2c4",
+  "#d6604d",
+  "#6fae8c"
+ ],
+ "picture": {
+  "flag": "quarters"
+ },
+ "scramble": [
+  {
+   "group": 0,
+   "pair": [
+    1,
+    3
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    0,
+    2
+   ]
+  },
+  {
+   "group": 3,
+   "pair": [
+    0,
+    2
+   ]
+  }
+ ]
+}

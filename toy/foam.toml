@@ -1,0 +1,11 @@
+# Foam toy (toy/foam_toy.py): click to shift, levels in levels/foam (tools/make_foam.py).
+
+[window]
+width = 1160
+height = 760
+strip = 150               # width of the strip (right); the picture takes the rest
+margin = 24               # around the picture, pixels
+fps = 60
+
+[levels]
+folder = "levels/foam"

@@ -1,0 +1,59 @@
+{
+ "id": "F08",
+ "title": "",
+ "foam": "grids/foam_a.json",
+ "colours": [
+  "#26466e",
+  "#f0e2c4",
+  "#d6604d",
+  "#6fae8c",
+  "#e9b44c"
+ ],
+ "picture": {
+  "flag": "rings"
+ },
+ "scramble": [
+  {
+   "group": 6,
+   "pair": [
+    3,
+    4
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    3,
+    4
+   ]
+  },
+  {
+   "group": 5,
+   "pair": [
+    3,
+    4
+   ]
+  },
+  {
+   "group": 7,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 3,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 5,
+   "pair": [
+    2,
+    3
+   ]
+  }
+ ]
+}

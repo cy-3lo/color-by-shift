@@ -1,0 +1,301 @@
+"""Foam toy: click to shift. A picture on a foam was scrambled by a few moves; put it back.
+
+    .venv/bin/python toy/foam_toy.py [--level F01]
+
+Point between two neighbouring cells of different colours and click: they swap their
+colours, and so does every pair of the same group that holds these two colours (model:
+mosaic_model.foam). While you point, the pairs of that group are drawn as thin links and the
+ones that would swap as bright bars. A move is its own inverse: the same click again takes
+it back (and the count goes down).
+
+Strip (right): < level > (Up / Down), the picture to recover, the number of moves over the
+number the picture was scrambled with, and one button: back to the scrambled picture (R).
+The frame lights up when the picture is recovered. H prints the scrambling moves in the
+terminal. Esc quits.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import os
+import sys
+import tomllib
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "toy"))
+
+from mosaic_model.foam import load_foam_level, nearest_site  # noqa: E402
+
+BG = (28, 28, 34)
+PANEL = (38, 38, 46)
+FG = (236, 233, 224)
+MID = (150, 148, 160)
+BTN = (58, 58, 70)
+ACCENT = (240, 180, 90)
+
+
+def load_cfg() -> dict:
+    return tomllib.loads((ROOT / "toy" / "foam.toml").read_text())
+
+
+def rgb(h: str) -> tuple[int, int, int]:
+    h = h.lstrip("#")
+    return tuple(int(h[k : k + 2], 16) for k in (0, 2, 4))
+
+
+class FoamToy:
+    def __init__(self, cfg: dict, level: str | None = None):
+        import pygame
+
+        self.pg = pygame
+        self.cfg = cfg
+        w, h = cfg["window"]["width"], cfg["window"]["height"]
+        self.screen = pygame.display.set_mode((w, h))
+        pygame.display.set_caption("Mosaic shift")
+        self.font = pygame.font.Font(None, 26)
+        self.canvas = pygame.Rect(0, 0, w - cfg["window"]["strip"], h)
+        self.px = self.canvas.right + 12
+        self.files = sorted((ROOT / cfg["levels"]["folder"]).glob("*.json"))
+        ids = [f.stem for f in self.files]
+        self.level_i = ids.index(level) if level else 0
+        self.buttons: dict[str, object] = {}
+        self.rasters: dict = {}
+        self.hover: tuple[int, int] | None = None
+        self.load()
+
+    # ---- level and moves ---------------------------------------------------------------------
+    def load(self) -> None:
+        self.level = load_foam_level(self.files[self.level_i], ROOT)
+        foam = self.level.foam
+        self.pal = np.array([rgb(c) for c in self.level.colours] + [BG], dtype=np.uint8)
+        m = self.cfg["window"]["margin"]
+        pw = min(self.canvas.w - 2 * m, int((self.canvas.h - 2 * m) * foam.aspect))
+        ph = round(pw / foam.aspect)
+        self.rect = self.pg.Rect(0, 0, pw, ph)
+        self.rect.center = self.canvas.center
+        key = (id(foam.sites.tobytes()), foam.sites.tobytes(), pw, ph)
+        if key not in self.rasters:
+            lab = nearest_site(foam.sites, pw, ph, foam.aspect)
+            edge = np.zeros(lab.shape, bool)  # thin dark line between cells
+            edge[:, :-1] |= lab[:, :-1] != lab[:, 1:]
+            edge[:-1, :] |= lab[:-1, :] != lab[1:, :]
+            self.rasters[key] = (lab, edge)
+        self.labels, self.border = self.rasters[key]
+        self.surf = self.pg.Surface((pw, ph))
+        self.site_px = foam.sites / (foam.aspect, 1.0) * (pw, ph) + self.rect.topleft
+        tw = self.cfg["window"]["strip"] - 24
+        self.thumb = self.pg.Surface((tw, round(tw / foam.aspect)))
+        self.thumb_lab = nearest_site(foam.sites, tw, round(tw / foam.aspect), foam.aspect)
+        self.pg.surfarray.blit_array(
+            self.thumb, self.pal[self.level.target][self.thumb_lab].swapaxes(0, 1)
+        )
+        self.start = self.level.scrambled()
+        self.reset()
+
+    def reset(self) -> None:
+        self.col = self.start.copy()
+        self.history: list[tuple[int, int, int]] = []
+
+    def solved(self) -> bool:
+        return bool((self.col == self.level.target).all())
+
+    def pair_at(self, pos) -> tuple[int, int] | None:
+        """The cell under the pointer and its neighbour nearest to the pointer."""
+        if not self.rect.collidepoint(pos):
+            return None
+        d = np.hypot(self.site_px[:, 0] - pos[0], self.site_px[:, 1] - pos[1])
+        u, v = (int(k) for k in np.argsort(d)[:2])
+        return (u, v) if self.level.foam.group_of(u, v) is not None else None
+
+    def move_at(self, pair: tuple[int, int]) -> tuple[int, int, int] | None:
+        """The move a pair stands for: (group, colour, colour), None if nothing would move."""
+        u, v = pair
+        a, b = sorted((int(self.col[u]), int(self.col[v])))
+        return (self.level.foam.group_of(u, v), a, b) if a != b else None
+
+    def play(self, pair: tuple[int, int]) -> bool:
+        mv = self.move_at(pair)
+        if mv is None:
+            return False
+        self.col = self.level.foam.move(self.col, *mv)
+        if self.history and self.history[-1] == mv:
+            self.history.pop()  # the same move again takes it back
+        else:
+            self.history.append(mv)
+        return True
+
+    def button(self, key: str) -> None:
+        if key in ("lvl-", "lvl+"):
+            self.level_i = (self.level_i + (1 if key == "lvl+" else -1)) % len(self.files)
+            self.load()
+        elif key == "reset":
+            self.reset()
+        elif key == "hidden":
+            moves = ", ".join(f"group {g} {a}|{b}" for g, a, b in self.level.scramble)
+            print(self.level.id, "scrambled by:", moves)
+
+    def click(self, pos) -> None:
+        for key, r in self.buttons.items():
+            if r.collidepoint(pos):
+                self.button(key)
+                return
+        pair = self.pair_at(pos)
+        if pair is not None:
+            self.play(pair)
+
+    # ---- drawing -----------------------------------------------------------------------------
+    def icon(self, key: str, kind: str, r) -> None:
+        pg = self.pg
+        r = pg.Rect(r)
+        pg.draw.rect(self.screen, BTN, r, border_radius=6)
+        cx, cy = r.center
+        s = min(r.w, r.h) * 0.26
+        if kind in ("left", "right"):
+            sg = 1 if kind == "right" else -1
+            pts = [
+                (cx - sg * 0.5 * s, cy - s),
+                (cx + sg * 0.5 * s, cy),
+                (cx - sg * 0.5 * s, cy + s),
+            ]
+            pg.draw.lines(self.screen, FG, False, pts, 2)
+        else:  # reset: a bar, then two triangles pointing left
+            pg.draw.rect(self.screen, FG, pg.Rect(cx - 1.9 * s, cy - s, 0.4 * s, 2 * s))
+            for x in (cx - 0.5 * s, cx + 1.1 * s):
+                pts = [(x + 0.8 * s, cy - s), (x - 0.8 * s, cy), (x + 0.8 * s, cy + s)]
+                pg.draw.polygon(self.screen, FG, pts)
+        self.buttons[key] = r
+
+    def draw(self) -> None:
+        pg = self.pg
+        self.screen.fill(BG)
+        idx = self.col[self.labels]
+        idx[self.border] = len(self.pal) - 1
+        pg.surfarray.blit_array(self.surf, self.pal[idx].swapaxes(0, 1))
+        self.screen.blit(self.surf, self.rect.topleft)
+        if self.hover is not None:  # the group of the pair pointed at, and what would swap
+            u, v = self.hover
+            foam = self.level.foam
+            g = foam.group_of(u, v)
+            for p, q in zip(*foam.pairs[g], strict=True):
+                pg.draw.line(self.screen, (20, 20, 24), self.site_px[p], self.site_px[q], 3)
+                pg.draw.line(self.screen, MID, self.site_px[p], self.site_px[q], 1)
+            mv = self.move_at(self.hover)
+            if mv is not None:
+                for p, q in zip(*foam.swapping(self.col, *mv), strict=True):
+                    pg.draw.line(self.screen, (20, 20, 24), self.site_px[p], self.site_px[q], 7)
+                    pg.draw.line(self.screen, FG, self.site_px[p], self.site_px[q], 3)
+            for k in (u, v):
+                pg.draw.circle(self.screen, FG, self.site_px[k], 5)
+                pg.draw.circle(self.screen, (20, 20, 24), self.site_px[k], 5, 1)
+        if self.solved():
+            pg.draw.rect(self.screen, ACCENT, self.rect.inflate(14, 14), 3, border_radius=8)
+        pg.draw.rect(self.screen, PANEL, (self.canvas.right, 0, 9999, self.canvas.h))
+        self.buttons = {}
+        x, w = self.px, self.screen.get_width() - self.px - 12
+        H = self.screen.get_height()
+        t = self.font.render(self.level.title or self.level.id, True, FG)
+        self.screen.blit(t, t.get_rect(center=(x + w // 2, 29)))
+        self.icon("lvl-", "left", (x, 14, 30, 30))
+        self.icon("lvl+", "right", (x + w - 30, 14, 30, 30))
+        self.screen.blit(self.thumb, (x, 64))
+        pg.draw.rect(self.screen, MID, self.thumb.get_rect(topleft=(x, 64)), 1)
+        n, par = len(self.history), self.level.par
+        good = self.solved() and n <= par
+        num = self.font.render(f"{n} / {par}", True, ACCENT if good else FG)
+        self.screen.blit(num, num.get_rect(center=(x + w // 2, H - 96)))
+        self.icon("reset", "reset", (x, H - 62, w, 48))
+
+    # ---- main loop ---------------------------------------------------------------------------
+    def loop(self, smoke: bool = False) -> None:
+        pg = self.pg
+        clock = pg.time.Clock()
+        keymap = {pg.K_r: "reset", pg.K_h: "hidden", pg.K_UP: "lvl-", pg.K_DOWN: "lvl+"}
+        running = True
+        while running:
+            clock.tick(self.cfg["window"]["fps"])
+            for ev in pg.event.get():
+                if ev.type == pg.QUIT:
+                    running = False
+                elif ev.type == pg.MOUSEMOTION:
+                    self.hover = self.pair_at(ev.pos)
+                elif ev.type == pg.MOUSEBUTTONDOWN and ev.button == 1:
+                    self.click(ev.pos)
+                    self.hover = self.pair_at(ev.pos)
+                elif ev.type == pg.KEYDOWN:
+                    if ev.key == pg.K_ESCAPE:
+                        running = False
+                    elif ev.key in keymap:
+                        self.button(keymap[ev.key])
+            if smoke:
+                self.smoke()
+                running = False
+            self.draw()
+            pg.display.flip()
+
+    def point_for(self, mv: tuple[int, int, int]) -> tuple[float, float]:
+        """A pixel whose pair stands for the move mv (for the headless run)."""
+        for u, v in zip(*self.level.foam.swapping(self.col, *mv), strict=True):
+            for f in (0.5, 0.45, 0.55, 0.4, 0.6):
+                pos = tuple(self.site_px[u] * f + self.site_px[v] * (1 - f))
+                pair = self.pair_at(pos)
+                if pair is not None and self.move_at(pair) == mv:
+                    return pos
+        raise AssertionError(f"no pixel found for move {mv}")
+
+    def smoke(self) -> None:
+        """Headless checks, by clicks: every level starts scrambled; the same click twice
+        takes a move back; the scrambling moves clicked in reverse order recover the picture
+        in par moves; reset brings the scrambled picture back. Two screenshots per level
+        (pointing at the first move, recovered)."""
+        out = ROOT / "runs" / "foam_toy"
+        out.mkdir(parents=True, exist_ok=True)
+        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+        for _ in self.files:
+            lv = self.level
+            assert not self.solved() and not self.history
+            way_back = lv.scramble[::-1]
+            pos = self.point_for(way_back[0])
+            self.hover = self.pair_at(pos)
+            self.draw()
+            self.pg.image.save(self.screen, str(out / f"{lv.id}_point_{stamp}.png"))
+            self.click(pos)
+            assert len(self.history) == 1 and (self.col != self.start).any()
+            self.click(pos)  # the same click again: taken back
+            assert not self.history and (self.col == self.start).all()
+            for mv in way_back:
+                self.click(self.point_for(mv))
+            assert self.solved() and len(self.history) == lv.par, lv.id
+            self.hover = None
+            self.draw()
+            self.pg.image.save(self.screen, str(out / f"{lv.id}_recovered_{stamp}.png"))
+            self.click(self.buttons["reset"].center)
+            assert not self.history and (self.col == self.start).all()
+            self.button("lvl+")
+            self.draw()
+        print(
+            f"smoke: {len(self.files)} levels recovered at par by clicks; screenshots in", end=" "
+        )
+        print(out.relative_to(ROOT))
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--level", default=None, help="level id (file name in levels/foam)")
+    ap.add_argument("--smoke", action="store_true", help="headless checks and screenshots")
+    a = ap.parse_args()
+    if a.smoke:
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
+    import pygame
+
+    pygame.init()
+    toy = FoamToy(load_cfg(), a.level)
+    toy.loop(a.smoke)
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()
