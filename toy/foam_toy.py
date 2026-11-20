@@ -15,7 +15,9 @@ the shapes remain, with their outline ([picture] in toy/foam.toml: cell_lines, o
 while playing, win_outline_px once recovered, show_target for a small coloured copy).
 
 Strip (right): < level > (Up / Down), the number of moves over the number the picture was
-scrambled with, and one button: back to the scrambled picture (R).
+scrambled with, and three buttons: undo (Z), redo (Y), back to the scrambled picture (R).
+A level made from a painting (tools/make_painting_level.py) ends with the painting itself
+fading in, with its painter and title.
 The frame lights up when the picture is recovered. H prints the scrambling moves in the
 terminal. Esc quits.
 """
@@ -26,6 +28,7 @@ import argparse
 import datetime as dt
 import os
 import sys
+import time
 import tomllib
 from pathlib import Path
 
@@ -42,6 +45,7 @@ PANEL = (38, 38, 46)
 FG = (236, 233, 224)
 MID = (150, 148, 160)
 BTN = (58, 58, 70)
+DIM = (92, 90, 104)  # icon of a button that has nothing to do
 ACCENT = (240, 180, 90)
 
 
@@ -64,6 +68,7 @@ class FoamToy:
         self.screen = pygame.display.set_mode((w, h))
         pygame.display.set_caption("Mosaic shift")
         self.font = pygame.font.Font(None, 26)
+        self.small = pygame.font.Font(None, 21)
         self.canvas = pygame.Rect(0, 0, w - cfg["window"]["strip"], h)
         self.px = self.canvas.right + 12
         self.files = sorted((ROOT / cfg["levels"]["folder"]).glob("*.json"))
@@ -103,6 +108,24 @@ class FoamToy:
         self.pg.surfarray.blit_array(
             self.thumb, self.pal[self.level.target][self.thumb_lab].swapaxes(0, 1)
         )
+        self.painting = None  # the reward of a painting level, at the size of the picture
+        rw = self.level.reward
+        if rw and rw.get("image"):
+            im = self.pg.image.load(str(ROOT / rw["image"]))
+            W, H = im.get_size()
+            x0, y0, x1, y1 = rw.get("crop") or (0.0, 0.0, 1.0, 1.0)
+            box = self.pg.Rect(
+                round(x0 * W), round(y0 * H), round((x1 - x0) * W), round((y1 - y0) * H)
+            )
+            ax, ay = rw.get("anchor") or (0.5, 0.5)
+            if box.w / box.h > foam.aspect:  # the largest window of the foam's format
+                w2 = round(box.h * foam.aspect)
+                box = self.pg.Rect(box.x + round((box.w - w2) * ax), box.y, w2, box.h)
+            else:
+                h2 = round(box.w / foam.aspect)
+                box = self.pg.Rect(box.x, box.y + round((box.h - h2) * ay), box.w, h2)
+            self.painting = self.pg.transform.smoothscale(im.subsurface(box), (pw, ph))
+        self.flat = self.pg.Surface((pw, ph))
         self.start = self.level.scrambled()
         self.reset()
 
@@ -130,7 +153,30 @@ class FoamToy:
 
     def reset(self) -> None:
         self.col = self.start.copy()
-        self.history: list[tuple[int, int, int]] = []
+        self.history: list[tuple[int, int, int]] = []  # moves played, in order
+        self.future: list[tuple[int, int, int]] = []  # moves taken back, for redo
+        self.solved_at: float | None = None
+
+    def after_move(self) -> None:
+        """Start (or cancel) the reward when the picture becomes (or stops being) recovered."""
+        if not self.solved():
+            self.solved_at = None
+        elif self.solved_at is None:
+            self.solved_at = time.time()
+
+    def undo(self) -> None:
+        if self.history:
+            mv = self.history.pop()
+            self.col = self.level.foam.move(self.col, *mv)  # a move is its own inverse
+            self.future.append(mv)
+            self.after_move()
+
+    def redo(self) -> None:
+        if self.future:
+            mv = self.future.pop()
+            self.col = self.level.foam.move(self.col, *mv)
+            self.history.append(mv)
+            self.after_move()
 
     def solved(self) -> bool:
         return bool((self.col == self.level.target).all())
@@ -153,11 +199,13 @@ class FoamToy:
         mv = self.move_at(pair)
         if mv is None:
             return False
-        self.col = self.level.foam.move(self.col, *mv)
         if self.history and self.history[-1] == mv:
-            self.history.pop()  # the same move again takes it back
-        else:
-            self.history.append(mv)
+            self.undo()  # the same move again takes it back
+            return True
+        self.col = self.level.foam.move(self.col, *mv)
+        self.history.append(mv)
+        self.future = []
+        self.after_move()
         return True
 
     def button(self, key: str) -> None:
@@ -166,6 +214,10 @@ class FoamToy:
             self.load()
         elif key == "reset":
             self.reset()
+        elif key == "undo":
+            self.undo()
+        elif key == "redo":
+            self.redo()
         elif key == "hidden":
             moves = ", ".join(f"group {g} {a}|{b}" for g, a, b in self.level.scramble)
             print(self.level.id, "scrambled by:", moves)
@@ -180,13 +232,21 @@ class FoamToy:
             self.play(pair)
 
     # ---- drawing -----------------------------------------------------------------------------
-    def icon(self, key: str, kind: str, r) -> None:
+    def icon(self, key: str, kind: str, r, col=FG) -> None:
         pg = self.pg
         r = pg.Rect(r)
         pg.draw.rect(self.screen, BTN, r, border_radius=6)
         cx, cy = r.center
         s = min(r.w, r.h) * 0.26
-        if kind in ("left", "right"):
+        if kind in ("undo", "redo"):  # an arrow that turns back: left = undo, right = redo
+            sg = -1 if kind == "undo" else 1
+            box = pg.Rect(cx - 1.1 * s, cy - 0.7 * s, 2.2 * s, 2.0 * s)
+            a0, a1 = (0.0, 3.6) if sg < 0 else (-0.45, 3.14)
+            pg.draw.arc(self.screen, col, box, a0, a1, 3)
+            tip = (cx + sg * 1.1 * s, cy + 0.3 * s)
+            pts = [(tip[0] - 0.7 * s, tip[1] - 0.2 * s), (tip[0] + 0.7 * s, tip[1] - 0.2 * s)]
+            pg.draw.polygon(self.screen, col, [*pts, (tip[0], tip[1] + 0.8 * s)])
+        elif kind in ("left", "right"):
             sg = 1 if kind == "right" else -1
             pts = [
                 (cx - sg * 0.5 * s, cy - s),
@@ -205,14 +265,26 @@ class FoamToy:
         pg = self.pg
         self.screen.fill(BG)
         idx = self.col[self.labels]
-        if self.solved():  # the reward: the cells vanish, only the shapes remain
-            idx[self.win_outline] = len(self.pal) - 1
-        else:
-            if self.cfg["picture"]["cell_lines"]:
-                idx[self.border] = len(self.pal) - 1
-            idx[self.outline] = len(self.pal) - 1
+        if self.cfg["picture"]["cell_lines"]:
+            idx[self.border] = len(self.pal) - 1
+        idx[self.outline] = len(self.pal) - 1
         pg.surfarray.blit_array(self.surf, self.pal[idx].swapaxes(0, 1))
         self.screen.blit(self.surf, self.rect.topleft)
+        shown = 0.0  # how much of the painting is shown, 0..1
+        if self.solved_at is not None:
+            # the reward: the lines between cells fade and only the shapes remain; then, for
+            # a painting, the painting itself appears with its painter and title
+            rw = self.cfg["reward"]
+            t = time.time() - self.solved_at
+            flat = self.col[self.labels]
+            flat[self.win_outline] = len(self.pal) - 1
+            pg.surfarray.blit_array(self.flat, self.pal[flat].swapaxes(0, 1))
+            self.flat.set_alpha(int(255 * min(1.0, t / rw["lines_s"])))
+            self.screen.blit(self.flat, self.rect.topleft)
+            if self.painting is not None:
+                shown = min(1.0, max(0.0, (t - rw["lines_s"] - rw["hold_s"]) / rw["fade_s"]))
+                self.painting.set_alpha(int(255 * shown))
+                self.screen.blit(self.painting, self.rect.topleft)
         if self.hover is not None:  # the group of the pair pointed at, and what would swap
             u, v = self.hover
             foam = self.level.foam
@@ -238,20 +310,50 @@ class FoamToy:
         self.screen.blit(t, t.get_rect(center=(x + w // 2, 29)))
         self.icon("lvl-", "left", (x, 14, 30, 30))
         self.icon("lvl+", "right", (x + w - 30, 14, 30, 30))
+        y = 64
         if self.cfg["picture"]["show_target"]:
-            self.screen.blit(self.thumb, (x, 64))
-            pg.draw.rect(self.screen, MID, self.thumb.get_rect(topleft=(x, 64)), 1)
+            self.screen.blit(self.thumb, (x, y))
+            pg.draw.rect(self.screen, MID, self.thumb.get_rect(topleft=(x, y)), 1)
+            y += self.thumb.get_height() + 16
+        if shown > 0 and self.level.reward:  # painter and title, with the painting
+            for text, col in (
+                (self.level.reward.get("artist", ""), FG),
+                (self.level.reward.get("title", ""), MID),
+            ):
+                line = ""
+                for word in [*text.split(), None]:
+                    test = f"{line} {word}".strip() if word else line
+                    if word is None or self.small.size(test)[0] > w:
+                        if line:
+                            t = self.small.render(line, True, col)
+                            t.set_alpha(int(255 * shown))
+                            self.screen.blit(t, (x, y))
+                            y += self.small.get_linesize()
+                        line = word or ""
+                    else:
+                        line = test
+                y += 8
         n, par = len(self.history), self.level.par
         good = self.solved() and n <= par
         num = self.font.render(f"{n} / {par}", True, ACCENT if good else FG)
-        self.screen.blit(num, num.get_rect(center=(x + w // 2, H - 96)))
+        self.screen.blit(num, num.get_rect(center=(x + w // 2, H - 148)))
+        half = (w - 8) // 2
+        self.icon("undo", "undo", (x, H - 118, half, 48), FG if self.history else DIM)
+        self.icon("redo", "redo", (x + half + 8, H - 118, half, 48), FG if self.future else DIM)
         self.icon("reset", "reset", (x, H - 62, w, 48))
 
     # ---- main loop ---------------------------------------------------------------------------
     def loop(self, smoke: bool = False) -> None:
         pg = self.pg
         clock = pg.time.Clock()
-        keymap = {pg.K_r: "reset", pg.K_h: "hidden", pg.K_UP: "lvl-", pg.K_DOWN: "lvl+"}
+        keymap = {
+            pg.K_r: "reset",
+            pg.K_z: "undo",
+            pg.K_y: "redo",
+            pg.K_h: "hidden",
+            pg.K_UP: "lvl-",
+            pg.K_DOWN: "lvl+",
+        }
         running = True
         while running:
             clock.tick(self.cfg["window"]["fps"])
@@ -307,6 +409,11 @@ class FoamToy:
             for mv in way_back:
                 self.click(self.point_for(mv))
             assert self.solved() and len(self.history) == lv.par, lv.id
+            self.click(self.buttons["undo"].center)
+            assert not self.solved() and len(self.history) == lv.par - 1 and self.solved_at is None
+            self.click(self.buttons["redo"].center)
+            assert self.solved() and len(self.history) == lv.par and not self.future
+            self.solved_at -= 60  # the end of the reward
             self.hover = None
             self.draw()
             self.pg.image.save(self.screen, str(out / f"{lv.id}_recovered_{stamp}.png"))

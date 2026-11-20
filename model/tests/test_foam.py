@@ -129,4 +129,25 @@ def test_foam_follows_drawn_shapes() -> None:
     cross = (f.site_region[f.edges[:, 0]] != f.site_region[f.edges[:, 1]]).sum()
     assert cross >= 10  # cells of the two regions are neighbours across the outline
     with pytest.raises(ValueError):
-        nearest_site(f.sites, 60, 40, 1.5, np.zeros(f.n_cells, int), f.shapes)  # empty region
+        nearest_site(
+            f.sites, 60, 40, 1.5, np.zeros(f.n_cells, int), region_map(f.shapes, 60, 40, 1.5)
+        )
+
+
+def test_foam_follows_a_raster_of_regions(tmp_path) -> None:
+    """Regions given as a picture (a quantised painting): cells stay inside their block, and
+    the foam with its raster survives a save and a load."""
+    import json
+
+    reg = np.zeros((40, 60), dtype=np.uint16)
+    reg[:, 30:] = 1
+    reg[10:30, 20:40] = 2
+    f = make_foam(50, 1.5, 2, relax=2, width=240, regions=reg, min_sites=1)
+    assert f.n_regions == 3 and set(np.unique(f.site_region)) == {0, 1, 2}
+    assert (f.site_region[f.raster(240, 160)] == f.region_raster(240, 160)).all()
+    np.save(tmp_path / "foam_x_regions.npy", reg)
+    (tmp_path / "foam_x.json").write_text(
+        json.dumps(f.to_json() | {"regions_file": "foam_x_regions.npy"})
+    )
+    back = load_foam(tmp_path / "foam_x.json")
+    assert (back.raster(120, 80) == f.raster(120, 80)).mean() > 0.99  # sites rounded in JSON

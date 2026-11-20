@@ -15,3 +15,8 @@ outline_px = 0            # outline of the shapes while playing (0 = none)
 win_outline_px = 3        # outline of the shapes once the picture is recovered (0 = none)
 cell_lines = true         # thin line between every two cells
 show_target = false       # small coloured copy of the picture to recover in the strip
+
+[reward]
+lines_s = 0.8             # the lines between cells fade out
+hold_s = 1.0              # the flat shapes stay
+fade_s = 2.5              # then the painting fades in (painting levels)
