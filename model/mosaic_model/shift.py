@@ -119,8 +119,8 @@ class ShiftGrid:
 def flag(kind: str, g: Graph, n: int) -> np.ndarray:
     """Simple flag-like pictures with n colours (generic patterns, no particular flag):
     bands_v, bands_h (n equal bands), disc (colour 1 on 0), sun (a disc of colour 1 on two
-    horizontal halves), cross (colour 1 on 0, off-centre
-    like a Nordic cross), diagonal (two halves; with n = 3 a band along the diagonal)."""
+    horizontal halves), quarters, rings, bands_d (n diagonal bands), cross (colour 1 on 0,
+    off-centre like a Nordic cross), diagonal (two halves; with n = 3 a band along the diagonal)."""
     x, y = np.asarray(g.centers)[:, 0], np.asarray(g.centers)[:, 1]
     u = (x - x.min()) / (x.max() - x.min())
     v = (y - y.min()) / (y.max() - y.min())
@@ -134,6 +134,13 @@ def flag(kind: str, g: Graph, n: int) -> np.ndarray:
     if kind == "sun":  # two horizontal halves (0 above, n - 1 below), a disc of colour 1
         r = np.hypot(x - x.mean(), y - y.mean())
         return np.where(r < 0.3 * (y.max() - y.min()), 1, np.where(v < 0.5, 0, n - 1))
+    if kind == "quarters":  # four quadrants, colours 0..3 (fewer colours: wrapped)
+        return ((u > 0.5).astype(int) + 2 * (v > 0.5).astype(int)) % n
+    if kind == "rings":  # n concentric rings, colour 0 in the centre
+        r = np.hypot((x - x.mean()) / (x.max() - x.min()), (y - y.mean()) / (y.max() - y.min()))
+        return np.minimum((r / 0.62 * n).astype(int), n - 1)
+    if kind == "bands_d":  # n diagonal bands
+        return np.minimum(((u + v) / 2 * n).astype(int), n - 1)
     if kind == "cross":
         return ((np.abs(u - 0.36) < 0.08) | (np.abs(v - 0.5) < 0.12)).astype(int)
     if kind == "diagonal":

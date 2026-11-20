@@ -3,23 +3,25 @@ put it back and play them, one by one (model: mosaic_model.shift, exactly revers
 
     .venv/bin/python toy/shift_toy.py [--level S01]
 
-Time only goes forward: your list is applied once, from top to bottom, one reaction per
-press of the step button. Each reaction moves a cell by one place at most and undoes
-itself when applied again, so the way back is the scrambling list in reverse order.
+Time only goes forward: your list is applied once, from top to bottom. Each reaction moves a
+cell by one place at most and undoes itself when applied again, so the way back is the
+scrambling list in reverse order.
 
-Panel (right), top to bottom:
-  < level >        level (Up / Down)
-  colours          the level's colours
-  reactions        your list. Each row: a direction button (the side shared by the two
-                   cells: | / \\; click = next direction, right click = remove the row) and
-                   the two colours that swap, drawn as neighbours in that direction (click
-                   a cell = next colour). + adds a row. The triangle marks the reaction the
-                   next step applies; rows already applied are ticked. Any change to the
-                   list brings the scrambled picture back.
-  buttons          back to the scrambled picture (R or Left), one reaction (Right or
-                   Space), look at the picture to recover while switched on (T)
-On the picture, the pairs that have just swapped are linked by a short bar. The frame lights
-up when the picture is recovered. H prints the scrambling list in the terminal. Esc quits.
+Drawer (right), top to bottom:
+  < level >     level (Up / Down)
+  reactions     your list. Each row: a direction button (the side shared by the two cells:
+                | / \\; click = next direction, right click = remove the row) and the two
+                colours that swap, drawn as neighbours in that direction (click a cell =
+                next colour, right click = previous). + adds a row.
+                Click a row (beside the button and the cells) to see the picture just
+                after that reaction: the row is marked, the rows above it are applied, the
+                rows below are not yet. Changing any reaction updates the picture at the
+                step you are looking at.
+  buttons       the scrambled picture (R), one reaction forward (Right or Space; Left goes
+                one back), the picture to recover while switched on (T)
+On the picture, the pairs swapped by the marked reaction are linked by a short bar. The frame
+lights up when the picture is recovered. H prints the scrambling list in the terminal. Esc
+quits.
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ from mosaic_model.shift import DIRECTION_NAMES, Swap, load_shift_level  # noqa: 
 
 BG = (28, 28, 34)
 PANEL = (38, 38, 46)
+ROW = (50, 50, 60)
 FG = (236, 233, 224)
 MID = (150, 148, 160)
 BTN = (58, 58, 70)
@@ -77,15 +80,16 @@ class ShiftToy:
         w, h = cfg["window"]["width"], cfg["window"]["height"]
         self.screen = pygame.display.set_mode((w, h))
         pygame.display.set_caption("Mosaic shift")
-        self.font = pygame.font.Font(None, 28)
-        self.canvas = pygame.Rect(0, 0, cfg["window"]["canvas"], h)
-        self.px = self.canvas.right + 18
+        self.font = pygame.font.Font(None, 26)
+        self.canvas = pygame.Rect(0, 0, w - cfg["window"]["drawer"], h)
+        self.px = self.canvas.right + 12
         self.files = sorted((ROOT / cfg["levels"]["folder"]).glob("*.json"))
         ids = [f.stem for f in self.files]
         self.level_i = ids.index(level) if level else 0
         self.buttons: dict[str, object] = {}
+        self.rows: dict[int, object] = {}
         self.cells: dict[tuple[int, int], tuple[float, float]] = {}
-        self.rb = 16.0
+        self.rb = 13.0
         self.peek = False
         self.load()
 
@@ -96,35 +100,31 @@ class ShiftToy:
     def load(self) -> None:
         self.level = load_shift_level(self.files[self.level_i])
         self.pal = [rgb(c) for c in self.level.colours]
+        self.start = self.level.scrambled()
         # your list starts with as many rows as the scrambling one, all the same
         self.program = [self.new_row() for _ in range(self.level.slots)]
-        self.reset()
-
-    def reset(self) -> None:
-        """The scrambled picture, nothing of your list applied yet."""
-        self.col = self.level.scrambled()
-        self.k = 0  # reactions of your list applied so far
-        self.moved: tuple[np.ndarray, np.ndarray] | None = None
+        self.goto(0)
 
     def swaps(self) -> list[Swap]:
         return [Swap(r["dir"], r["pair"][0], r["pair"][1], self.level.alt) for r in self.program]
 
+    def goto(self, k: int) -> None:
+        """Show the picture after the first k reactions of your list (0 = scrambled)."""
+        self.k = max(0, min(k, len(self.program)))
+        col = self.start
+        self.moved: tuple[np.ndarray, np.ndarray] | None = None
+        for s in self.swaps()[: self.k]:
+            new = self.level.grid.apply(col, s)
+            alts = (s.alt,) if s.alt is not None else (0, 1)
+            p = np.concatenate([self.level.grid.pairs[(s.direction, a)][0] for a in alts])
+            q = np.concatenate([self.level.grid.pairs[(s.direction, a)][1] for a in alts])
+            m = new[p] != col[p]
+            self.moved = (p[m], q[m])  # kept for the last reaction applied
+            col = new
+        self.col = col
+
     def solved(self) -> bool:
         return bool((self.col == self.level.target).all())
-
-    def step(self) -> None:
-        """Apply the next reaction of your list (nothing once the list is done)."""
-        if self.k >= len(self.program):
-            return
-        s = self.swaps()[self.k]
-        new = self.level.grid.apply(self.col, s)
-        alts = (s.alt,) if s.alt is not None else (0, 1)
-        p = np.concatenate([self.level.grid.pairs[(s.direction, a)][0] for a in alts])
-        q = np.concatenate([self.level.grid.pairs[(s.direction, a)][1] for a in alts])
-        m = new[p] != self.col[p]
-        self.moved = (p[m], q[m])
-        self.col = new
-        self.k += 1
 
     def button(self, key: str, d: int = 1) -> None:
         if key in ("lvl-", "lvl+"):
@@ -134,19 +134,21 @@ class ShiftToy:
             i = int(key[3:])
             if d < 0:
                 del self.program[i]
+                self.goto(self.k - 1 if i < self.k else self.k)
             else:
                 r = self.program[i]
                 k = (DIRECTION_NAMES.index(r["dir"]) + 1) % len(DIRECTION_NAMES)
                 r["dir"] = DIRECTION_NAMES[k]
-            self.reset()
+                self.goto(self.k)
         elif key == "add":
             if len(self.program) < self.cfg["levels"]["max_reactions"]:
                 self.program.append(self.new_row())
-                self.reset()
         elif key == "reset":
-            self.reset()
+            self.goto(0)
         elif key == "step":
-            self.step()
+            self.goto(self.k + 1)
+        elif key == "back":
+            self.goto(self.k - 1)
         elif key == "peek":
             self.peek = not self.peek
         elif key == "hidden":
@@ -158,11 +160,15 @@ class ShiftToy:
         for (i, j), c in self.cells.items():
             if math.hypot(pos[0] - c[0], pos[1] - c[1]) <= self.rb:
                 self.program[i]["pair"][j] = (self.program[i]["pair"][j] + d) % self.level.n
-                self.reset()
+                self.goto(self.k)
                 return
         for key, r in self.buttons.items():
             if r.collidepoint(pos):
                 self.button(key, d)
+                return
+        for i, r in self.rows.items():  # a row: the picture just after this reaction
+            if r.collidepoint(pos):
+                self.goto(i + 1)
                 return
 
     # ---- drawing -----------------------------------------------------------------------------
@@ -222,7 +228,7 @@ class ShiftToy:
         for i in range(g.n_cells):
             c = (ox + k * x[i], oy + k * y[i])
             pg.draw.polygon(self.screen, self.pal[int(col[i])], hex_points(c, k * 0.96))
-        if self.moved is not None and not self.peek:  # the pairs that have just swapped
+        if self.moved is not None and not self.peek:  # the pairs swapped by the marked row
             for p, q in zip(*self.moved, strict=True):
                 a = (ox + k * x[p], oy + k * y[p])
                 b = (ox + k * x[q], oy + k * y[q])
@@ -240,32 +246,31 @@ class ShiftToy:
     def draw_program(self, x: int, y: int, w: int, bottom: int) -> None:
         pg = self.pg
         n = len(self.program)
-        rh = min(64.0, (bottom - y) / max(1, n + 1))
-        rb = self.rb = min(16.0, rh * 0.27)
-        self.cells = {}
+        rh = min(58.0, (bottom - y) / max(1, n + 1))
+        rb = self.rb = min(13.0, rh * 0.25)
+        self.cells, self.rows = {}, {}
         for i, r in enumerate(self.program):
-            cy = y + i * rh + rh / 2
-            done = i < self.k
-            if i == self.k:  # the reaction the next step applies
-                pg.draw.polygon(self.screen, ACCENT, [(x, cy - 7), (x + 9, cy), (x, cy + 7)])
-            side = min(40, rh - 10)
-            box = (x + 22, cy - side / 2, side, side)
-            self.icon(f"dir{i}", r["dir"], box, col=MID if done else FG)
+            top = y + i * rh
+            cy = top + rh / 2
+            box = pg.Rect(x - 6, top + 2, w + 12, rh - 4)
+            self.rows[i] = box
+            if i < self.k:  # applied; the last one applied is the step you are looking at
+                pg.draw.rect(self.screen, ROW, box, border_radius=6)
+            if i == self.k - 1:
+                pg.draw.rect(self.screen, ACCENT, box, 2, border_radius=6)
+            side = min(34, rh - 12)
+            self.icon(f"dir{i}", r["dir"], (x, cy - side / 2, side, side))
             off = self.level.grid.offset(r["dir"]) * rb * 1.04
-            cx = x + 22 + side + 54
+            cx = x + side + (w - side) / 2
             for j, sg in ((0, -0.5), (1, 0.5)):
                 c = (cx + sg * off[0], cy + sg * off[1])
                 pg.draw.polygon(self.screen, self.pal[r["pair"][j]], hex_points(c, rb))
                 pg.draw.polygon(self.screen, MID, hex_points(c, rb), 1)
                 self.cells[(i, j)] = c
-            if done:  # a tick: applied
-                tx = cx + 2.6 * rb + 14
-                pts = [(tx - 6, cy), (tx - 2, cy + 5), (tx + 7, cy - 6)]
-                pg.draw.lines(self.screen, MID, False, pts, 2)
         if n < self.cfg["levels"]["max_reactions"]:
             cy = y + n * rh + rh / 2
-            side = min(30, rh - 12)
-            self.icon("add", "plus", (x + 22, cy - side / 2, side, side))
+            side = min(28, rh - 14)
+            self.icon("add", "plus", (x, cy - side / 2, side, side))
 
     def draw(self) -> None:
         pg = self.pg
@@ -273,28 +278,22 @@ class ShiftToy:
         self.draw_picture()
         pg.draw.rect(self.screen, PANEL, (self.canvas.right, 0, 9999, self.canvas.h))
         self.buttons = {}
-        x, w = self.px, self.screen.get_width() - self.px - 18
+        x, w = self.px, self.screen.get_width() - self.px - 12
         H = self.screen.get_height()
-        y = 18
+        y = 14
         t = self.font.render(self.level.title or self.level.id, True, FG)
-        self.screen.blit(t, t.get_rect(center=(x + w // 2, y + 17)))
-        self.icon("lvl-", "left", (x, y, 34, 34))
-        self.icon("lvl+", "right", (x + w - 34, y, 34, 34))
-        y += 56
-        n = self.level.n
-        for c in range(n):
-            cc = (x + w / 2 + (c - (n - 1) / 2) * 40, y + 16)
-            pg.draw.polygon(self.screen, self.pal[c], hex_points(cc, 16))
-            pg.draw.polygon(self.screen, MID, hex_points(cc, 16), 1)
-        y += 56
-        bar = 64
-        self.draw_program(x, y, w, H - bar - 40)
-        ty = H - bar - 18
-        bw = (w - 2 * 12) / 3
+        self.screen.blit(t, t.get_rect(center=(x + w // 2, y + 15)))
+        self.icon("lvl-", "left", (x, y, 30, 30))
+        self.icon("lvl+", "right", (x + w - 30, y, 30, 30))
+        y += 46
+        bar = 48
+        self.draw_program(x, y, w, H - bar - 28)
+        ty = H - bar - 14
+        bw = (w - 2 * 8) / 3
         self.icon("reset", "reset", (x, ty, bw, bar))
         left = self.k < len(self.program)
-        self.icon("step", "step", (x + (bw + 12), ty, bw, bar), col=FG if left else BTN_ON)
-        self.icon("peek", "peek", (x + 2 * (bw + 12), ty, bw, bar), on=self.peek)
+        self.icon("step", "step", (x + (bw + 8), ty, bw, bar), col=FG if left else BTN_ON)
+        self.icon("peek", "peek", (x + 2 * (bw + 8), ty, bw, bar), on=self.peek)
 
     # ---- main loop ---------------------------------------------------------------------------
     def loop(self, smoke: bool = False) -> None:
@@ -303,7 +302,7 @@ class ShiftToy:
         keymap = {
             pg.K_RIGHT: "step",
             pg.K_SPACE: "step",
-            pg.K_LEFT: "reset",
+            pg.K_LEFT: "back",
             pg.K_r: "reset",
             pg.K_t: "peek",
             pg.K_h: "hidden",
@@ -330,18 +329,18 @@ class ShiftToy:
             pg.display.flip()
 
     def smoke(self) -> None:
-        """Headless checks: every level starts scrambled and is not recovered by the default
-        list; the scrambling list written in reverse order with clicks and played with the
-        step button recovers it; an edit brings the scrambled picture back. Saves three
-        screenshots per level (scrambled, after the first reaction, recovered)."""
+        """Headless checks, by clicks: every level starts scrambled; the scrambling list
+        written in reverse order recovers it once its last row is picked; picking an earlier
+        row shows that step; an edit changes the picture at the step shown and undoing the
+        edit restores it. Saves two screenshots per level (a middle step, recovered)."""
         out = ROOT / "runs" / "shift_toy"
         out.mkdir(parents=True, exist_ok=True)
         stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
         for _ in self.files:
             lv = self.level
+            n = len(lv.program)
             assert not self.solved() and self.k == 0
             self.draw()
-            self.pg.image.save(self.screen, str(out / f"{lv.id}_scrambled_{stamp}.png"))
             for i, s in enumerate(reversed(lv.program)):  # write the way back with clicks
                 while self.program[i]["dir"] != s.direction:
                     self.click(self.buttons[f"dir{i}"].center, 1)
@@ -349,24 +348,34 @@ class ShiftToy:
                     while self.program[i]["pair"][j] != c:
                         self.click(self.cells[(i, j)], 1)
                     self.draw()
-            assert self.k == 0 and (self.col == lv.scrambled()).all()
-            for i in range(len(lv.program)):
-                self.click(self.buttons["step"].center, 1)
-                assert self.moved is not None and len(self.moved[0]) > 0, lv.id
-                if i == 0:
-                    self.draw()
-                    self.pg.image.save(self.screen, str(out / f"{lv.id}_step1_{stamp}.png"))
-            assert self.solved() and self.k == len(lv.program), lv.id
+            assert self.k == 0 and (self.col == self.start).all()
+            self.click(self.buttons["step"].center, 1)
+            assert self.k == 1 and self.moved is not None and len(self.moved[0]) > 0, lv.id
+            mid = (n + 1) // 2
+            self.click((self.rows[mid - 1].right - 4, self.rows[mid - 1].centery), 1)
+            assert self.k == mid
+            self.draw()
+            self.pg.image.save(self.screen, str(out / f"{lv.id}_step{mid}_{stamp}.png"))
+            seen = self.col.copy()
+            self.click(self.cells[(mid - 1, 0)], 1)  # an edit acts on the step shown ...
+            assert self.k == mid
+            if lv.n > 2:
+                assert (self.col != seen).any(), lv.id
+            self.click(self.cells[(mid - 1, 0)], 3)  # ... and undoing it restores the picture
+            assert (self.col == seen).all()
+            self.click((self.rows[n - 1].right - 4, self.rows[n - 1].centery), 1)
+            assert self.solved() and self.k == n, lv.id
             self.click(self.buttons["step"].center, 1)  # the list is done: nothing more
-            assert self.solved()
+            assert self.solved() and self.k == n
             self.draw()
             self.pg.image.save(self.screen, str(out / f"{lv.id}_recovered_{stamp}.png"))
-            n0 = len(self.program)
             self.click(self.buttons["add"].center, 1)
             self.draw()
-            assert len(self.program) == n0 + 1 and self.k == 0 and not self.solved()
-            self.click(self.buttons[f"dir{n0}"].center, 3)
-            assert len(self.program) == n0
+            assert len(self.program) == n + 1 and self.k == n
+            self.click(self.buttons[f"dir{n}"].center, 3)
+            assert len(self.program) == n and self.solved()
+            self.click(self.buttons["reset"].center, 1)
+            assert self.k == 0 and not self.solved()
             self.button("lvl+")
             self.draw()
         print(f"smoke: {len(self.files)} levels recovered going forward; screenshots in", end=" ")
