@@ -1,20 +1,21 @@
 # Painting toy (toy/painting_toy.py): pictures, rules, speed, rewind and GIF export.
 
 [window]
-width = 1300
+width = 1340
 height = 860
 canvas = 880              # width of the picture area (left); the panel takes the rest
 fps = 60
 
 [sim]
 cells = 17000             # cells of a picture (about); the grid follows its aspect ratio
-colours = 4               # default number of colours (the -/+ buttons change it, 2..8)
+colours = 5               # number of colours of every picture (Chris, 2026-11-20)
 smooth = 0.5              # blur before quantising a painting, in cell widths
 seed = 1
-speeds = [0.25, 1, 4, 16] # sim time units per wall second
+speed = 1.0               # sim time units per wall second
+fast = 16.0               # same with fast-forward on
 frame_budget_ms = 30.0
 chunk_attempts = 2048
-slots = 6                 # your own reactions (all k = 1)
+max_reactions = 48        # the reaction list holds at most this many (all k = 1)
 
 [rewind]
 t0 = 0.02                 # first recorded sim time; then nearly geometric spacing ...
@@ -33,8 +34,15 @@ hold_end_ms = 3000        # last frame (the picture)
 hex_px = 3.0              # hex circumradius in the GIF, pixels
 pacing = "change"
 
-[generated]
-palette = "eggshell_peach"   # colours of the generated pictures (toy/viewer.toml palettes)
+[palettes]
+# Colour choices of a painting (toy/pictures.py): "present" = the most present colours;
+# "contrast" and "accent" = the most different colours among the clusters that hold at
+# least this share of the picture. A [[pictures]] entry may name its first choice (palette).
+clusters = 20
+contrast_share = 0.02
+accent_share = 0.004
+# Colour choices of the generated pictures (palettes of toy/viewer.toml)
+generated = ["eggshell_peach", "dusk_coral", "grape_sunflower", "teal_coral", "candy"]
 
 # ---- pictures, in menu order -----------------------------------------------------------------
 [[pictures]]
@@ -47,6 +55,7 @@ year = "c. 1830-32"
 [[pictures]]
 key = "sudden_shower"
 file = "assets/paintings/sudden_shower.jpg"
+crop = [0.075, 0.045, 0.965, 0.945]   # without the paper margin
 artist = "Utagawa Hiroshige"
 title = "Sudden Shower over Shin-Ohashi Bridge"
 year = "1857"
@@ -54,6 +63,7 @@ year = "1857"
 [[pictures]]
 key = "wheat_field_cypresses"
 file = "assets/paintings/wheat_field_cypresses.jpg"
+crop = [0.04, 0.05, 0.96, 0.95]   # the scan shows the frame
 artist = "Vincent van Gogh"
 title = "Wheat Field with Cypresses"
 year = "1889"

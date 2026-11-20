@@ -41,6 +41,8 @@ def test_grid_and_generated_pictures() -> None:
     col = pictures.generated("regular", g, 3, 1)
     e = g.edges
     assert (col[e[:, 0]] != col[e[:, 1]]).all()  # the 3-colouring of the hex lattice
+    col = pictures.generated("regular", g, 5, 1)
+    assert (col[e[:, 0]] != col[e[:, 1]]).all()  # 5 colours: neighbours differ by 1 or 2
     for kind in ("random", "stripes", "rings", "destijl"):
         c = pictures.generated(kind, g, 4, 1)
         assert c.shape == (g.n_cells,) and c.min() >= 0 and c.max() <= 3
@@ -59,11 +61,39 @@ def test_kmeans_palette_is_dark_to_light() -> None:
 
 def test_painting_loads_and_runs() -> None:
     entry = {"key": "great_wave", "file": "assets/paintings/great_wave.jpg", "title": "w"}
-    p = pictures.load_picture(entry, 4, 3000, 0.5, 1, "eggshell_peach")
+    cp = {"clusters": 12, "contrast_share": 0.02, "accent_share": 0.004, "generated": ["candy"]}
+    assert pictures.options(entry, cp) == ["present", "contrast", "accent"]
+    assert pictures.options({**entry, "palette": "accent"}, cp)[0] == "accent"
+    assert pictures.options({"key": "r", "generated": "random"}, cp) == ["candy"]
+    p = pictures.load_picture(entry, 4, 3000, 0.5, 1, cp, "present")
     assert p.palette.shape == (4, 3) and p.colours.max() == 3
+    c = pictures.load_picture(entry, 4, 3000, 0.5, 1, cp, "contrast")
+    assert c.palette.shape == (4, 3) and set(np.unique(c.colours)) == {0, 1, 2, 3}
+    assert pictures.min_delta_e(c.palette) > pictures.min_delta_e(p.palette)
+    lum = [pictures.lum(v) for v in c.palette]
+    assert lum == sorted(lum)  # dark to light
+    crop = pictures.load_picture(
+        {**entry, "crop": [0.0, 0.0, 0.5, 1.0]}, 4, 3000, 0.5, 1, cp, "present"
+    )
+    assert crop.graph.n_cells != p.graph.n_cells or (crop.colours != p.colours).any()
     sim = Sim(p.graph, ReactionSet(pictures.preset("spirals", 4), 4), p.colours, 1)
     sim.advance(2.0)
     assert sim.t > 1.9
+
+
+def test_contrast_palette_keeps_rare_distinct_colours() -> None:
+    """900 greys in three close shades and 100 red samples: the present choice spends its
+    three colours on the greys or merges them; the contrast choice keeps the red."""
+    rng = np.random.default_rng(0)
+    greys = [rng.normal(v, 2, (300, 3)) for v in (100, 120, 140)]
+    red = rng.normal(0, 2, (100, 3)) + np.array([200, 40, 40])
+    x = np.clip(np.vstack([*greys, red]), 0, 255)
+    pal, lab, de = pictures.contrast_palette(x, 3, 1, k=8, min_share=0.02)
+    assert pal.shape == (3, 3) and de > 15
+    assert any(c[0] > 150 and c[1] < 90 for c in pal.astype(int))  # the red is kept
+    assert len(set(lab[900:])) == 1 and (lab[:300] != lab[900]).all()
+    lab_white = pictures.to_lab(np.array([255, 255, 255]))
+    assert np.allclose(lab_white, [100, 0, 0], atol=0.1)  # Lab of white
 
 
 def test_write_gif(tmp_path) -> None:

@@ -3,11 +3,13 @@
 A picture is an open hex grid with a start colour per cell and an RGB palette ordered from
 dark to light (colour 0 = darkest), so that rule presets can refer to colours by rank.
 
-Paintings are quantised to n colours by k-means in RGB on a lightly blurred copy (blur of
-`smooth` cell widths, which removes paper and canvas speckle). Generated pictures:
+Paintings are quantised to n colours on a lightly blurred copy (blur of `smooth` cell
+widths, which removes paper and canvas speckle), with a choice of colours: the n most present
+(k-means in RGB) or the n most different ones (contrast_palette). Generated pictures:
   random    independent uniform colours
-  regular   the 3-colouring of the hex lattice, (q - r) mod n: with 3 colours no two
-            neighbours share a colour; with other n, diagonal stripes one cell wide
+  regular   a periodic colouring where no two neighbours share a colour: (q - r) mod 3
+            with 3 colours, (q + 2 r) mod n with 5 or more (the six neighbours of a cell
+            then carry all the other colours when n = 5); 2 or 4 colours give stripes
   stripes   horizontal bands
   rings     concentric rings around the centre
   destijl   an original composition of rectangles and dark lines (random subdivision,
@@ -77,12 +79,8 @@ def sample(img: Image.Image, g: Graph, blur: float = 0.0) -> np.ndarray:
     return arr[py, px]
 
 
-def kmeans(
-    x: np.ndarray, k: int, seed: int, iters: int = 50, restarts: int = 4
-) -> tuple[np.ndarray, np.ndarray]:
-    """(palette uint8 dark to light, label of each sample). k-means++ starts, `restarts`
-    runs, the one with the smallest within-cluster sum of squares is kept."""
-    rng = np.random.default_rng(seed)
+def _kmeans(x: np.ndarray, k: int, rng, iters: int, restarts: int):
+    """(centres float, labels): k-means++ starts, `restarts` runs, smallest sum of squares."""
     best = None
     for _ in range(restarts):
         c = [x[rng.integers(len(x))]]
@@ -102,11 +100,70 @@ def kmeans(
         sse = float(((x - c[lab]) ** 2).sum())
         if best is None or sse < best[0]:
             best = (sse, c, lab)
-    _, c, lab = best
-    order = np.argsort(c.sum(axis=1))
-    c = c[order]
-    lab = np.argsort(order)[lab]
-    return c.round().astype(np.uint8), lab
+    return best[1], best[2]
+
+
+def _dark_to_light(pal: np.ndarray, lab: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    order = np.argsort([lum(c) for c in pal], kind="stable")
+    return np.asarray(pal)[order].round().astype(np.uint8), np.argsort(order)[lab]
+
+
+def kmeans(
+    x: np.ndarray, k: int, seed: int, iters: int = 50, restarts: int = 4
+) -> tuple[np.ndarray, np.ndarray]:
+    """(palette uint8 dark to light, label of each sample): the k most present colours."""
+    c, lab = _kmeans(np.asarray(x, dtype=float), k, np.random.default_rng(seed), iters, restarts)
+    return _dark_to_light(c, lab)
+
+
+def to_lab(rgb: np.ndarray) -> np.ndarray:
+    """CIE Lab (D65) of sRGB colours 0-255, shape (..., 3)."""
+    c = np.asarray(rgb, dtype=float) / 255
+    lin = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    m = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]])
+    xyz = lin @ m.T / np.array([0.95047, 1.0, 1.08883])
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
+    return np.stack(
+        [116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])],
+        axis=-1,
+    )
+
+
+def contrast_palette(
+    x: np.ndarray, n: int, seed: int, k: int = 20, min_share: float = 0.02
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """n colours of the picture that differ most from each other, not the n most present:
+    the samples are split into k clusters (k-means in Lab); among the clusters holding at
+    least min_share of the samples, the n whose smallest pairwise Delta E (CIE76) is largest
+    are kept (ties: the more present). Each sample then takes the nearest kept colour (Lab).
+    Returns (palette uint8 dark to light, labels, smallest pairwise Delta E)."""
+    x = np.asarray(x, dtype=float)
+    xl = to_lab(x)
+    _, lab = _kmeans(xl, k, np.random.default_rng(seed), 30, 1)
+    share = np.bincount(lab, minlength=k) / len(lab)
+    cand = [j for j in np.argsort(-share) if share[j] >= min_share]
+    if len(cand) < n:  # a nearly flat picture: take the most present clusters
+        cand = [int(j) for j in np.argsort(-share)[:n] if share[j] > 0]
+    rgb = np.array([x[lab == j].mean(axis=0) for j in cand])
+    cl = to_lab(rgb)
+    d = np.linalg.norm(cl[:, None] - cl[None], axis=2)
+
+    def score(sub):
+        return (
+            min(d[i, j] for i, j in itertools.combinations(sub, 2)),
+            sum(share[cand[i]] for i in sub),
+        )
+
+    sub = max(itertools.combinations(range(len(cand)), min(n, len(cand))), key=score)
+    pal = rgb[list(sub)]
+    near = np.linalg.norm(xl[:, None] - to_lab(pal)[None], axis=2).argmin(axis=1)
+    pal8, near = _dark_to_light(pal, near)
+    return pal8, near, float(score(sub)[0])
+
+
+def min_delta_e(pal: np.ndarray) -> float:
+    cl = to_lab(pal)
+    return min(float(np.linalg.norm(a - b)) for a, b in itertools.combinations(cl, 2))
 
 
 def lum(rgb) -> float:
@@ -121,8 +178,8 @@ def generated(kind: str, g: Graph, n: int, seed: int) -> np.ndarray:
     x, y = g.centers[:, 0], g.centers[:, 1]
     if kind == "random":
         return rng.integers(0, n, g.n_cells)
-    if kind == "regular":
-        return (q - r) % n
+    if kind == "regular":  # neighbours differ by +-1 (n = 3) or by +-1, +-2 (n >= 5)
+        return (q + 2 * r) % n if n >= 5 else (q - r) % n
     if kind == "stripes":
         h = int(r.max() - r.min()) + 1
         return ((r - r.min()) * n // h) % n
@@ -171,19 +228,41 @@ def generated_palette(name: str, n: int) -> np.ndarray:
     return pal[np.argsort([lum(c) for c in pal])]
 
 
-def load_picture(entry: dict, n: int, cells: int, smooth: float, seed: int, gen_palette: str):
-    """Picture from a [[pictures]] entry of toy/toy.toml."""
+PAINTING_OPTIONS = ["present", "contrast", "accent"]
+
+
+def options(entry: dict, cfg_pal: dict) -> list[str]:
+    """Names of the colour choices of a picture: for a painting, "present" (the n most
+    present colours, k-means), "contrast" and "accent" (the n most different colours among
+    those holding at least [palettes] contrast_share / accent_share of the picture); for a
+    generated picture, the palettes of [palettes] generated (toy/viewer.toml)."""
+    opts = PAINTING_OPTIONS if "file" in entry else list(cfg_pal["generated"])
+    first = entry.get("palette")
+    return [first] + [o for o in opts if o != first] if first in opts else list(opts)
+
+
+def load_picture(
+    entry: dict, n: int, cells: int, smooth: float, seed: int, cfg_pal: dict, option: str
+):
+    """Picture from a [[pictures]] entry of toy/toy.toml with one of its colour choices."""
     if "file" in entry:
         img = Image.open(ROOT / entry["file"])
+        if entry.get("crop"):  # [left, top, right, bottom] as fractions of the image
+            x0, y0, x1, y1 = entry["crop"]
+            W, H = img.size
+            img = img.crop((round(x0 * W), round(y0 * H), round(x1 * W), round(y1 * H)))
         g = grid_for(img.size[0] / img.size[1], cells)
-        pal, lab = kmeans(sample(img, g, smooth), n, seed)
+        x = sample(img, g, smooth)
+        if option == "present":
+            pal, lab = kmeans(x, n, seed)
+        else:
+            share = cfg_pal[f"{option}_share"]
+            pal, lab, _ = contrast_palette(x, n, seed, cfg_pal["clusters"], share)
         title = f"{entry.get('artist', '')}, {entry.get('title', entry['key'])}"
-        if entry.get("year"):
-            title += f" ({entry['year']})"
         return Picture(entry["key"], title, g, lab.astype(np.int64), pal)
     g = grid_for(float(entry.get("aspect", 1.3)), cells)
     col = generated(entry["generated"], g, n, seed)
-    pal = generated_palette(entry.get("palette", gen_palette), n)
+    pal = generated_palette(option, n)
     return Picture(entry["key"], entry.get("title", entry["key"]), g, col.astype(np.int64), pal)
 
 
