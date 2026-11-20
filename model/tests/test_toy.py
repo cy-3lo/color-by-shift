@@ -137,3 +137,19 @@ def test_every_toy_picture_has_its_file_and_a_valid_colour_choice() -> None:
             assert (ROOT / p["file"]).exists(), p["file"]
             assert pictures.choice(p, cfg["palettes"]) in pictures.PAINTING_OPTIONS
             assert 0 < p.get("share", 0.02) < 1
+
+
+def test_fit_aspect_and_common_format() -> None:
+    from PIL import Image
+
+    wide = pictures.fit_aspect(Image.new("RGB", (300, 100)), 4 / 3)
+    assert wide.size == (133, 100)
+    tall = pictures.fit_aspect(Image.new("RGB", (120, 300)), 4 / 3, (0.5, 0.0))
+    assert tall.size == (120, 90)
+    cp = {"clusters": 12, "contrast_share": 0.02, "accent_share": 0.004, "generated": "candy"}
+    entry = {"key": "great_wave", "file": "assets/paintings/great_wave.jpg", "title": "w"}
+    a = pictures.load_picture(entry, 4, 3000, 0.5, 1, cp, "present", 4 / 3)
+    b = pictures.load_picture(
+        {"key": "r", "generated": "rings"}, 4, 3000, 0.5, 1, cp, "candy", 4 / 3
+    )
+    assert a.graph.n_cells == b.graph.n_cells  # every picture on the same grid

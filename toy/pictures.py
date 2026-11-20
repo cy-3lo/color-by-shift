@@ -241,16 +241,40 @@ def choice(entry: dict, cfg_pal: dict) -> str:
     return entry.get("palette") or cfg_pal["default" if "file" in entry else "generated"]
 
 
+def fit_aspect(img: Image.Image, aspect: float, anchor=(0.5, 0.5)) -> Image.Image:
+    """Largest window of width / height = aspect inside the image; anchor (0..1, 0..1) places
+    it along the direction that is cut (0.5 = centred)."""
+    W, H = img.size
+    if W / H > aspect:
+        w = round(H * aspect)
+        x0 = round((W - w) * anchor[0])
+        return img.crop((x0, 0, x0 + w, H))
+    h = round(W / aspect)
+    y0 = round((H - h) * anchor[1])
+    return img.crop((0, y0, W, y0 + h))
+
+
 def load_picture(
-    entry: dict, n: int, cells: int, smooth: float, seed: int, cfg_pal: dict, option: str
+    entry: dict,
+    n: int,
+    cells: int,
+    smooth: float,
+    seed: int,
+    cfg_pal: dict,
+    option: str,
+    aspect: float | None = None,
 ):
-    """Picture from a [[pictures]] entry of toy/toy.toml with one of its colour choices."""
+    """Picture from a [[pictures]] entry of toy/toy.toml with one of its colour choices.
+    A painting is cut by its `crop`, then, if `aspect` is given, to the largest window of that
+    width / height (placed by the entry's `anchor`); generated pictures take that format."""
     if "file" in entry:
         img = Image.open(ROOT / entry["file"])
         if entry.get("crop"):  # [left, top, right, bottom] as fractions of the image
             x0, y0, x1, y1 = entry["crop"]
             W, H = img.size
             img = img.crop((round(x0 * W), round(y0 * H), round(x1 * W), round(y1 * H)))
+        if aspect:  # every picture in the same format
+            img = fit_aspect(img, aspect, entry.get("anchor", (0.5, 0.5)))
         g = grid_for(img.size[0] / img.size[1], cells)
         x = sample(img, g, smooth)
         if option == "present":
@@ -260,7 +284,7 @@ def load_picture(
             pal, lab, _ = contrast_palette(x, n, seed, cfg_pal["clusters"], share)
         title = f"{entry.get('artist', '')}, {entry.get('title', entry['key'])}"
         return Picture(entry["key"], title, g, lab.astype(np.int64), pal)
-    g = grid_for(float(entry.get("aspect", 1.3)), cells)
+    g = grid_for(aspect or float(entry.get("aspect", 1.3)), cells)
     col = generated(entry["generated"], g, n, seed)
     pal = generated_palette(option, n)
     return Picture(entry["key"], entry.get("title", entry["key"]), g, col.astype(np.int64), pal)

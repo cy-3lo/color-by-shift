@@ -8,6 +8,7 @@ fps = 60
 
 [sim]
 cells = 17000             # cells of a picture (about); the grid follows its aspect ratio
+aspect = 1.3333           # width / height of every picture (4:3): paintings are cut to it
 colours = 5               # number of colours of every picture (Chris, 2026-11-20)
 smooth = 0.5              # blur before quantising a painting, in cell widths
 seed = 1
@@ -47,38 +48,16 @@ accent_share = 0.004
 generated = "eggshell_peach"   # colours of the generated pictures (a palette of toy/viewer.toml)
 
 # ---- pictures, in menu order -----------------------------------------------------------------
-# Chris's choice of paintings and colours (2026-11-20: 9 from runs/gallery, then 42 from the
-# pick page, tools/pick_page.py and tools/import_picks.py)
+# Chris's choice of paintings and colours (2026-11-20: gallery, then the pick page; landscape
+# formats only). crop = [left, top, right, bottom] fractions of the scan; anchor = [x, y]
+# places the 4:3 window (default centred).
 [[pictures]]
 key = "great_wave"
 file = "assets/paintings/great_wave.jpg"
 artist = "Katsushika Hokusai"
 title = "Under the Wave off Kanagawa"
 palette = "contrast"
-
-[[pictures]]
-key = "lola_de_valence"
-file = "assets/paintings/lola_de_valence.jpg"
-artist = "Amedeo Modigliani"
-title = "Lola de Valence"
-palette = "contrast"
-crop = [0.03, 0.02, 0.97, 0.98]
-
-[[pictures]]
-key = "portrait_old_man"
-file = "assets/paintings/portrait_old_man.jpg"
-artist = "El Greco"
-title = "Portrait of an Old Man"
-palette = "accent"
-crop = [0.05, 0.04, 0.95, 0.96]
-
-[[pictures]]
-key = "mada_primavesi"
-file = "assets/paintings/mada_primavesi.jpg"
-artist = "Gustav Klimt"
-title = "Mada Primavesi"
-palette = "accent"
-crop = [0.02, 0.02, 0.98, 0.98]
+anchor = [0.25, 0.5]   # keep the wave when cutting to 4:3
 
 [[pictures]]
 key = "portinari"
@@ -89,14 +68,6 @@ palette = "present"
 crop = [0.02, 0.03, 0.98, 0.97]
 
 [[pictures]]
-key = "study_young_woman"
-file = "assets/paintings/study_young_woman.jpg"
-artist = "Johannes Vermeer"
-title = "Study of a Young Woman"
-palette = "accent"
-crop = [0.03, 0.03, 0.97, 0.97]
-
-[[pictures]]
 key = "card_players"
 file = "assets/paintings/card_players.jpg"
 artist = "Paul Cezanne"
@@ -105,25 +76,12 @@ palette = "accent"
 crop = [0.02, 0.03, 0.98, 0.97]
 
 [[pictures]]
-key = "self_portrait_straw_hat"
-file = "assets/paintings/self_portrait_straw_hat.jpg"
-artist = "Vincent van Gogh"
-title = "Self-Portrait with a Straw Hat"
-palette = "accent"
-
-[[pictures]]
-key = "cannon_rock"
-file = "assets/paintings/cannon_rock.jpg"
-artist = "Winslow Homer"
-title = "Cannon Rock"
-palette = "contrast"
-
-[[pictures]]
 key = "pissarro_goose_girl"
 file = "assets/paintings/pissarro_goose_girl.jpg"
 artist = "Camille Pissarro"
 title = "Goose Girl"
 palette = "contrast"
+crop = [0.04, 0.06, 0.98, 0.82]   # the plate, without the paper margin
 
 [[pictures]]
 key = "schiele_girl"
@@ -131,6 +89,7 @@ file = "assets/paintings/schiele_girl.jpg"
 artist = "Egon Schiele"
 title = "Girl"
 palette = "accent"
+crop = [0.20, 0.16, 0.82, 0.80]   # the figure, less empty paper
 
 [[pictures]]
 key = "hiroshige_otomo_kihan"
@@ -138,6 +97,7 @@ file = "assets/paintings/hiroshige_otomo_kihan.jpg"
 artist = "Utagawa Hiroshige"
 title = "Otomo Kihan"
 palette = "contrast"
+crop = [0.04, 0.07, 0.96, 0.95]   # without the paper margin
 
 [[pictures]]
 key = "turner_basle_part_i_plate"
@@ -145,6 +105,7 @@ file = "assets/paintings/turner_basle_part_i_plate.jpg"
 artist = "Joseph Mallord William Turner"
 title = "Basle, from 'Liber Studiorum'"
 palette = "contrast"
+crop = [0.08, 0.10, 0.92, 0.89]   # the plate, without the paper margin
 
 [[pictures]]
 key = "canaletto_piazza_san_marco"
@@ -429,7 +390,6 @@ palette = "accent"
 key = "destijl"
 generated = "destijl"
 title = "Composition (generated, after De Stijl)"
-aspect = 1.0
 
 [[pictures]]
 key = "regular"

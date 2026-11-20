@@ -150,7 +150,14 @@ class Toy:
         if key not in self.cache:
             cp = self.cfg["palettes"]
             self.cache[key] = load_picture(
-                entry, self.n, sc["cells"], sc["smooth"], sc["seed"], cp, choice(entry, cp)
+                entry,
+                self.n,
+                sc["cells"],
+                sc["smooth"],
+                sc["seed"],
+                cp,
+                choice(entry, cp),
+                sc.get("aspect"),
             )
         self.pic = self.cache[key]
         g = self.pic.graph
