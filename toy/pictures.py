@@ -18,7 +18,9 @@ widths, which removes paper and canvas speckle), with a choice of colours: the n
 Rule presets (every rate k = 1; n colours, 0 = darkest, n - 1 = lightest):
   voter       a cell copies a neighbour (edge A|B -> A|A, all ordered pairs)
   smoothing   voter + majority
-  majority    the minority cell of a vertex joins the two others ((A, A, B) -> (A, A, A))
+  majority    the minority cell of a vertex joins the two others ((A, A, B) -> (A, A, A);
+              chiral like every vertex reaction, but the mirror of (A, A, B) is one of its
+              rotations, so nothing is lost)
   shuffle     neighbours swap colours (A|B -> B|A): every colour count is conserved
   rps         rock-paper-scissors around all n colours (A|A+1 -> A|A)
   spirals     May-Leonard: the lightest colour is empty space; the others reproduce into
@@ -231,14 +233,12 @@ def generated_palette(name: str, n: int) -> np.ndarray:
 PAINTING_OPTIONS = ["present", "contrast", "accent"]
 
 
-def options(entry: dict, cfg_pal: dict) -> list[str]:
-    """Names of the colour choices of a picture: for a painting, "present" (the n most
-    present colours, k-means), "contrast" and "accent" (the n most different colours among
-    those holding at least [palettes] contrast_share / accent_share of the picture); for a
-    generated picture, the palettes of [palettes] generated (toy/viewer.toml)."""
-    opts = PAINTING_OPTIONS if "file" in entry else list(cfg_pal["generated"])
-    first = entry.get("palette")
-    return [first] + [o for o in opts if o != first] if first in opts else list(opts)
+def choice(entry: dict, cfg_pal: dict) -> str:
+    """The colour choice of a picture: its own `palette`, or the default of [palettes].
+    For a painting: "present" (the n most present colours, k-means), "contrast" or "accent"
+    (the n most different colours among those holding at least contrast_share /
+    accent_share of the picture); for a generated picture, a palette of toy/viewer.toml."""
+    return entry.get("palette") or cfg_pal["default" if "file" in entry else "generated"]
 
 
 def load_picture(
@@ -302,7 +302,7 @@ def preset(name: str, n: int) -> list[Reaction]:
     if name == "voter":
         return [E((a, b), (a, a)) for a, b in pairs]
     if name == "majority":
-        return [Reaction("vertex", [a, a, b], [a, a, a], 1.0, chiral=False) for a, b in pairs]
+        return [Reaction("vertex", [a, a, b], [a, a, a], 1.0) for a, b in pairs]
     if name == "smoothing":
         return preset("voter", n) + preset("majority", n)
     if name == "shuffle":

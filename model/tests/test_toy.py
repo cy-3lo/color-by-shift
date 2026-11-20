@@ -61,10 +61,16 @@ def test_kmeans_palette_is_dark_to_light() -> None:
 
 def test_painting_loads_and_runs() -> None:
     entry = {"key": "great_wave", "file": "assets/paintings/great_wave.jpg", "title": "w"}
-    cp = {"clusters": 12, "contrast_share": 0.02, "accent_share": 0.004, "generated": ["candy"]}
-    assert pictures.options(entry, cp) == ["present", "contrast", "accent"]
-    assert pictures.options({**entry, "palette": "accent"}, cp)[0] == "accent"
-    assert pictures.options({"key": "r", "generated": "random"}, cp) == ["candy"]
+    cp = {
+        "clusters": 12,
+        "contrast_share": 0.02,
+        "accent_share": 0.004,
+        "generated": "candy",
+        "default": "contrast",
+    }
+    assert pictures.choice(entry, cp) == "contrast"
+    assert pictures.choice({**entry, "palette": "accent"}, cp) == "accent"
+    assert pictures.choice({"key": "r", "generated": "random"}, cp) == "candy"
     p = pictures.load_picture(entry, 4, 3000, 0.5, 1, cp, "present")
     assert p.palette.shape == (4, 3) and p.colours.max() == 3
     c = pictures.load_picture(entry, 4, 3000, 0.5, 1, cp, "contrast")

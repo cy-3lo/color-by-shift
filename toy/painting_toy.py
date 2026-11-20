@@ -3,19 +3,19 @@ backwards and save the reversed movie as a GIF.
 
     .venv/bin/python toy/painting_toy.py [--picture great_wave] [--rules voter]
 
-The panel has no text apart from the picture's title:
-  < title >        picture (Left / Right)
-  < colours >      the five colours of the picture, dark to light; the arrows change the
-                   choice of colours (most present, most contrasted, ...) (key C)
-  < . . . >        rule preset (Up / Down); its reactions are listed below and are yours
-                   to edit, live, all with k = 1:
+The panel, top to bottom (the only texts are the picture's title and the rules' name):
+  < title > dice   picture (Left / Right; dice or P: a random one)
+  colours          the five colours of the picture, dark to light
+  < rules > dice   rule preset (Up / Down; dice or R: a random one); its reactions are
+                   listed below and are yours to edit, live, all with k = 1:
                      click a block          next colour (right click: previous)
-                     click an arrow         next shape: cell, edge, vertex (clockwise
-                                            only, curved arrow), vertex (either hand)
+                     click an arrow         next shape: cell, edge, vertex
                      right click an arrow   remove the reaction
                      +                      add a reaction
                    An edge is drawn as two neighbouring cells, a vertex as the three cells
-                   around a corner (top, lower right, lower left = clockwise).
+                   around a corner (top, lower right, lower left = clockwise). Every
+                   vertex reaction is chiral: it does not match the mirror arrangement.
+                   The name is dimmed once the preset has been edited.
   play / pause     (Space) every picture starts paused
   fast-forward     (F) on / off
   backward         (B) plays the run backwards down to the picture; pressed again, jumps
@@ -30,6 +30,7 @@ import argparse
 import datetime as dt
 import math
 import os
+import random
 import sys
 import threading
 import time
@@ -44,7 +45,7 @@ sys.path.insert(0, str(ROOT / "toy"))
 from mosaic_model import Reaction, ReactionSet, Sim  # noqa: E402
 from mosaic_model.observables import pace_frames  # noqa: E402
 from mosaic_model.raster import fit_size, hex_pixel_map, render_rgb  # noqa: E402
-from pictures import PRESETS, load_picture, options, preset  # noqa: E402
+from pictures import PRESETS, choice, load_picture, preset  # noqa: E402
 
 BG = (28, 28, 34)
 PANEL = (38, 38, 46)
@@ -54,8 +55,7 @@ BTN = (58, 58, 70)
 BTN_ON = (96, 92, 120)
 ACCENT = (240, 180, 90)
 ARITY = {"cell": 1, "edge": 2, "vertex": 3}
-# an arrow click cycles through these (shape, chiral)
-KINDS = [("cell", True), ("edge", True), ("vertex", True), ("vertex", False)]
+SHAPES = ["cell", "edge", "vertex"]  # an arrow click cycles through these
 SQRT3 = math.sqrt(3.0)
 GAP = 1.08  # spacing of neighbouring blocks (1 = touching)
 
@@ -127,9 +127,9 @@ class Toy:
         self.n = cfg["sim"]["colours"]
         keys = [p["key"] for p in cfg["pictures"]]
         self.pic_i = keys.index(picture) if picture else 0
-        self.opt_i = 0
         self.preset_i = PRESETS.index(rules) if rules else 0
         self.fast = False
+        self.dice = random.Random()  # for the two random buttons only
         self.buttons: dict[str, object] = {}
         self.blocks: dict[tuple[int, str, int], tuple[float, float]] = {}
         self.rb = 12.0
@@ -143,17 +143,14 @@ class Toy:
     def entry(self) -> dict:
         return self.cfg["pictures"][self.pic_i]
 
-    def options(self) -> list[str]:
-        return options(self.entry(), self.cfg["palettes"])
-
     def load(self) -> None:
         sc = self.cfg["sim"]
         entry = self.entry()
-        opt = self.options()[self.opt_i]
-        key = (entry["key"], opt)
+        key = entry["key"]
         if key not in self.cache:
+            cp = self.cfg["palettes"]
             self.cache[key] = load_picture(
-                entry, self.n, sc["cells"], sc["smooth"], sc["seed"], self.cfg["palettes"], opt
+                entry, self.n, sc["cells"], sc["smooth"], sc["seed"], cp, choice(entry, cp)
             )
         self.pic = self.cache[key]
         g = self.pic.graph
@@ -167,16 +164,13 @@ class Toy:
     def load_preset(self) -> None:
         """The preset's reactions become the editable list."""
         self.rx = [
-            {"shape": r.shape, "chiral": r.chiral, "inp": list(r.inp), "out": list(r.out)}
+            {"shape": r.shape, "inp": list(r.inp), "out": list(r.out)}
             for r in preset(PRESETS[self.preset_i], self.n)
         ]
         self.edited = False
 
     def reactions(self) -> list[Reaction]:
-        return [
-            Reaction(s["shape"], list(s["inp"]), list(s["out"]), 1.0, chiral=s["chiral"])
-            for s in self.rx
-        ]
+        return [Reaction(s["shape"], list(s["inp"]), list(s["out"]), 1.0) for s in self.rx]
 
     def apply_rules(self) -> None:
         """Live: the running mosaic continues with the new rules."""
@@ -267,8 +261,7 @@ class Toy:
         pm = hex_pixel_map(self.pic.graph, gc["hex_px"])
         stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
         name = "custom" if self.edited else PRESETS[self.preset_i].replace(" ", "_")
-        opt = self.options()[self.opt_i]
-        path = (folder or ROOT / gc["folder"]) / f"{self.pic.key}_{opt}_{name}_{stamp}.gif"
+        path = (folder or ROOT / gc["folder"]) / f"{self.pic.key}_{name}_{stamp}.gif"
         pal = self.pic.palette.copy()
 
         def work() -> None:
@@ -286,11 +279,15 @@ class Toy:
     def button(self, key: str, d: int = 1) -> None:
         if key in ("pic-", "pic+"):
             self.pic_i = (self.pic_i + (1 if key == "pic+" else -1)) % len(self.cfg["pictures"])
-            self.opt_i = 0
             self.load()
-        elif key in ("opt-", "opt+"):
-            self.opt_i = (self.opt_i + (1 if key == "opt+" else -1)) % len(self.options())
+        elif key == "pic?":  # a random other picture
+            n = len(self.cfg["pictures"])
+            self.pic_i = (self.pic_i + self.dice.randrange(1, n)) % n if n > 1 else 0
             self.load()
+        elif key == "rule?":  # a random other preset
+            self.preset_i = (self.preset_i + self.dice.randrange(1, len(PRESETS))) % len(PRESETS)
+            self.load_preset()
+            self.apply_rules()
         elif key in ("rule-", "rule+"):
             self.preset_i = (self.preset_i + (1 if key == "rule+" else -1)) % len(PRESETS)
             self.load_preset()
@@ -301,8 +298,7 @@ class Toy:
                 del self.rx[i]
             else:
                 s = self.rx[i]
-                k = (KINDS.index((s["shape"], s["chiral"] or s["shape"] != "vertex")) + 1) % 4
-                s["shape"], s["chiral"] = KINDS[k]
+                s["shape"] = SHAPES[(SHAPES.index(s["shape"]) + 1) % len(SHAPES)]
                 m = ARITY[s["shape"]]
                 s["inp"] = (s["inp"] + s["inp"][-1:] * m)[:m]
                 s["out"] = (s["out"] + s["out"][-1:] * m)[:m]
@@ -310,7 +306,7 @@ class Toy:
             self.apply_rules()
         elif key == "add":
             if len(self.rx) < self.cfg["sim"]["max_reactions"]:
-                self.rx.append({"shape": "edge", "chiral": True, "inp": [0, 1], "out": [0, 0]})
+                self.rx.append({"shape": "edge", "inp": [0, 1], "out": [0, 0]})
                 self.edited = True
                 self.apply_rules()
         elif key == "play":
@@ -359,7 +355,7 @@ class Toy:
         pg.draw.polygon(self.screen, MID, hex_points(c, rad), 1)
 
     def icon(self, key: str, kind: str, r, on: bool = False, col=FG) -> None:
-        """Button with a drawn icon: left, right, play, pause, fast, back, save, plus."""
+        """Button with a drawn icon: left, right, dice, play, pause, fast, back, save, plus."""
         pg = self.pg
         r = pg.Rect(r)
         pg.draw.rect(self.screen, BTN_ON if on else BTN, r, border_radius=6)
@@ -393,31 +389,37 @@ class Toy:
             sg = 1 if kind == "fast" else -1
             tri(cx - 0.8 * s, sg)
             tri(cx + 0.8 * s, sg)
-        elif kind == "save":  # arrow down into a tray
-            pg.draw.line(self.screen, col, (cx, cy - 1.1 * s), (cx, cy + 0.3 * s), 3)
-            pts = [(cx - 0.7 * s, cy - 0.3 * s), (cx, cy + 0.5 * s), (cx + 0.7 * s, cy - 0.3 * s)]
-            pg.draw.polygon(self.screen, col, pts)
-            tray = [(cx - 1.1 * s, cy + 0.5 * s), (cx - 1.1 * s, cy + 1.1 * s)]
-            tray += [(cx + 1.1 * s, cy + 1.1 * s), (cx + 1.1 * s, cy + 0.5 * s)]
-            pg.draw.lines(self.screen, col, False, tray, 3)
+        elif kind == "save":  # floppy disc: cut corner, shutter at the top, label below
+            u = 1.15 * s
+            body = [(cx - u, cy - u), (cx + 0.6 * u, cy - u), (cx + u, cy - 0.6 * u)]
+            body += [(cx + u, cy + u), (cx - u, cy + u)]
+            pg.draw.polygon(self.screen, col, body)
+            bg = BTN_ON if on else BTN
+            pg.draw.rect(self.screen, bg, pg.Rect(cx - 0.55 * u, cy - u, 0.95 * u, 0.7 * u))
+            pg.draw.rect(
+                self.screen, col, pg.Rect(cx + 0.02 * u, cy - 0.88 * u, 0.24 * u, 0.46 * u)
+            )
+            pg.draw.rect(self.screen, bg, pg.Rect(cx - 0.65 * u, cy + 0.1 * u, 1.3 * u, 0.9 * u))
+        elif kind == "dice":
+            u = 1.25 * s
+            pg.draw.rect(
+                self.screen, col, pg.Rect(cx - u, cy - u, 2 * u, 2 * u), 2, border_radius=4
+            )
+            for dx, dy in ((-1, -1), (1, -1), (0, 0), (-1, 1), (1, 1)):
+                pg.draw.circle(self.screen, col, (cx + 0.5 * u * dx, cy + 0.5 * u * dy), 2)
         elif kind == "plus":
             pg.draw.line(self.screen, col, (cx - s, cy), (cx + s, cy), 2)
             pg.draw.line(self.screen, col, (cx, cy - s), (cx, cy + s), 2)
         self.buttons[key] = r
 
-    def dots(self, cx: float, y: float, n: int, cur: int) -> None:
-        for k in range(n):
-            x = cx + (k - (n - 1) / 2) * 14
-            self.pg.draw.circle(
-                self.screen, FG if k == cur else BTN_ON, (x, y), 4 if k == cur else 3
-            )
-
-    def title(self, x: int, y: int, w: int) -> int:
-        """Title wrapped and centred between the two picture arrows; returns the bottom y."""
-        words, lines, line = self.pic.title.split(), [], ""
+    def heading(self, text: str, key: str, x: int, y: int, w: int, col=FG) -> int:
+        """< text > dice: the text wrapped and centred between the arrows (buttons key-,
+        key+ and key?); returns the bottom y."""
+        tw = w - 3 * 34 - 24  # room for the text
+        words, lines, line = text.split(), [], ""
         for word in words:
             test = f"{line} {word}".strip()
-            if self.font.size(test)[0] > w - 84 and line:
+            if self.font.size(test)[0] > tw and line:
                 lines.append(line)
                 line = word
             else:
@@ -425,32 +427,22 @@ class Toy:
         lines.append(line)
         lh = self.font.get_linesize()
         h = max(34, lh * len(lines))
+        mid = x + 34 + 8 + tw // 2
         for k, s in enumerate(lines):
-            t = self.font.render(s, True, FG)
-            self.screen.blit(
-                t, t.get_rect(midtop=(x + w // 2, y + (h - lh * len(lines)) // 2 + k * lh))
-            )
-        self.icon("pic-", "left", (x, y + h // 2 - 17, 34, 34))
-        self.icon("pic+", "right", (x + w - 34, y + h // 2 - 17, 34, 34))
+            t = self.font.render(s, True, col)
+            self.screen.blit(t, t.get_rect(midtop=(mid, y + (h - lh * len(lines)) // 2 + k * lh)))
+        by = y + h // 2 - 17
+        self.icon(f"{key}-", "left", (x, by, 34, 34))
+        self.icon(f"{key}+", "right", (x + w - 2 * 34 - 8, by, 34, 34))
+        self.icon(f"{key}?", "dice", (x + w - 34, by, 34, 34))
         return y + h
 
-    def arrow(self, i: int, x: float, cy: float, length: float, s: dict) -> None:
-        """Reaction arrow (a button). A clockwise-only vertex reaction carries a curved
-        arrow; a vertex reaction valid for either hand has none."""
+    def arrow(self, i: int, x: float, cy: float, length: float) -> None:
+        """Reaction arrow (a button)."""
         pg = self.pg
         tip = x + length
         pg.draw.line(self.screen, FG, (x, cy), (tip - 4, cy), 2)
         pg.draw.polygon(self.screen, FG, [(tip - 6, cy - 4), (tip, cy), (tip - 6, cy + 4)])
-        if s["shape"] == "vertex" and s["chiral"]:
-            rad = max(4.0, 0.3 * length)
-            c = (x + length / 2 - 1, cy - rad - 5)
-            box = pg.Rect(c[0] - rad, c[1] - rad, 2 * rad, 2 * rad)
-            pg.draw.arc(self.screen, MID, box, math.radians(-60), math.radians(200), 2)
-            ex, ey = (
-                c[0] + rad * math.cos(math.radians(60)),
-                c[1] + rad * math.sin(math.radians(60)),
-            )
-            pg.draw.polygon(self.screen, MID, [(ex - 5, ey - 3), (ex + 2, ey - 4), (ex, ey + 3)])
         h = box_size(self.rb)[1]
         self.buttons[f"arrow{i}"] = pg.Rect(x - 2, cy - h / 2, length + 4, h)
 
@@ -477,7 +469,7 @@ class Toy:
                     c = (bx + dx, ty + dy)
                     self.swatch(c, rb, s[side][j])
                     self.blocks[(i, side, j)] = c
-            self.arrow(i, tx + bw + 0.2 * rb, ty + bh / 2, al, s)
+            self.arrow(i, tx + bw + 0.2 * rb, ty + bh / 2, al)
         if len(self.rx) < self.cfg["sim"]["max_reactions"]:
             i = len(self.rx)
             tx = x + (i % cols) * (tw + 14)
@@ -495,19 +487,12 @@ class Toy:
         self.buttons = {}
         x, w = self.px, self.screen.get_width() - self.px - 18
         H = self.screen.get_height()
-        y = self.title(x, 18, w) + 18
-        # colours of the picture and the choice of colours
-        self.icon("opt-", "left", (x, y, 28, 28))
-        self.icon("opt+", "right", (x + w - 28, y, 28, 28))
-        for c in range(self.n):
-            self.swatch((x + w / 2 + (c - (self.n - 1) / 2) * 40, y + 14), 16, c)
-        self.dots(x + w / 2, y + 42, len(self.options()), self.opt_i)
-        y += 64
-        # rule presets, then the reactions
-        self.icon("rule-", "left", (x, y, 28, 28))
-        self.icon("rule+", "right", (x + w - 28, y, 28, 28))
-        self.dots(x + w / 2, y + 14, len(PRESETS), -1 if self.edited else self.preset_i)
-        y += 44
+        y = self.heading(self.pic.title, "pic", x, 18, w) + 16
+        for c in range(self.n):  # the colours of the picture, dark to light
+            self.swatch((x + w / 2 + (c - (self.n - 1) / 2) * 40, y + 16), 16, c)
+        y += 52
+        name = PRESETS[self.preset_i]
+        y = self.heading(name, "rule", x, y, w, MID if self.edited else FG) + 18
         bar = 64
         self.draw_reactions(x, y, w, H - bar - 40)
         # transport
@@ -541,7 +526,8 @@ class Toy:
             pg.K_RIGHT: "pic+",
             pg.K_UP: "rule-",
             pg.K_DOWN: "rule+",
-            pg.K_c: "opt+",
+            pg.K_p: "pic?",
+            pg.K_r: "rule?",
         }
         while running:
             dtw = clock.tick(self.cfg["window"]["fps"]) / 1000.0
@@ -564,21 +550,23 @@ class Toy:
             frame += 1
 
     def smoke_step(self, frame: int, total: int) -> bool:
-        """Headless checks: every picture, colour choice and preset loads, starts paused and
+        """Headless checks: every picture and preset loads, starts paused and
         runs; editing by clicks; rewind returns to the picture; a GIF is written. Saves a
         screenshot of every preset's panel and one at the end."""
         out = ROOT / "runs" / "toy"
         out.mkdir(parents=True, exist_ok=True)
         stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
         if frame == 0:
-            nopt = 0
             for _ in range(len(self.cfg["pictures"])):
                 self.button("pic+")
-                for _ in self.options():
-                    self.button("opt+")
-                    assert self.paused and self.sim.t == 0
-                    self.sim.advance(0.3)
-                    nopt += 1
+                assert self.paused and self.sim.t == 0
+                self.sim.advance(0.3)
+                self.draw()
+                self.pg.image.save(self.screen, str(out / f"picture_{self.pic.key}_{stamp}.png"))
+            for key in ("pic?", "rule?"):
+                was = (self.pic_i, self.preset_i)
+                self.click(self.buttons[key].center, 1)
+                assert (self.pic_i, self.preset_i) != was
             for _ in range(len(PRESETS)):
                 self.button("rule+")
                 self.sim.advance(0.3)
@@ -592,14 +580,14 @@ class Toy:
             assert len(self.rx) == n0 + 1 and self.edited
             self.draw()
             self.click(self.buttons[f"arrow{n0}"].center, 1)
-            assert self.rx[n0]["shape"] == "vertex" and self.rx[n0]["chiral"]
+            assert self.rx[n0]["shape"] == "vertex" and self.reactions()[n0].chiral
             self.draw()
             self.click(self.blocks[(n0, "out", 2)], 1)
             assert self.reactions()[n0].out[2] == (self.rx[n0]["out"][1] + 1) % self.n
             self.click(self.buttons[f"arrow{n0}"].center, 3)
             assert len(self.rx) == n0
-            print(f"smoke: {len(self.cfg['pictures'])} pictures, {nopt} colour choices,", end=" ")
-            print(f"{len(PRESETS)} presets, editing OK")
+            print(f"smoke: {len(self.cfg['pictures'])} pictures, {len(PRESETS)} presets,", end=" ")
+            print("random buttons, editing OK")
             self.restart()
             assert self.paused
             self.button("play")

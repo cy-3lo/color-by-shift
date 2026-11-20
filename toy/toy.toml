@@ -35,66 +35,87 @@ hex_px = 3.0              # hex circumradius in the GIF, pixels
 pacing = "change"
 
 [palettes]
-# Colour choices of a painting (toy/pictures.py): "present" = the most present colours;
+# One set of colours per picture. A painting: "present" = the most present colours;
 # "contrast" and "accent" = the most different colours among the clusters that hold at
-# least this share of the picture. A [[pictures]] entry may name its first choice (palette).
+# least this share of the picture (toy/pictures.py). A picture entry names its own choice
+# with palette = "..."; otherwise the default. Compare the three choices with
+# tools/palette_sheet.py or tools/gallery.py.
+default = "contrast"
 clusters = 20
 contrast_share = 0.02
 accent_share = 0.004
-# Colour choices of the generated pictures (palettes of toy/viewer.toml)
-generated = ["eggshell_peach", "dusk_coral", "grape_sunflower", "teal_coral", "candy"]
+generated = "eggshell_peach"   # colours of the generated pictures (a palette of toy/viewer.toml)
 
 # ---- pictures, in menu order -----------------------------------------------------------------
+# Chris's choice of paintings and colours (2026-11-20, from runs/gallery)
 [[pictures]]
 key = "great_wave"
 file = "assets/paintings/great_wave.jpg"
 artist = "Katsushika Hokusai"
 title = "Under the Wave off Kanagawa"
-year = "c. 1830-32"
+palette = "contrast"
 
 [[pictures]]
-key = "sudden_shower"
-file = "assets/paintings/sudden_shower.jpg"
-crop = [0.075, 0.045, 0.965, 0.945]   # without the paper margin
-artist = "Utagawa Hiroshige"
-title = "Sudden Shower over Shin-Ohashi Bridge"
-year = "1857"
+key = "lola_de_valence"
+file = "assets/paintings/lola_de_valence.jpg"
+artist = "Amedeo Modigliani"
+title = "Lola de Valence"
+palette = "contrast"
+crop = [0.03, 0.02, 0.97, 0.98]
 
 [[pictures]]
-key = "wheat_field_cypresses"
-file = "assets/paintings/wheat_field_cypresses.jpg"
-crop = [0.04, 0.05, 0.96, 0.95]   # the scan shows the frame
-artist = "Vincent van Gogh"
-title = "Wheat Field with Cypresses"
-year = "1889"
-
-[[pictures]]
-key = "irises"
-file = "assets/paintings/irises.jpg"
-artist = "Vincent van Gogh"
-title = "Irises"
-year = "1890"
-
-[[pictures]]
-key = "circus_sideshow"
-file = "assets/paintings/circus_sideshow.jpg"
-artist = "Georges Seurat"
-title = "Circus Sideshow"
-year = "1887-88"
-
-[[pictures]]
-key = "woman_water_pitcher"
-file = "assets/paintings/woman_water_pitcher.jpg"
-artist = "Johannes Vermeer"
-title = "Young Woman with a Water Pitcher"
-year = "c. 1662"
+key = "portrait_old_man"
+file = "assets/paintings/portrait_old_man.jpg"
+artist = "El Greco"
+title = "Portrait of an Old Man"
+palette = "accent"
+crop = [0.05, 0.04, 0.95, 0.96]
 
 [[pictures]]
 key = "mada_primavesi"
 file = "assets/paintings/mada_primavesi.jpg"
 artist = "Gustav Klimt"
 title = "Mada Primavesi"
-year = "1912-13"
+palette = "accent"
+crop = [0.02, 0.02, 0.98, 0.98]
+
+[[pictures]]
+key = "portinari"
+file = "assets/paintings/portinari.jpg"
+artist = "Hans Memling"
+title = "Tommaso and Maria Portinari"
+palette = "accent"
+crop = [0.02, 0.03, 0.98, 0.97]
+
+[[pictures]]
+key = "study_young_woman"
+file = "assets/paintings/study_young_woman.jpg"
+artist = "Johannes Vermeer"
+title = "Study of a Young Woman"
+palette = "accent"
+crop = [0.03, 0.03, 0.97, 0.97]
+
+[[pictures]]
+key = "card_players"
+file = "assets/paintings/card_players.jpg"
+artist = "Paul Cezanne"
+title = "The Card Players"
+palette = "contrast"
+crop = [0.02, 0.03, 0.98, 0.97]
+
+[[pictures]]
+key = "self_portrait_straw_hat"
+file = "assets/paintings/self_portrait_straw_hat.jpg"
+artist = "Vincent van Gogh"
+title = "Self-Portrait with a Straw Hat"
+palette = "accent"
+
+[[pictures]]
+key = "cannon_rock"
+file = "assets/paintings/cannon_rock.jpg"
+artist = "Winslow Homer"
+title = "Cannon Rock"
+palette = "contrast"
 
 [[pictures]]
 key = "destijl"
