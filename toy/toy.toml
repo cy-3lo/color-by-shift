@@ -1,0 +1,113 @@
+# Painting toy (toy/painting_toy.py): pictures, rules, speed, rewind and GIF export.
+
+[window]
+width = 1300
+height = 860
+canvas = 880              # width of the picture area (left); the panel takes the rest
+fps = 60
+
+[sim]
+cells = 17000             # cells of a picture (about); the grid follows its aspect ratio
+colours = 4               # default number of colours (the -/+ buttons change it, 2..8)
+smooth = 0.5              # blur before quantising a painting, in cell widths
+seed = 1
+speeds = [0.25, 1, 4, 16] # sim time units per wall second
+frame_budget_ms = 30.0
+chunk_attempts = 2048
+slots = 6                 # your own reactions (all k = 1)
+
+[rewind]
+t0 = 0.02                 # first recorded sim time; then nearly geometric spacing ...
+ratio = 1.02              # ... next frame at t * ratio ...
+max_dt = 0.5              # ... never more than this apart
+max_frames = 2000         # beyond this every other frame is dropped
+duration_s = 12.0         # in-app rewind length
+pacing = "change"         # "change": equal steps of change; "linear": equal steps of time
+
+[gif]
+folder = "gifs"           # under the repository root (git-ignored)
+frames = 150
+frame_ms = 60
+hold_start_ms = 800       # first frame (the dissolved state)
+hold_end_ms = 3000        # last frame (the picture)
+hex_px = 3.0              # hex circumradius in the GIF, pixels
+pacing = "change"
+
+[generated]
+palette = "eggshell_peach"   # colours of the generated pictures (toy/viewer.toml palettes)
+
+# ---- pictures, in menu order -----------------------------------------------------------------
+[[pictures]]
+key = "great_wave"
+file = "assets/paintings/great_wave.jpg"
+artist = "Katsushika Hokusai"
+title = "Under the Wave off Kanagawa"
+year = "c. 1830-32"
+
+[[pictures]]
+key = "sudden_shower"
+file = "assets/paintings/sudden_shower.jpg"
+artist = "Utagawa Hiroshige"
+title = "Sudden Shower over Shin-Ohashi Bridge"
+year = "1857"
+
+[[pictures]]
+key = "wheat_field_cypresses"
+file = "assets/paintings/wheat_field_cypresses.jpg"
+artist = "Vincent van Gogh"
+title = "Wheat Field with Cypresses"
+year = "1889"
+
+[[pictures]]
+key = "irises"
+file = "assets/paintings/irises.jpg"
+artist = "Vincent van Gogh"
+title = "Irises"
+year = "1890"
+
+[[pictures]]
+key = "circus_sideshow"
+file = "assets/paintings/circus_sideshow.jpg"
+artist = "Georges Seurat"
+title = "Circus Sideshow"
+year = "1887-88"
+
+[[pictures]]
+key = "woman_water_pitcher"
+file = "assets/paintings/woman_water_pitcher.jpg"
+artist = "Johannes Vermeer"
+title = "Young Woman with a Water Pitcher"
+year = "c. 1662"
+
+[[pictures]]
+key = "mada_primavesi"
+file = "assets/paintings/mada_primavesi.jpg"
+artist = "Gustav Klimt"
+title = "Mada Primavesi"
+year = "1912-13"
+
+[[pictures]]
+key = "destijl"
+generated = "destijl"
+title = "Composition (generated, after De Stijl)"
+aspect = 1.0
+
+[[pictures]]
+key = "regular"
+generated = "regular"
+title = "Regular paving"
+
+[[pictures]]
+key = "rings"
+generated = "rings"
+title = "Rings"
+
+[[pictures]]
+key = "stripes"
+generated = "stripes"
+title = "Stripes"
+
+[[pictures]]
+key = "random"
+generated = "random"
+title = "Random paving"
