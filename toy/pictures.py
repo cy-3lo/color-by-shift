@@ -256,7 +256,7 @@ def load_picture(
         if option == "present":
             pal, lab = kmeans(x, n, seed)
         else:
-            share = cfg_pal[f"{option}_share"]
+            share = entry.get("share", cfg_pal[f"{option}_share"])  # own threshold
             pal, lab, _ = contrast_palette(x, n, seed, cfg_pal["clusters"], share)
         title = f"{entry.get('artist', '')}, {entry.get('title', entry['key'])}"
         return Picture(entry["key"], title, g, lab.astype(np.int64), pal)

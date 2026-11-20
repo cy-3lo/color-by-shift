@@ -76,6 +76,8 @@ def test_painting_loads_and_runs() -> None:
     c = pictures.load_picture(entry, 4, 3000, 0.5, 1, cp, "contrast")
     assert c.palette.shape == (4, 3) and set(np.unique(c.colours)) == {0, 1, 2, 3}
     assert pictures.min_delta_e(c.palette) > pictures.min_delta_e(p.palette)
+    own = pictures.load_picture({**entry, "share": 0.3}, 4, 3000, 0.5, 1, cp, "contrast")
+    assert (own.palette != c.palette).any()  # a picture's own share threshold is used
     lum = [pictures.lum(v) for v in c.palette]
     assert lum == sorted(lum)  # dark to light
     crop = pictures.load_picture(
@@ -122,3 +124,16 @@ def test_write_gif(tmp_path) -> None:
     rgb = np.asarray(im.convert("RGB"))
     cell = pm[pm.shape[0] // 2, pm.shape[1] // 2]
     assert tuple(rgb[pm.shape[0] // 2, pm.shape[1] // 2]) == tuple(pal[frames[4][cell]])
+
+
+def test_every_toy_picture_has_its_file_and_a_valid_colour_choice() -> None:
+    import tomllib
+
+    cfg = tomllib.loads((ROOT / "toy" / "toy.toml").read_text())
+    keys = [p["key"] for p in cfg["pictures"]]
+    assert len(keys) == len(set(keys))
+    for p in cfg["pictures"]:
+        if "file" in p:
+            assert (ROOT / p["file"]).exists(), p["file"]
+            assert pictures.choice(p, cfg["palettes"]) in pictures.PAINTING_OPTIONS
+            assert 0 < p.get("share", 0.02) < 1

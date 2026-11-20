@@ -38,7 +38,7 @@ pacing = "change"
 # One set of colours per picture. A painting: "present" = the most present colours;
 # "contrast" and "accent" = the most different colours among the clusters that hold at
 # least this share of the picture (toy/pictures.py). A picture entry names its own choice
-# with palette = "..."; otherwise the default. Compare the three choices with
+# with palette = "..." (and, for "contrast", its own share = ...); otherwise the default. Compare the three choices with
 # tools/palette_sheet.py or tools/gallery.py.
 default = "contrast"
 clusters = 20
@@ -47,7 +47,8 @@ accent_share = 0.004
 generated = "eggshell_peach"   # colours of the generated pictures (a palette of toy/viewer.toml)
 
 # ---- pictures, in menu order -----------------------------------------------------------------
-# Chris's choice of paintings and colours (2026-11-20, from runs/gallery)
+# Chris's choice of paintings and colours (2026-11-20: 9 from runs/gallery, then 42 from the
+# pick page, tools/pick_page.py and tools/import_picks.py)
 [[pictures]]
 key = "great_wave"
 file = "assets/paintings/great_wave.jpg"
@@ -84,7 +85,7 @@ key = "portinari"
 file = "assets/paintings/portinari.jpg"
 artist = "Hans Memling"
 title = "Tommaso and Maria Portinari"
-palette = "accent"
+palette = "present"
 crop = [0.02, 0.03, 0.98, 0.97]
 
 [[pictures]]
@@ -100,7 +101,7 @@ key = "card_players"
 file = "assets/paintings/card_players.jpg"
 artist = "Paul Cezanne"
 title = "The Card Players"
-palette = "contrast"
+palette = "accent"
 crop = [0.02, 0.03, 0.98, 0.97]
 
 [[pictures]]
@@ -116,6 +117,313 @@ file = "assets/paintings/cannon_rock.jpg"
 artist = "Winslow Homer"
 title = "Cannon Rock"
 palette = "contrast"
+
+[[pictures]]
+key = "pissarro_goose_girl"
+file = "assets/paintings/pissarro_goose_girl.jpg"
+artist = "Camille Pissarro"
+title = "Goose Girl"
+palette = "contrast"
+
+[[pictures]]
+key = "schiele_girl"
+file = "assets/paintings/schiele_girl.jpg"
+artist = "Egon Schiele"
+title = "Girl"
+palette = "accent"
+
+[[pictures]]
+key = "hiroshige_otomo_kihan"
+file = "assets/paintings/hiroshige_otomo_kihan.jpg"
+artist = "Utagawa Hiroshige"
+title = "Otomo Kihan"
+palette = "contrast"
+
+[[pictures]]
+key = "turner_basle_part_i_plate"
+file = "assets/paintings/turner_basle_part_i_plate.jpg"
+artist = "Joseph Mallord William Turner"
+title = "Basle, from 'Liber Studiorum'"
+palette = "contrast"
+
+[[pictures]]
+key = "canaletto_piazza_san_marco"
+file = "assets/paintings/canaletto_piazza_san_marco.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Canaletto"
+title = "Piazza San Marco"
+palette = "present"
+
+[[pictures]]
+key = "lorrain_the_trojan_women_setting"
+file = "assets/paintings/lorrain_the_trojan_women_setting.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Claude Lorrain"
+title = "The Trojan Women Setting Fire to Their Fleet"
+palette = "contrast"
+share = 0.05
+
+[[pictures]]
+key = "corot_hagar_in_the_wilderness"
+file = "assets/paintings/corot_hagar_in_the_wilderness.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Camille Corot"
+title = "Hagar in the Wilderness"
+palette = "accent"
+
+[[pictures]]
+key = "daumier_the_third_class_carriage"
+file = "assets/paintings/daumier_the_third_class_carriage.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Honore Daumier"
+title = "The Third-Class Carriage"
+palette = "contrast"
+
+[[pictures]]
+key = "david_the_death_of_socrates"
+file = "assets/paintings/david_the_death_of_socrates.jpg"
+crop = [0.03, 0.02, 0.98, 0.95]   # scan edge
+artist = "Jacques Louis David"
+title = "The Death of Socrates"
+palette = "accent"
+
+[[pictures]]
+key = "greuze_broken_eggs"
+file = "assets/paintings/greuze_broken_eggs.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Jean-Baptiste Greuze"
+title = "Broken Eggs"
+palette = "accent"
+
+[[pictures]]
+key = "millet_haystacks_autumn"
+file = "assets/paintings/millet_haystacks_autumn.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Jean-Francois Millet"
+title = "Haystacks: Autumn"
+palette = "contrast"
+
+[[pictures]]
+key = "pissarro_jalais_hill_pontoise"
+file = "assets/paintings/pissarro_jalais_hill_pontoise.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Camille Pissarro"
+title = "Jalais Hill, Pontoise"
+palette = "present"
+
+[[pictures]]
+key = "seurat_the_gardener"
+file = "assets/paintings/seurat_the_gardener.jpg"
+artist = "Georges Seurat"
+title = "The Gardener"
+palette = "present"
+
+[[pictures]]
+key = "sisley_view_of_marly_le"
+file = "assets/paintings/sisley_view_of_marly_le.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Alfred Sisley"
+title = "View of Marly-le-Roi from Coeur-Volant"
+palette = "accent"
+
+[[pictures]]
+key = "sisley_the_road_from_moret"
+file = "assets/paintings/sisley_the_road_from_moret.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Alfred Sisley"
+title = "The Road from Moret to Saint-Mammes"
+palette = "accent"
+
+[[pictures]]
+key = "rousseau_the_repast_of_the"
+file = "assets/paintings/rousseau_the_repast_of_the.jpg"
+crop = [0.02, 0.025, 0.98, 0.975]   # scan edge
+artist = "Henri Rousseau"
+title = "The Repast of the Lion"
+palette = "present"
+
+[[pictures]]
+key = "modersohnbecker_old_factory"
+file = "assets/paintings/modersohnbecker_old_factory.jpg"
+artist = "Paula Modersohn-Becker"
+title = "Old Factory"
+palette = "present"
+
+[[pictures]]
+key = "bruce_peinture_nature_morte"
+file = "assets/paintings/bruce_peinture_nature_morte.jpg"
+artist = "Patrick Henry Bruce"
+title = "Peinture/Nature Morte"
+palette = "present"
+
+[[pictures]]
+key = "hassam_a_north_east_headland"
+file = "assets/paintings/hassam_a_north_east_headland.jpg"
+artist = "Childe Hassam"
+title = "A North East Headland"
+palette = "contrast"
+
+[[pictures]]
+key = "sargent_simplon_pass"
+file = "assets/paintings/sargent_simplon_pass.jpg"
+artist = "John Singer Sargent"
+title = "Simplon Pass"
+palette = "accent"
+
+[[pictures]]
+key = "gris_glass_and_checkerboard"
+file = "assets/paintings/gris_glass_and_checkerboard.jpg"
+artist = "Juan Gris"
+title = "Glass and Checkerboard"
+palette = "present"
+
+[[pictures]]
+key = "weir_obweebetuck"
+file = "assets/paintings/weir_obweebetuck.jpg"
+artist = "Julian Alden Weir"
+title = "Obweebetuck"
+palette = "contrast"
+
+[[pictures]]
+key = "lawson_boathouse_winter_harlem_river"
+file = "assets/paintings/lawson_boathouse_winter_harlem_river.jpg"
+artist = "Ernest Lawson"
+title = "Boathouse, Winter, Harlem River"
+palette = "accent"
+
+[[pictures]]
+key = "lawson_high_bridge_at_night"
+file = "assets/paintings/lawson_high_bridge_at_night.jpg"
+artist = "Ernest Lawson"
+title = "High Bridge at Night, New York City"
+palette = "contrast"
+
+[[pictures]]
+key = "blakelock_moonlight"
+file = "assets/paintings/blakelock_moonlight.jpg"
+artist = "Imitator of Ralph Albert Blakelock"
+title = "Moonlight"
+palette = "accent"
+
+[[pictures]]
+key = "sargent_nonchaloir"
+file = "assets/paintings/sargent_nonchaloir.jpg"
+artist = "John Singer Sargent"
+title = "Nonchaloir"
+palette = "contrast"
+
+[[pictures]]
+key = "modigliani_nude_on_a_divan"
+file = "assets/paintings/modigliani_nude_on_a_divan.jpg"
+artist = "Amedeo Modigliani"
+title = "Nude on a Divan"
+palette = "present"
+
+[[pictures]]
+key = "bellows_blue_morning"
+file = "assets/paintings/bellows_blue_morning.jpg"
+artist = "George Bellows"
+title = "Blue Morning"
+palette = "present"
+
+[[pictures]]
+key = "dearth_flecks_of_foam"
+file = "assets/paintings/dearth_flecks_of_foam.jpg"
+artist = "Henry Golden Dearth"
+title = "Flecks of Foam"
+palette = "contrast"
+
+[[pictures]]
+key = "monet_palazzo_da_mula_venice"
+file = "assets/paintings/monet_palazzo_da_mula_venice.jpg"
+artist = "Claude Monet"
+title = "Palazzo da Mula, Venice"
+palette = "contrast"
+
+[[pictures]]
+key = "ranger_spring_woods"
+file = "assets/paintings/ranger_spring_woods.jpg"
+artist = "Henry Ward Ranger"
+title = "Spring Woods"
+palette = "present"
+
+[[pictures]]
+key = "tanner_the_seine"
+file = "assets/paintings/tanner_the_seine.jpg"
+artist = "Henry Ossawa Tanner"
+title = "The Seine"
+palette = "present"
+
+[[pictures]]
+key = "cezanne_still_life_with_milk"
+file = "assets/paintings/cezanne_still_life_with_milk.jpg"
+artist = "Paul Cezanne"
+title = "Still Life with Milk Jug and Fruit"
+palette = "present"
+
+[[pictures]]
+key = "jawlensky_murnau"
+file = "assets/paintings/jawlensky_murnau.jpg"
+artist = "Alexej von Jawlensky"
+title = "Murnau"
+palette = "accent"
+
+[[pictures]]
+key = "gris_fantomas"
+file = "assets/paintings/gris_fantomas.jpg"
+artist = "Juan Gris"
+title = "Fantomas"
+palette = "present"
+
+[[pictures]]
+key = "bellows_club_night"
+file = "assets/paintings/bellows_club_night.jpg"
+artist = "George Bellows"
+title = "Club Night"
+palette = "accent"
+
+[[pictures]]
+key = "monet_waterloo_bridge_london_at"
+file = "assets/paintings/monet_waterloo_bridge_london_at.jpg"
+artist = "Claude Monet"
+title = "Waterloo Bridge, London, at Sunset"
+palette = "accent"
+
+[[pictures]]
+key = "marc_siberian_dogs_in_the"
+file = "assets/paintings/marc_siberian_dogs_in_the.jpg"
+artist = "Franz Marc"
+title = "Siberian Dogs in the Snow"
+palette = "contrast"
+
+[[pictures]]
+key = "vallotton_the_wind"
+file = "assets/paintings/vallotton_the_wind.jpg"
+artist = "Felix Vallotton"
+title = "The Wind"
+palette = "present"
+
+[[pictures]]
+key = "kirchner_dance_hall_bellevue"
+file = "assets/paintings/kirchner_dance_hall_bellevue.jpg"
+artist = "Ernst Ludwig Kirchner"
+title = "Dance Hall Bellevue"
+palette = "contrast"
+
+[[pictures]]
+key = "vallotton_the_church_of_souain"
+file = "assets/paintings/vallotton_the_church_of_souain.jpg"
+artist = "Felix Vallotton"
+title = "The Church of Souain"
+palette = "contrast"
+share = 0.05
+
+[[pictures]]
+key = "sargent_wild_olive_tree_roots"
+file = "assets/paintings/sargent_wild_olive_tree_roots.jpg"
+artist = "John Singer Sargent"
+title = "Wild Olive Tree Roots, Valldemosa, Majorca"
+palette = "accent"
 
 [[pictures]]
 key = "destijl"
