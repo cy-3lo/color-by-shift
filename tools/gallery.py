@@ -3,10 +3,11 @@
     python tools/gallery.py FOLDER [--out FILE.html] [--n 5]
 
 FOLDER holds candidates.json (a list of Met objects: objectID, artistDisplayName, title,
-objectDate, objectURL) and img/<objectID>.jpg (small images). Each card shows the original
+objectDate, objectURL, optional source = museum label, default Met) and img/<objectID>.jpg
+(small images). Each card shows the original
 and the picture on the hex grid with each choice of n colours (toy/pictures.py); tick a
 choice to pick the painting with these colours. The box at the top lists the picks as
-"objectID choice" lines, to paste back.
+"museum objectID choice | title" lines, to paste back.
 """
 
 from __future__ import annotations
@@ -84,8 +85,9 @@ def main() -> None:
         th.thumbnail((T, T))
         head = f"{o.get('artistDisplayName') or 'unknown'}, {o.get('title', '')}"
         head += f" ({o.get('objectDate', '')})"
+        src = o.get("source", "Met")
         card = f'<div class="card"><h3>{html.escape(head)} '
-        card += f'<a href="{html.escape(o.get("objectURL") or "")}">Met {o["objectID"]}</a></h3>'
+        card += f'<a href="{html.escape(o.get("objectURL") or "")}">{src} {o["objectID"]}</a></h3>'
         card += f'<img src="{data_uri(th, "JPEG")}">'
         sc = cfg["sim"]
         g, var = variants(img, a.n, a.cells, sc["smooth"], sc["seed"], cfg["palettes"])
@@ -93,8 +95,9 @@ def main() -> None:
         for opt, pal, lab in var:
             im = Image.fromarray(render_rgb(pm, lab, pal, BG)).quantize(a.n + 1)
             sw = "".join(f'<span style="background:rgb({c[0]},{c[1]},{c[2]})"></span>' for c in pal)
-            card += f'<label><input type="radio" name="p{o["objectID"]}" '
-            card += f'value="{o["objectID"]} {opt}"><img src="{data_uri(im, "PNG")}">'
+            card += f'<label><input type="radio" name="p{src}{o["objectID"]}" '
+            pick = f"{src} {o['objectID']} {opt} | {html.escape(head[:60])}"
+            card += f'value="{pick}"><img src="{data_uri(im, "PNG")}">'
             card += f'<div class="sw">{sw}</div>{opt} (dE {pictures.min_delta_e(pal):.0f})</label>'
         cards.append(card + "</div>")
         print(len(cards), head[:70], flush=True)

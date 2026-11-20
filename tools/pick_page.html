@@ -1,0 +1,196 @@
+<title>Mosaic painting picks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: a hanging wall. One row per painting: the original, then its mosaic versions as
+   clickable plates; a sticky rail at the top counts the picks and filters the wall.
+   Single dark look on purpose: the ground is the toy's own background, so every colour set
+   is judged against what it will sit on in the game. */
+:root {
+  color-scheme: dark;
+  --wall: #1c1c22;        /* the toy's background */
+  --rail: #26262e;
+  --plate: #2f2f39;
+  --ink: #ece9e0;
+  --dim: #9a97a6;
+  --pick: #f0b45a;        /* picked version */
+  --display: "Fraunces", Georgia, serif;
+  --body: "Inter", system-ui, sans-serif;
+}
+body { background: var(--wall); color: var(--ink); font: 14px/1.45 var(--body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 10; background: var(--rail); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--rail);
+  border-bottom: 1px solid var(--plate); }
+header .wrap { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding-block: 10px; }
+h1 { font: 600 20px/1.2 var(--display); margin: 0; }
+#count { font-variant-numeric: tabular-nums; color: var(--pick); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+button { font: 500 13px var(--body); color: var(--ink); background: var(--plate); border: 1px solid transparent;
+  border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+button[aria-pressed="true"] { border-color: var(--pick); color: var(--pick); }
+button:focus-visible, .ver:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+#status { color: var(--dim); font-size: 12px; margin-left: auto; }
+#list { display: none; width: 100%; }
+#list.open { display: block; }
+#list textarea { width: 100%; min-height: 9em; background: var(--wall); color: var(--ink);
+  border: 1px solid var(--plate); border-radius: 6px; font: 12px/1.4 ui-monospace, Menlo, monospace; padding: 8px; }
+main.wrap { padding-block: 8px 60px; }
+.intro { color: var(--dim); max-width: 65ch; margin: 14px 0 6px; }
+.card { padding: 22px 0 6px; border-bottom: 1px solid var(--plate); }
+.card h2 { font: 500 17px/1.25 var(--display); margin: 0 0 10px; text-wrap: balance; }
+.card h2 span { color: var(--dim); font: 400 13px var(--body); }
+.card h2 a { color: var(--dim); font: 400 12px var(--body); margin-left: 6px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.orig img, .ver img { display: block; max-width: 100%; border-radius: 3px; }
+.ver { all: unset; cursor: pointer; padding: 5px; border-radius: 6px; background: transparent;
+  outline: 2px solid transparent; text-align: center; }
+.ver:hover { background: var(--plate); }
+.ver[aria-pressed="true"] { background: var(--plate); outline-color: var(--pick); }
+.sw { display: flex; justify-content: center; gap: 3px; margin-top: 6px; }
+.sw i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); }
+.cap { color: var(--dim); font-size: 12px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.ver[aria-pressed="true"] .cap { color: var(--pick); }
+.empty { color: var(--dim); padding: 40px 0; }
+</style>
+
+<header><div class="wrap">
+  <h1>Painting picks</h1>
+  <div><span id="count">0</span> picked</div>
+  <div class="chips" id="filters"></div>
+  <button id="showlist" aria-pressed="false">List of picks</button>
+  <span id="status">loading the paintings</span>
+  <div id="list"><textarea id="listtext" readonly aria-label="Picked paintings"></textarea></div>
+</div></header>
+<main class="wrap">
+  <p class="intro">Click a mosaic version to put that painting in the game with those five colours. Click it again to take it out. Each version shows its colours and the smallest difference between two of them (&Delta;E: larger means easier to tell apart).</p>
+  <div id="wall"><p class="empty">Loading the paintings.</p></div>
+</main>
+
+<script>
+(function () {
+  var cards = [], picks = {}, filter = "all", db = null, LS = "mosaic-picks";
+  var wall = document.getElementById("wall"), statusEl = document.getElementById("status");
+
+  function lsRead() { try { return JSON.parse(localStorage.getItem(LS) || "{}"); } catch (e) { return {}; } }
+  function lsWrite() { try { localStorage.setItem(LS, JSON.stringify(picks)); } catch (e) {} }
+
+  function refresh() {
+    var keys = Object.keys(picks).sort();
+    document.getElementById("count").textContent = keys.length;
+    document.getElementById("listtext").value = keys.map(function (k) {
+      var p = picks[k];
+      return p.source + " " + p.id + " | " + p.version + " | " + p.artist + ", " + p.title;
+    }).join("\n");
+    wall.querySelectorAll(".ver").forEach(function (b) {
+      var p = picks[b.dataset.key];
+      b.setAttribute("aria-pressed", p && p.version === b.dataset.version ? "true" : "false");
+    });
+    if (filter === "picked") render();
+  }
+
+  function toggle(card, v) {
+    var cur = picks[card.key], on = !(cur && cur.version === v.name);
+    var doc = { source: card.source, id: card.id, version: v.name, share: v.share,
+      colours: v.colours, artist: card.artist, title: card.title, url: card.url };
+    if (on) picks[card.key] = doc; else delete picks[card.key];
+    lsWrite();
+    refresh();
+    if (db) {
+      var ref = db.collection("picks").doc(card.key);
+      (on ? ref.set(doc) : ref.delete()).then(function () { statusEl.textContent = "saved"; },
+        function () { statusEl.textContent = "not saved online: use List of picks and paste it"; });
+    }
+  }
+
+  function render() {
+    var shown = cards.filter(function (c) {
+      return filter === "all" || (filter === "picked" ? picks[c.key] : c.source === filter);
+    });
+    wall.textContent = "";
+    if (!shown.length) {
+      var p = document.createElement("p"); p.className = "empty";
+      p.textContent = filter === "picked" ? "Nothing picked yet. Click a mosaic version to pick it." : "No paintings here.";
+      wall.appendChild(p); return;
+    }
+    shown.forEach(function (c) {
+      var card = document.createElement("section"); card.className = "card";
+      var h = document.createElement("h2"); h.textContent = c.artist + ", " + c.title + " ";
+      var d = document.createElement("span"); d.textContent = c.date; h.appendChild(d);
+      if (c.url) { var a = document.createElement("a"); a.href = c.url; a.textContent = c.source + " " + c.id; h.appendChild(a); }
+      card.appendChild(h);
+      var row = document.createElement("div"); row.className = "row";
+      var o = document.createElement("div"); o.className = "orig";
+      var oi = document.createElement("img"); oi.src = c.orig; oi.alt = "Original: " + c.title; oi.loading = "lazy";
+      o.appendChild(oi);
+      var oc = document.createElement("div"); oc.className = "cap"; oc.textContent = "original"; o.appendChild(oc);
+      row.appendChild(o);
+      c.versions.forEach(function (v) {
+        var b = document.createElement("button"); b.className = "ver"; b.type = "button";
+        b.dataset.key = c.key; b.dataset.version = v.name;
+        var pk = picks[c.key];
+        b.setAttribute("aria-pressed", pk && pk.version === v.name ? "true" : "false");
+        var im = document.createElement("img"); im.src = v.img; im.loading = "lazy";
+        im.alt = c.title + ", " + v.name; b.appendChild(im);
+        var sw = document.createElement("div"); sw.className = "sw";
+        v.colours.forEach(function (col) { var i = document.createElement("i"); i.style.background = col; sw.appendChild(i); });
+        b.appendChild(sw);
+        var cap = document.createElement("div"); cap.className = "cap";
+        cap.textContent = v.name + " \u00b7 \u0394E " + v.de; b.appendChild(cap);
+        b.addEventListener("click", function () { toggle(c, v); });
+        row.appendChild(b);
+      });
+      card.appendChild(row); wall.appendChild(card);
+    });
+  }
+
+  function chips() {
+    var box = document.getElementById("filters"), names = ["all"];
+    cards.forEach(function (c) { if (names.indexOf(c.source) < 0) names.push(c.source); });
+    names.push("picked");
+    var label = { all: "All", picked: "Picked only", Met: "Met", NGA: "National Gallery" };
+    names.forEach(function (n) {
+      var b = document.createElement("button");
+      b.textContent = (label[n] || n) + (n === "all" ? " (" + cards.length + ")" : n === "picked" ? "" :
+        " (" + cards.filter(function (c) { return c.source === n; }).length + ")");
+      b.setAttribute("aria-pressed", n === filter ? "true" : "false");
+      b.addEventListener("click", function () {
+        filter = n;
+        box.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+        b.setAttribute("aria-pressed", "true"); render(); window.scrollTo(0, 0);
+      });
+      box.appendChild(b);
+    });
+  }
+
+  document.getElementById("showlist").addEventListener("click", function () {
+    var l = document.getElementById("list"), open = l.classList.toggle("open");
+    this.setAttribute("aria-pressed", open ? "true" : "false");
+  });
+
+  picks = lsRead();
+  fetch("cards.json").then(function (r) { return r.json(); }).then(function (data) {
+    cards = data; chips(); render(); refresh();
+    statusEl.textContent = "picks kept in this browser";
+    if (!(window.claude && window.claude.use)) return;
+    window.claude.use("db").then(function (d) {
+      if (!d) return;
+      db = d;
+      var timer = setTimeout(function () { statusEl.textContent = "picks kept in this browser"; }, 10000);
+      db.collection("picks").onSnapshot(function (snap) {
+        clearTimeout(timer);
+        var next = {};
+        snap.docs.forEach(function (doc) { next[doc.id] = doc.data(); });
+        picks = next; lsWrite(); refresh();
+        statusEl.textContent = "picks saved for Claude to read";
+      }, function () { clearTimeout(timer); statusEl.textContent = "picks kept in this browser"; });
+    });
+  }).catch(function () {
+    wall.textContent = ""; var p = document.createElement("p"); p.className = "empty";
+    p.textContent = "The paintings could not be loaded. Reload the page."; wall.appendChild(p);
+    statusEl.textContent = "";
+  });
+})();
+</script>
