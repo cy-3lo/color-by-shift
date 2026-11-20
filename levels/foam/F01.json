@@ -1,17 +1,20 @@
 {
  "id": "F01",
  "title": "",
- "foam": "grids/foam_a.json",
+ "foam": "grids/foam_F01.json",
  "colours": [
   "#26466e",
   "#f0e2c4"
  ],
  "picture": {
-  "flag": "bands_v"
+  "regions": [
+   0,
+   1
+  ]
  },
  "scramble": [
   {
-   "group": 6,
+   "group": 5,
    "pair": [
     0,
     1

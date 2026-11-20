@@ -11,6 +11,7 @@ fps = 60
 folder = "levels/foam"
 
 [picture]
-outline_px = 4            # thickness of the outline of the picture to recover
-cell_lines = false        # thin line between every two cells
+outline_px = 0            # outline of the shapes while playing (0 = none)
+win_outline_px = 3        # outline of the shapes once the picture is recovered (0 = none)
+cell_lines = true         # thin line between every two cells
 show_target = false       # small coloured copy of the picture to recover in the strip

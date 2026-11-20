@@ -11,6 +11,11 @@ does not change, so a move is its own inverse and any sequence is undone by the 
 in reverse order. In play a move is given by one pair of neighbouring cells: its group and
 its two colours.
 
+A foam can follow drawn shapes: polygons cut the box into regions (0 = the background, k =
+inside polygon k, later polygons on top) and a cell never crosses from one region to
+another, because a pixel only looks for the nearest site of its own region. The outline of a
+shape is then made of cell sides, and a picture is one colour per region.
+
 No geometry library: cells are found on a pixel raster (nearest site), which also gives the
 neighbours (cells whose pixels touch along at least `min_side` pixels).
 """
@@ -28,17 +33,54 @@ import numpy as np
 from .shift import flag
 
 
-def nearest_site(sites: np.ndarray, width: int, height: int, aspect: float) -> np.ndarray:
-    """(height, width) array: index of the site nearest to each pixel centre."""
-    xs = (np.arange(width) + 0.5) / width * aspect
-    ys = (np.arange(height) + 0.5) / height
+def region_map(shapes: list, width: int, height: int, aspect: float) -> np.ndarray:
+    """(height, width) array: region of each pixel centre (even-odd rule per polygon)."""
+    xs = ((np.arange(width) + 0.5) / width * aspect)[None, :]
+    ys = ((np.arange(height) + 0.5) / height)[:, None]
+    out = np.zeros((height, width), dtype=np.int32)
+    for k, poly in enumerate(shapes):
+        inside = np.zeros((height, width), bool)
+        pts = np.asarray(poly, dtype=float)
+        for (x0, y0), (x1, y1) in zip(pts, np.roll(pts, -1, axis=0), strict=True):
+            if y0 == y1:
+                continue
+            cross = ((y0 <= ys) != (y1 <= ys)) & (xs < x0 + (ys - y0) * (x1 - x0) / (y1 - y0))
+            inside ^= cross
+        out[inside] = k + 1
+    return out
+
+
+def nearest_site(
+    sites: np.ndarray,
+    width: int,
+    height: int,
+    aspect: float,
+    site_region: np.ndarray | None = None,
+    shapes: list | None = None,
+) -> np.ndarray:
+    """(height, width) array: index of the site nearest to each pixel centre; with shapes,
+    nearest among the sites of the pixel's own region."""
+    xs = ((np.arange(width) + 0.5) / width * aspect).astype(np.float32)
+    ys = ((np.arange(height) + 0.5) / height).astype(np.float32)
+    px, py = np.meshgrid(xs, ys)
     out = np.empty((height, width), dtype=np.int32)
-    sx, sy = sites[:, 0].astype(np.float32), sites[:, 1].astype(np.float32)
-    dx2 = (xs[:, None].astype(np.float32) - sx[None, :]) ** 2  # (width, n)
-    step = max(1, 4_000_000 // (width * len(sites)))
-    for y0 in range(0, height, step):
-        dy2 = (ys[y0 : y0 + step, None].astype(np.float32) - sy[None, :]) ** 2  # (rows, n)
-        out[y0 : y0 + step] = (dx2[None, :, :] + dy2[:, None, :]).argmin(axis=2)
+    if shapes:
+        reg = region_map(shapes, width, height, aspect)
+        groups = [(reg == r, np.nonzero(site_region == r)[0]) for r in np.unique(reg)]
+    else:
+        groups = [(np.ones((height, width), bool), np.arange(len(sites)))]
+    for mask, idx in groups:
+        if len(idx) == 0:
+            raise ValueError("a region of the picture holds no site")
+        x, y = px[mask], py[mask]
+        sx, sy = sites[idx, 0].astype(np.float32), sites[idx, 1].astype(np.float32)
+        near = np.empty(len(x), dtype=np.int32)
+        step = max(1, 4_000_000 // len(idx))
+        for k in range(0, len(x), step):
+            d = (x[k : k + step, None] - sx[None, :]) ** 2
+            d += (y[k : k + step, None] - sy[None, :]) ** 2
+            near[k : k + step] = idx[d.argmin(axis=1)]
+        out[mask] = near
     return out
 
 
@@ -81,6 +123,8 @@ class Foam:
     sites: np.ndarray  # (n, 2) in [0, aspect] x [0, 1]
     edges: np.ndarray  # (E, 2) neighbouring cells, u < v
     group: np.ndarray  # (E,) group of each edge
+    shapes: list = field(default_factory=list)  # polygons [[x, y], ...] the cells follow
+    site_region: np.ndarray | None = None  # region of each site (0 = background)
     pairs: list[tuple[np.ndarray, np.ndarray]] = field(init=False)  # per group: (u, v)
     lookup: dict[tuple[int, int], int] = field(init=False)  # (u, v) -> group
 
@@ -88,6 +132,9 @@ class Foam:
         self.sites = np.asarray(self.sites, dtype=float)
         self.edges = np.asarray(self.edges, dtype=np.int64).reshape(-1, 2)
         self.group = np.asarray(self.group, dtype=np.int64)
+        if self.site_region is None:
+            self.site_region = np.zeros(len(self.sites), dtype=np.int64)
+        self.site_region = np.asarray(self.site_region, dtype=np.int64)
         self.pairs = []
         for g in range(self.n_groups):
             e = self.edges[self.group == g]
@@ -105,6 +152,14 @@ class Foam:
     @property
     def n_groups(self) -> int:
         return int(self.group.max()) + 1 if len(self.group) else 0
+
+    @property
+    def n_regions(self) -> int:
+        return len(self.shapes) + 1
+
+    def raster(self, width: int, height: int) -> np.ndarray:
+        """(height, width) array: the cell of each pixel."""
+        return nearest_site(self.sites, width, height, self.aspect, self.site_region, self.shapes)
 
     def group_of(self, u: int, v: int) -> int | None:
         """Group of the edge between two cells, None if they are not neighbours."""
@@ -130,6 +185,10 @@ class Foam:
             "sites": [[round(float(x), 5), round(float(y), 5)] for x, y in self.sites],
             "edges": self.edges.tolist(),
             "group": self.group.tolist(),
+            "shapes": [
+                [[round(float(x), 5), round(float(y), 5)] for x, y in p] for p in self.shapes
+            ],
+            "site_region": self.site_region.tolist(),
         }
 
 
@@ -140,29 +199,60 @@ def make_foam(
     relax: int = 4,
     width: int = 480,
     min_side: int = 5,
+    shapes: list | None = None,
+    min_sites: int = 3,
 ) -> Foam:
-    """Foam of n cells: random sites, `relax` rounds of moving each site to the centre of its
-    cell (rounder, more even cells), neighbours and groups from a raster `width` pixels wide."""
+    """Foam of n cells (a few more if a region would hold fewer than min_sites): random
+    sites, `relax` rounds of moving each site to the centre of its cell (rounder, more even
+    cells), neighbours and groups from a raster `width` pixels wide. With shapes (polygons),
+    the cells follow their outlines."""
     rng = np.random.default_rng(seed)
-    sites = rng.random((n, 2)) * (aspect, 1.0)
+    shapes = [np.asarray(p, dtype=float).tolist() for p in (shapes or [])]
     height = round(width / aspect)
+    reg = region_map(shapes, width, height, aspect)
+
+    def region_at(pts: np.ndarray) -> np.ndarray:
+        ix = np.clip((pts[:, 0] / aspect * width).astype(int), 0, width - 1)
+        iy = np.clip((pts[:, 1] * height).astype(int), 0, height - 1)
+        return reg[iy, ix]
+
+    sites = rng.random((n, 2)) * (aspect, 1.0)
+    for r in np.unique(reg):  # every region gets a few sites
+        lack = min_sites - int((region_at(sites) == r).sum())
+        if lack > 0:
+            ys, xs = np.nonzero(reg == r)
+            k = rng.choice(len(xs), lack, replace=False)
+            extra = np.stack([(xs[k] + 0.5) / width * aspect, (ys[k] + 0.5) / height], axis=1)
+            sites = np.concatenate([sites, extra])
+    site_region = region_at(sites)
+    n = len(sites)
     yy, xx = np.mgrid[0:height, 0:width]
     px = (xx.ravel() + 0.5) / width * aspect
     py = (yy.ravel() + 0.5) / height
     for _ in range(relax):
-        lab = nearest_site(sites, width, height, aspect).ravel()
+        lab = nearest_site(sites, width, height, aspect, site_region, shapes).ravel()
         cnt = np.maximum(np.bincount(lab, minlength=n), 1)
-        sites = np.stack(
+        new = np.stack(
             [np.bincount(lab, px, minlength=n) / cnt, np.bincount(lab, py, minlength=n) / cnt],
             axis=1,
         )
-    edges, _ = neighbours(nearest_site(sites, width, height, aspect), min_side)
-    return Foam(aspect, sites, edges, colour_edges(edges, n, rng))
+        ok = (region_at(new) == site_region) & (np.bincount(lab, minlength=n) > 0)
+        sites = np.where(ok[:, None], new, sites)  # a centre outside its region: stay put
+    lab = nearest_site(sites, width, height, aspect, site_region, shapes)
+    edges, _ = neighbours(lab, min_side)
+    return Foam(aspect, sites, edges, colour_edges(edges, n, rng), shapes, site_region)
 
 
 def load_foam(path: str | Path) -> Foam:
     d = json.loads(Path(path).read_text())
-    return Foam(float(d["aspect"]), np.array(d["sites"]), np.array(d["edges"]), d["group"])
+    return Foam(
+        float(d["aspect"]),
+        np.array(d["sites"]),
+        np.array(d["edges"]),
+        d["group"],
+        d.get("shapes", []),
+        d.get("site_region"),
+    )
 
 
 # ---- levels ----------------------------------------------------------------------------------
@@ -213,7 +303,8 @@ def random_scramble(foam: Foam, target: np.ndarray, n: int, length: int, rng, mi
 
 def load_foam_level(path: str | Path, root: str | Path | None = None) -> FoamLevel:
     """Level JSON: {"id", "title", "foam": path of a foam JSON (relative to the repository
-    root), "colours": ["#rrggbb", ...], "picture": {"flag": kind} or {"cells": [...]},
+    root), "colours": ["#rrggbb", ...], "picture": {"regions": [colour of the background,
+    of shape 1, ...]} or {"flag": kind} or {"cells": [...]},
     "scramble": [{"group": g, "pair": [a, b]}, ...]}."""
     path = Path(path)
     d = json.loads(path.read_text())
@@ -221,7 +312,14 @@ def load_foam_level(path: str | Path, root: str | Path | None = None) -> FoamLev
     foam = load_foam(root / d["foam"])
     n = len(d["colours"])
     pic = d["picture"]
-    target = np.array(pic["cells"]) if "cells" in pic else foam_picture(pic["flag"], foam, n)
+    if "regions" in pic:  # one colour per region of the foam's shapes
+        if len(pic["regions"]) != foam.n_regions:
+            raise ValueError(f"{path}: {foam.n_regions} regions need as many colours")
+        target = np.array(pic["regions"])[foam.site_region]
+    elif "cells" in pic:
+        target = np.array(pic["cells"])
+    else:
+        target = foam_picture(pic["flag"], foam, n)
     scr = [(int(m["group"]), int(m["pair"][0]), int(m["pair"][1])) for m in d["scramble"]]
     if len(target) != foam.n_cells or target.max() >= n:
         raise ValueError(f"{path}: picture does not fit the foam or the palette")

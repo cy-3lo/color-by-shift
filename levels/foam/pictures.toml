@@ -1,0 +1,100 @@
+# Pictures of the foam levels (tools/make_foam.py builds grids/foam_<id>.json and
+# levels/foam/<id>.json from this file). The box is [0, 1.5] x [0, 1], y down.
+# shapes: later ones are drawn on top. Kinds:
+#   {regular = sides, at = [x, y], r = radius, rot = degrees}   regular polygon (rot = angle of
+#                                                               its first corner, -90 = up)
+#   {star = points, at = [x, y], r = outer radius, inner = inner radius, rot = degrees}
+#   {rect = [x0, y0, x1, y1]}
+#   {polygon = [[x, y], ...]}
+# colours: palette index of the background, then of each shape. moves: length of the scramble.
+
+aspect = 1.5
+palette = ["#26466e", "#f0e2c4", "#d6604d", "#6fae8c", "#e9b44c"]
+
+[[level]]
+id = "F01"
+cells = 120
+seed = 1
+moves = 1
+colours = [0, 1]
+shapes = [{regular = 5, at = [0.75, 0.52], r = 0.38, rot = -90}]
+
+[[level]]
+id = "F02"
+cells = 120
+seed = 2
+moves = 2
+colours = [1, 2]
+shapes = [{regular = 3, at = [0.75, 0.58], r = 0.42, rot = -90}]
+
+[[level]]
+id = "F03"
+cells = 140
+seed = 3
+moves = 2
+colours = [0, 1, 2]
+shapes = [
+  {regular = 6, at = [0.75, 0.5], r = 0.44, rot = 0},
+  {regular = 3, at = [0.75, 0.53], r = 0.22, rot = -90},
+]
+
+[[level]]
+id = "F04"
+cells = 150
+seed = 4
+moves = 3
+colours = [0, 4, 2]
+shapes = [
+  {star = 5, at = [0.75, 0.52], r = 0.46, inner = 0.2, rot = -90},
+  {regular = 5, at = [0.75, 0.52], r = 0.13, rot = 90},
+]
+
+[[level]]
+id = "F05"
+cells = 150
+seed = 5
+moves = 3
+colours = [3, 1, 2, 0]
+shapes = [
+  {rect = [0.45, 0.45, 1.05, 0.92]},
+  {polygon = [[0.36, 0.45], [0.75, 0.1], [1.14, 0.45]]},
+  {rect = [0.66, 0.62, 0.84, 0.92]},
+]
+
+[[level]]
+id = "F06"
+cells = 160
+seed = 6
+moves = 4
+colours = [0, 2, 1, 3]
+shapes = [
+  {rect = [0.3, 0.1, 1.2, 0.9]},
+  {regular = 4, at = [0.75, 0.5], r = 0.38, rot = 0},
+  {regular = 24, at = [0.75, 0.5], r = 0.15, rot = 0},
+]
+
+[[level]]
+id = "F07"
+cells = 170
+seed = 7
+moves = 5
+colours = [0, 4, 3, 2, 1]
+shapes = [
+  {regular = 24, at = [1.12, 0.26], r = 0.15, rot = 0},
+  {polygon = [[0.0, 1.0], [0.5, 0.36], [1.0, 1.0]]},
+  {polygon = [[0.55, 1.0], [1.05, 0.5], [1.5, 0.86], [1.5, 1.0]]},
+  {polygon = [[0.36, 0.54], [0.5, 0.36], [0.64, 0.54], [0.56, 0.6], [0.5, 0.52], [0.44, 0.6]]},
+]
+
+[[level]]
+id = "F08"
+cells = 180
+seed = 8
+moves = 6
+colours = [0, 3, 1, 2, 4]
+shapes = [
+  {regular = 5, at = [0.75, 0.52], r = 0.5, rot = -90},
+  {star = 5, at = [0.75, 0.52], r = 0.42, inner = 0.19, rot = -90},
+  {regular = 5, at = [0.75, 0.52], r = 0.19, rot = 90},
+  {regular = 24, at = [0.75, 0.52], r = 0.08, rot = 0},
+]

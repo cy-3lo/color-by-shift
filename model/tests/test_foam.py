@@ -15,6 +15,7 @@ from mosaic_model.foam import (
     make_foam,
     nearest_site,
     random_scramble,
+    region_map,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -101,3 +102,31 @@ def test_foam_levels_load_and_are_solved_by_the_reversed_scramble() -> None:
             col = lv.foam.move(col, *m)
         assert (col == lv.target).all(), f.name
         assert lv.par == len(lv.scramble) and set(np.unique(lv.target)) <= set(range(lv.n))
+
+
+def test_foam_follows_drawn_shapes() -> None:
+    """A pentagon in the box: no cell crosses its outline, so the outline is made of cell
+    sides; both regions are paved; the picture is one colour per region."""
+    import math
+
+    penta = [
+        [
+            0.75 + 0.38 * math.cos(math.radians(72 * k - 90)),
+            0.5 + 0.38 * math.sin(math.radians(72 * k - 90)),
+        ]
+        for k in range(5)
+    ]
+    f = make_foam(70, 1.5, 5, relax=3, width=240, shapes=[penta])
+    assert f.n_regions == 2 and set(np.unique(f.site_region)) == {0, 1}
+    lab = f.raster(300, 200)
+    reg = region_map(f.shapes, 300, 200, 1.5)
+    assert (f.site_region[lab] == reg).all()  # every pixel belongs to a cell of its region
+    inside = (reg == 1).mean()
+    assert 0.2 < inside < 0.3  # area of the pentagon: 0.343 / 1.5
+    assert set(np.unique(lab)) == set(range(f.n_cells))  # no empty cell
+    for u, v in f.pairs:
+        assert len(np.unique(np.concatenate([u, v]))) == 2 * len(u)
+    cross = (f.site_region[f.edges[:, 0]] != f.site_region[f.edges[:, 1]]).sum()
+    assert cross >= 10  # cells of the two regions are neighbours across the outline
+    with pytest.raises(ValueError):
+        nearest_site(f.sites, 60, 40, 1.5, np.zeros(f.n_cells, int), f.shapes)  # empty region

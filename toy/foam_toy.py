@@ -8,10 +8,11 @@ mosaic_model.foam). While you point, the pairs of that group are drawn as thin l
 ones that would swap as bright bars. A move is its own inverse: the same click again takes
 it back (and the count goes down).
 
-The picture to recover is drawn on the foam as an outline, like a colouring page: the thick
-lines are the sides between its blocks of colour; which colour goes in which block is not
-given. Cells of the same colour are not separated by a line ([picture] in toy/foam.toml:
-outline_px, cell_lines, show_target for a small coloured copy in the strip).
+The foam follows the shapes of the picture to recover (a pentagon, a star ...): their
+outlines are made of cell sides, so the eye sees the shapes in the paving; which colour goes
+where is not given. When the picture is recovered the lines between cells vanish and only
+the shapes remain, with their outline ([picture] in toy/foam.toml: cell_lines, outline_px
+while playing, win_outline_px once recovered, show_target for a small coloured copy).
 
 Strip (right): < level > (Up / Down), the number of moves over the number the picture was
 scrambled with, and one button: back to the scrambled picture (R).
@@ -33,7 +34,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "toy"))
 
-from mosaic_model.foam import load_foam_level, nearest_site  # noqa: E402
+from mosaic_model.foam import load_foam_level  # noqa: E402
 
 BG = (28, 28, 34)
 LINE = (16, 16, 20)  # outline of the picture and lines between cells
@@ -85,40 +86,47 @@ class FoamToy:
         self.rect.center = self.canvas.center
         key = (foam.sites.tobytes(), pw, ph)
         if key not in self.rasters:
-            lab = nearest_site(foam.sites, pw, ph, foam.aspect)
+            lab = foam.raster(pw, ph)
             edge = np.zeros(lab.shape, bool)  # thin dark line between cells
             edge[:, :-1] |= lab[:, :-1] != lab[:, 1:]
             edge[:-1, :] |= lab[:-1, :] != lab[1:, :]
             self.rasters[key] = (lab, edge)
         self.labels, self.border = self.rasters[key]
-        # the outline of the picture to recover: sides between cells of different target
-        # colours, drawn thick like the lines of a colouring page (no colour is given)
+        pic = self.cfg["picture"]
+        self.outline = self.outline_mask(pic["outline_px"])  # while playing (0 = none)
+        self.win_outline = self.outline_mask(pic["win_outline_px"])  # once recovered
+        self.surf = self.pg.Surface((pw, ph))
+        self.site_px = foam.sites / (foam.aspect, 1.0) * (pw, ph) + self.rect.topleft
+        tw = self.cfg["window"]["strip"] - 24
+        self.thumb = self.pg.Surface((tw, round(tw / foam.aspect)))
+        self.thumb_lab = foam.raster(tw, round(tw / foam.aspect))
+        self.pg.surfarray.blit_array(
+            self.thumb, self.pal[self.level.target][self.thumb_lab].swapaxes(0, 1)
+        )
+        self.start = self.level.scrambled()
+        self.reset()
+
+    def outline_mask(self, px: int) -> np.ndarray:
+        """Pixels of the outline of the picture to recover (sides between cells of different
+        target colours), about px pixels thick; empty if px <= 0."""
         lab, tgt = self.labels, self.level.target
         line = np.zeros(lab.shape, bool)
+        if px <= 0:
+            return line
         mh = tgt[lab[:, :-1]] != tgt[lab[:, 1:]]
         mv = tgt[lab[:-1, :]] != tgt[lab[1:, :]]
         line[:, :-1] |= mh
         line[:, 1:] |= mh
         line[:-1, :] |= mv
         line[1:, :] |= mv
-        for _ in range(max(0, self.cfg["picture"]["outline_px"] // 2 - 1)):  # thicken
+        for _ in range(max(0, px // 2 - 1)):  # thicken
             grow = line.copy()
             grow[:, 1:] |= line[:, :-1]
             grow[:, :-1] |= line[:, 1:]
             grow[1:, :] |= line[:-1, :]
             grow[:-1, :] |= line[1:, :]
             line = grow
-        self.outline = line
-        self.surf = self.pg.Surface((pw, ph))
-        self.site_px = foam.sites / (foam.aspect, 1.0) * (pw, ph) + self.rect.topleft
-        tw = self.cfg["window"]["strip"] - 24
-        self.thumb = self.pg.Surface((tw, round(tw / foam.aspect)))
-        self.thumb_lab = nearest_site(foam.sites, tw, round(tw / foam.aspect), foam.aspect)
-        self.pg.surfarray.blit_array(
-            self.thumb, self.pal[self.level.target][self.thumb_lab].swapaxes(0, 1)
-        )
-        self.start = self.level.scrambled()
-        self.reset()
+        return line
 
     def reset(self) -> None:
         self.col = self.start.copy()
@@ -197,9 +205,12 @@ class FoamToy:
         pg = self.pg
         self.screen.fill(BG)
         idx = self.col[self.labels]
-        if self.cfg["picture"]["cell_lines"]:
-            idx[self.border] = len(self.pal) - 1
-        idx[self.outline] = len(self.pal) - 1
+        if self.solved():  # the reward: the cells vanish, only the shapes remain
+            idx[self.win_outline] = len(self.pal) - 1
+        else:
+            if self.cfg["picture"]["cell_lines"]:
+                idx[self.border] = len(self.pal) - 1
+            idx[self.outline] = len(self.pal) - 1
         pg.surfarray.blit_array(self.surf, self.pal[idx].swapaxes(0, 1))
         self.screen.blit(self.surf, self.rect.topleft)
         if self.hover is not None:  # the group of the pair pointed at, and what would swap
