@@ -14,6 +14,10 @@ once, then every such pair of alternation 1. Whether a pair swaps depends only o
 colours it holds, which the swap does not change, so each half is its own inverse, and the
 reaction is undone by doing alternation 1 first, then 0.
 
+A reaction may also be limited to one alternation (Swap.alt = 0 or 1; levels with
+"single": true use alternation 0 everywhere). Each cell then has one partner per direction
+and moves by one place at most; such a reaction is its own inverse.
+
 A program is an ordered list of reactions. Time t counts reactions: a forward step applies
 program[t mod n] and adds 1 to t; a backward step subtracts 1 from t and undoes
 program[t mod n]. No random numbers: the dynamics is deterministic and exactly reversible,
@@ -39,10 +43,13 @@ class Swap:
     direction: str
     a: int
     b: int
+    alt: int | None = None  # None: both alternations (0 then 1); 0 or 1: that one only
 
     def __post_init__(self) -> None:
         if self.direction not in DIRECTIONS:
             raise ValueError(f"unknown direction {self.direction!r}")
+        if self.alt not in (None, 0, 1):
+            raise ValueError("alt must be None, 0 or 1")
 
 
 class ShiftGrid:
@@ -87,7 +94,8 @@ class ShiftGrid:
         return out, int(m.sum())
 
     def apply(self, col: np.ndarray, s: Swap, inverse: bool = False) -> np.ndarray:
-        for alt in (1, 0) if inverse else (0, 1):
+        alts = (s.alt,) if s.alt is not None else (1, 0) if inverse else (0, 1)
+        for alt in alts:
             col, _ = self.half(col, s, alt)
         return col
 
@@ -141,6 +149,7 @@ class ShiftLevel:
     program: list[Swap]  # hidden program that scrambled it
     cycles: int  # times the whole program was applied
     slots: int  # reactions offered to the player at the start
+    alt: int | None = None  # alternation of every reaction of the level (None: both)
     title: str = ""
     grid: ShiftGrid = field(init=False)
 
@@ -158,7 +167,8 @@ class ShiftLevel:
 def load_shift_level(path: str | Path) -> ShiftLevel:
     """Level JSON: {"id", "title", "grid": {"w", "h"}, "colours": ["#rrggbb", ...],
     "picture": {"flag": kind} or {"rows": ["0011...", ...]} (odd-r rows of colour digits),
-    "program": [{"dir": "|", "pair": [0, 1]}, ...], "cycles": T, optional "slots"}."""
+    "program": [{"dir": "|", "pair": [0, 1]}, ...], "cycles": T, optional "slots", optional
+    "single": true (every reaction, the player's too, uses alternation 0 only)}."""
     d = json.loads(Path(path).read_text())
     w, h = int(d["grid"]["w"]), int(d["grid"]["h"])
     g = hex_rect(w, h)
@@ -171,7 +181,8 @@ def load_shift_level(path: str | Path) -> ShiftLevel:
         target = np.array([int(c) for r in rows for c in r])
     else:
         target = flag(pic["flag"], g, n)
-    prog = [Swap(r["dir"], int(r["pair"][0]), int(r["pair"][1])) for r in d["program"]]
+    alt = 0 if d.get("single") else None
+    prog = [Swap(r["dir"], int(r["pair"][0]), int(r["pair"][1]), alt) for r in d["program"]]
     if target.max() >= n or any(max(s.a, s.b) >= n for s in prog):
         raise ValueError(f"{path}: colour outside the palette")
     return ShiftLevel(
@@ -182,5 +193,6 @@ def load_shift_level(path: str | Path) -> ShiftLevel:
         prog,
         int(d.get("cycles", 1)),
         int(d.get("slots", len(prog))),
+        alt,
         d.get("title", ""),
     )

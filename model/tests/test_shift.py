@@ -101,3 +101,24 @@ def test_shift_levels_load_and_are_solved_by_their_own_program() -> None:
         back, _ = lv.grid.run(start, lv.program, -lv.cycles * len(lv.program))
         assert (back == lv.target).all(), f.name
         assert set(np.unique(lv.target)) <= set(range(lv.n))
+
+
+def test_single_alternation_moves_one_place_and_undoes_itself() -> None:
+    g = hex_rect(18, 12)
+    sg = ShiftGrid(g)
+    ax = np.asarray(g.axial)
+    one = np.zeros(g.n_cells, int)
+    k = int(np.argmin(np.abs(g.centers - g.centers.mean(axis=0)).sum(axis=1)))
+    one[k] = 1
+    s = Swap("\\", 0, 1, alt=0)
+    out = sg.apply(one, s)
+    (m,) = np.nonzero(out)
+    assert len(m) == 1 and tuple(np.abs(ax[m[0]] - ax[k])) == (1, 1)
+    assert (sg.apply(out, s) == one).all() and (sg.apply(out, s, inverse=True) == one).all()
+    col = flag("cross", g, 2)
+    a, b = Swap("|", 0, 1, 0), Swap("\\", 0, 1, 0)
+    end, _ = sg.run(col, [a, b], 2)
+    assert (sg.run(end, [a, b], -2, 2)[0] == col).all()
+    assert (sg.run(end, [b, a], -2, 2)[0] != col).any()  # these two do not commute
+    with pytest.raises(ValueError):
+        Swap("|", 0, 1, alt=2)

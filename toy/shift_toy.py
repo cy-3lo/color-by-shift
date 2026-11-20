@@ -102,7 +102,7 @@ class ShiftToy:
         self.t = 0
 
     def swaps(self) -> list[Swap]:
-        return [Swap(r["dir"], r["pair"][0], r["pair"][1]) for r in self.program]
+        return [Swap(r["dir"], r["pair"][0], r["pair"][1], self.level.alt) for r in self.program]
 
     def solved(self) -> bool:
         return bool((self.col == self.level.target).all())
