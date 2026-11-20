@@ -118,7 +118,8 @@ class ShiftGrid:
 # ---- pictures and levels ---------------------------------------------------------------------
 def flag(kind: str, g: Graph, n: int) -> np.ndarray:
     """Simple flag-like pictures with n colours (generic patterns, no particular flag):
-    bands_v, bands_h (n equal bands), disc (colour 1 on 0), cross (colour 1 on 0, off-centre
+    bands_v, bands_h (n equal bands), disc (colour 1 on 0), sun (a disc of colour 1 on two
+    horizontal halves), cross (colour 1 on 0, off-centre
     like a Nordic cross), diagonal (two halves; with n = 3 a band along the diagonal)."""
     x, y = np.asarray(g.centers)[:, 0], np.asarray(g.centers)[:, 1]
     u = (x - x.min()) / (x.max() - x.min())
@@ -130,6 +131,9 @@ def flag(kind: str, g: Graph, n: int) -> np.ndarray:
     if kind == "disc":
         r = np.hypot(x - x.mean(), y - y.mean())
         return (r < 0.3 * (y.max() - y.min())).astype(int) * min(1, n - 1)
+    if kind == "sun":  # two horizontal halves (0 above, n - 1 below), a disc of colour 1
+        r = np.hypot(x - x.mean(), y - y.mean())
+        return np.where(r < 0.3 * (y.max() - y.min()), 1, np.where(v < 0.5, 0, n - 1))
     if kind == "cross":
         return ((np.abs(u - 0.36) < 0.08) | (np.abs(v - 0.5) < 0.12)).astype(int)
     if kind == "diagonal":

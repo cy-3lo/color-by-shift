@@ -101,6 +101,15 @@ def test_shift_levels_load_and_are_solved_by_their_own_program() -> None:
         back, _ = lv.grid.run(start, lv.program, -lv.cycles * len(lv.program))
         assert (back == lv.target).all(), f.name
         assert set(np.unique(lv.target)) <= set(range(lv.n))
+        if lv.alt is not None:  # one place per step: the reversed list, played forward
+            assert lv.cycles == 1
+            fwd, _ = lv.grid.run(start, lv.program[::-1], len(lv.program))
+            assert (fwd == lv.target).all(), f.name
+            col = lv.target
+            for s in lv.program:  # every scrambling reaction changes the picture
+                new = lv.grid.apply(col, s)
+                assert (new != col).any(), f.name
+                col = new
 
 
 def test_single_alternation_moves_one_place_and_undoes_itself() -> None:
