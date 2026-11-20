@@ -9,3 +9,8 @@ fps = 60
 
 [levels]
 folder = "levels/foam"
+
+[picture]
+outline_px = 4            # thickness of the outline of the picture to recover
+cell_lines = false        # thin line between every two cells
+show_target = false       # small coloured copy of the picture to recover in the strip

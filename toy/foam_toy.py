@@ -8,8 +8,13 @@ mosaic_model.foam). While you point, the pairs of that group are drawn as thin l
 ones that would swap as bright bars. A move is its own inverse: the same click again takes
 it back (and the count goes down).
 
-Strip (right): < level > (Up / Down), the picture to recover, the number of moves over the
-number the picture was scrambled with, and one button: back to the scrambled picture (R).
+The picture to recover is drawn on the foam as an outline, like a colouring page: the thick
+lines are the sides between its blocks of colour; which colour goes in which block is not
+given. Cells of the same colour are not separated by a line ([picture] in toy/foam.toml:
+outline_px, cell_lines, show_target for a small coloured copy in the strip).
+
+Strip (right): < level > (Up / Down), the number of moves over the number the picture was
+scrambled with, and one button: back to the scrambled picture (R).
 The frame lights up when the picture is recovered. H prints the scrambling moves in the
 terminal. Esc quits.
 """
@@ -31,6 +36,7 @@ sys.path.insert(0, str(ROOT / "toy"))
 from mosaic_model.foam import load_foam_level, nearest_site  # noqa: E402
 
 BG = (28, 28, 34)
+LINE = (16, 16, 20)  # outline of the picture and lines between cells
 PANEL = (38, 38, 46)
 FG = (236, 233, 224)
 MID = (150, 148, 160)
@@ -71,13 +77,13 @@ class FoamToy:
     def load(self) -> None:
         self.level = load_foam_level(self.files[self.level_i], ROOT)
         foam = self.level.foam
-        self.pal = np.array([rgb(c) for c in self.level.colours] + [BG], dtype=np.uint8)
+        self.pal = np.array([rgb(c) for c in self.level.colours] + [LINE], dtype=np.uint8)
         m = self.cfg["window"]["margin"]
         pw = min(self.canvas.w - 2 * m, int((self.canvas.h - 2 * m) * foam.aspect))
         ph = round(pw / foam.aspect)
         self.rect = self.pg.Rect(0, 0, pw, ph)
         self.rect.center = self.canvas.center
-        key = (id(foam.sites.tobytes()), foam.sites.tobytes(), pw, ph)
+        key = (foam.sites.tobytes(), pw, ph)
         if key not in self.rasters:
             lab = nearest_site(foam.sites, pw, ph, foam.aspect)
             edge = np.zeros(lab.shape, bool)  # thin dark line between cells
@@ -85,6 +91,24 @@ class FoamToy:
             edge[:-1, :] |= lab[:-1, :] != lab[1:, :]
             self.rasters[key] = (lab, edge)
         self.labels, self.border = self.rasters[key]
+        # the outline of the picture to recover: sides between cells of different target
+        # colours, drawn thick like the lines of a colouring page (no colour is given)
+        lab, tgt = self.labels, self.level.target
+        line = np.zeros(lab.shape, bool)
+        mh = tgt[lab[:, :-1]] != tgt[lab[:, 1:]]
+        mv = tgt[lab[:-1, :]] != tgt[lab[1:, :]]
+        line[:, :-1] |= mh
+        line[:, 1:] |= mh
+        line[:-1, :] |= mv
+        line[1:, :] |= mv
+        for _ in range(max(0, self.cfg["picture"]["outline_px"] // 2 - 1)):  # thicken
+            grow = line.copy()
+            grow[:, 1:] |= line[:, :-1]
+            grow[:, :-1] |= line[:, 1:]
+            grow[1:, :] |= line[:-1, :]
+            grow[:-1, :] |= line[1:, :]
+            line = grow
+        self.outline = line
         self.surf = self.pg.Surface((pw, ph))
         self.site_px = foam.sites / (foam.aspect, 1.0) * (pw, ph) + self.rect.topleft
         tw = self.cfg["window"]["strip"] - 24
@@ -173,7 +197,9 @@ class FoamToy:
         pg = self.pg
         self.screen.fill(BG)
         idx = self.col[self.labels]
-        idx[self.border] = len(self.pal) - 1
+        if self.cfg["picture"]["cell_lines"]:
+            idx[self.border] = len(self.pal) - 1
+        idx[self.outline] = len(self.pal) - 1
         pg.surfarray.blit_array(self.surf, self.pal[idx].swapaxes(0, 1))
         self.screen.blit(self.surf, self.rect.topleft)
         if self.hover is not None:  # the group of the pair pointed at, and what would swap
@@ -201,8 +227,9 @@ class FoamToy:
         self.screen.blit(t, t.get_rect(center=(x + w // 2, 29)))
         self.icon("lvl-", "left", (x, 14, 30, 30))
         self.icon("lvl+", "right", (x + w - 30, 14, 30, 30))
-        self.screen.blit(self.thumb, (x, 64))
-        pg.draw.rect(self.screen, MID, self.thumb.get_rect(topleft=(x, 64)), 1)
+        if self.cfg["picture"]["show_target"]:
+            self.screen.blit(self.thumb, (x, 64))
+            pg.draw.rect(self.screen, MID, self.thumb.get_rect(topleft=(x, 64)), 1)
         n, par = len(self.history), self.level.par
         good = self.solved() and n <= par
         num = self.font.render(f"{n} / {par}", True, ACCENT if good else FG)
