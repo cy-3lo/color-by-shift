@@ -23,7 +23,7 @@
       "Sounds synthesised for the game."
     ]
   },
-  "hint": {"after_s": 10.0, "colour": "#ff8a1f", "width_px": 3.5, "pulse_s": 1.6},
+  "hint": {"after_s": 6.0, "colour": "#ff8a1f", "width_px": 3.5, "pulse_s": 1.6},
   "icons": "ionicons",
   "start_level": ""
 }
