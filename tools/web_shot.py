@@ -100,7 +100,7 @@ class DevTools:
             self.sock.settimeout(max(0.01, end - time.time()))
             try:
                 self.events.append(self._message())
-            except (TimeoutError, socket.timeout):
+            except TimeoutError:
                 break
         self.sock.settimeout(None)
 
