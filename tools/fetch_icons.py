@@ -113,6 +113,169 @@ SETS = {
             "redo": "icons/regular/redo.svg",
         },
     ),
+    # curvier undo and redo, with filled skip triangles
+    "lucide-curve": (
+        "lucide-static",
+        {
+            "next": "icons/skip-forward.svg",
+            "reset": "icons/skip-back.svg",
+            "undo": "icons/undo.svg",
+            "redo": "icons/redo.svg",
+        },
+    ),
+    "lucide-rotate": (
+        "lucide-static",
+        {
+            "next": "icons/skip-forward.svg",
+            "reset": "icons/skip-back.svg",
+            "undo": "icons/rotate-ccw.svg",
+            "redo": "icons/rotate-cw.svg",
+        },
+    ),
+    "tabler-curve": (
+        "@tabler/icons",
+        {
+            "next": "icons/filled/player-skip-forward.svg",
+            "reset": "icons/filled/player-skip-back.svg",
+            "undo": "icons/outline/arrow-back.svg",
+            "redo": "icons/outline/arrow-forward.svg",
+        },
+    ),
+    "phosphor-arc": (
+        "@phosphor-icons/core",
+        {
+            "next": "assets/fill/skip-forward-fill.svg",
+            "reset": "assets/fill/skip-back-fill.svg",
+            "undo": "assets/bold/arrow-arc-left-bold.svg",
+            "redo": "assets/bold/arrow-arc-right-bold.svg",
+        },
+    ),
+    "phosphor-turn": (
+        "@phosphor-icons/core",
+        {
+            "next": "assets/fill/skip-forward-fill.svg",
+            "reset": "assets/fill/skip-back-fill.svg",
+            "undo": "assets/bold/arrow-counter-clockwise-bold.svg",
+            "redo": "assets/bold/arrow-clockwise-bold.svg",
+        },
+    ),
+    "phosphor-bend": (
+        "@phosphor-icons/core",
+        {
+            "next": "assets/fill/skip-forward-fill.svg",
+            "reset": "assets/fill/skip-back-fill.svg",
+            "undo": "assets/fill/arrow-bend-up-left-fill.svg",
+            "redo": "assets/fill/arrow-bend-up-right-fill.svg",
+        },
+    ),
+    "ionicons": (
+        "ionicons",
+        {
+            "next": "dist/svg/play-skip-forward.svg",
+            "reset": "dist/svg/play-skip-back.svg",
+            "undo": "dist/svg/arrow-undo.svg",
+            "redo": "dist/svg/arrow-redo.svg",
+        },
+    ),
+    "ionicons-outline": (
+        "ionicons",
+        {
+            "next": "dist/svg/play-skip-forward-outline.svg",
+            "reset": "dist/svg/play-skip-back-outline.svg",
+            "undo": "dist/svg/arrow-undo-outline.svg",
+            "redo": "dist/svg/arrow-redo-outline.svg",
+        },
+    ),
+    "fluent": (
+        "@fluentui/svg-icons",
+        {
+            "next": "icons/next_24_filled.svg",
+            "reset": "icons/previous_24_filled.svg",
+            "undo": "icons/arrow_undo_24_filled.svg",
+            "redo": "icons/arrow_redo_24_filled.svg",
+        },
+    ),
+    "fluent-regular": (
+        "@fluentui/svg-icons",
+        {
+            "next": "icons/next_24_regular.svg",
+            "reset": "icons/previous_24_regular.svg",
+            "undo": "icons/arrow_undo_24_regular.svg",
+            "redo": "icons/arrow_redo_24_regular.svg",
+        },
+    ),
+    "fontawesome": (
+        "@fortawesome/fontawesome-free",
+        {
+            "next": "svgs/solid/forward-step.svg",
+            "reset": "svgs/solid/backward-step.svg",
+            "undo": "svgs/solid/rotate-left.svg",
+            "redo": "svgs/solid/rotate-right.svg",
+        },
+    ),
+    "fontawesome-reply": (
+        "@fortawesome/fontawesome-free",
+        {
+            "next": "svgs/solid/forward-step.svg",
+            "reset": "svgs/solid/backward-step.svg",
+            "undo": "svgs/solid/reply.svg",
+            "redo": "svgs/solid/share.svg",
+        },
+    ),
+    "carbon": (
+        "@carbon/icons",
+        {
+            "next": "svg/32/skip--forward--filled.svg",
+            "reset": "svg/32/skip--back--filled.svg",
+            "undo": "svg/32/undo.svg",
+            "redo": "svg/32/redo.svg",
+        },
+    ),
+    "boxicons": (
+        "boxicons",
+        {
+            "next": "svg/regular/bx-skip-next.svg",
+            "reset": "svg/regular/bx-skip-previous.svg",
+            "undo": "svg/regular/bx-undo.svg",
+            "redo": "svg/regular/bx-redo.svg",
+        },
+    ),
+    "eva": (
+        "eva-icons",
+        {
+            "next": "fill/svg/skip-forward.svg",
+            "reset": "fill/svg/skip-back.svg",
+            "undo": "fill/svg/undo.svg",
+            "redo": "outline/svg/corner-up-right-outline.svg",
+        },
+    ),
+    "feather": (
+        "feather-icons",
+        {
+            "next": "dist/icons/skip-forward.svg",
+            "reset": "dist/icons/skip-back.svg",
+            "undo": "dist/icons/rotate-ccw.svg",
+            "redo": "dist/icons/rotate-cw.svg",
+        },
+    ),
+    "material-sharp": (
+        "@material-symbols/svg-600",
+        {
+            "next": "sharp/skip_next-fill.svg",
+            "reset": "sharp/skip_previous-fill.svg",
+            "undo": "sharp/undo.svg",
+            "redo": "sharp/redo.svg",
+        },
+    ),
+    "remix-line": (
+        "remixicon",
+        {
+            "next": "icons/Media/skip-forward-line.svg",
+            "reset": "icons/Media/skip-back-line.svg",
+            "undo": "icons/Arrows/arrow-go-back-line.svg",
+            "redo": "icons/Arrows/arrow-go-forward-line.svg",
+        },
+    ),
 }
 
 
@@ -144,7 +307,7 @@ def main() -> None:
                 versions[package] = (meta["version"], str(meta.get("license", "?")))
             version, licence = versions[package]
             icons = {k: normalise(get(f"{CDN}/{package}@{version}/{f}")) for k, f in files.items()}
-        except (urllib.error.URLError, AttributeError) as err:
+        except (urllib.error.URLError, AttributeError, KeyError, ValueError) as err:
             print(f"{name}: left out ({err})")
             continue
         out[name] = {"package": package, "version": version, "licence": licence, "icons": icons}

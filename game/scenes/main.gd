@@ -137,6 +137,7 @@ func _load(k: int) -> void:
 	if not level.painting.is_empty() and ResourceLoader.exists(level.painting):
 		material_.set_shader_parameter("painting", load(level.painting))
 	phase = Phase.IDLE
+	note_until = -1.0
 	rewinding = false
 	shift = 0.0
 	pending = Vector3i(-1, 0, 0)
@@ -437,8 +438,8 @@ func _input(event: InputEvent) -> void:
 				_press_button("next")
 			KEY_I:  # try the next set of icons
 				icon_set = Icons.after(icon_set)
-				note = icon_set
-				note_until = now + 2.5
+				note = icon_set  # stays on show until the level changes
+				note_until = INF
 				overlay.queue_redraw()
 
 
@@ -475,9 +476,7 @@ func _process(delta: float) -> void:
 	material_.set_shader_parameter("painting_mix", _painting_alpha())
 	if t >= 0.0 and t < float(rw["lines_s"]) + float(rw["hold_s"]) + float(rw["fade_s"]) + 0.5:
 		overlay.queue_redraw()
-	if note_until >= 0.0 and now > note_until:
-		note_until = -1.0
-		overlay.queue_redraw()
+
 
 
 func _painting_alpha() -> float:
