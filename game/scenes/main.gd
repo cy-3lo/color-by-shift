@@ -163,19 +163,9 @@ func _upload() -> void:
 
 
 # ---- pointing and moves -------------------------------------------------------------------
-## The cell under the pointer and, among its neighbours, the one whose site is nearest.
+## The cell under the pointer and the neighbour whose shared side is nearest to the pointer.
 func pair_at(pos: Vector2) -> Vector2i:
-	var u := level.cell_at((pos - rect.position) / rect.size)
-	if u < 0:
-		return Vector2i(-1, -1)
-	var v := -1
-	var best := INF
-	for w in level.foam.neighbours[u]:
-		var d := pos.distance_squared_to(site_px[w])
-		if d < best:
-			best = d
-			v = w
-	return Vector2i(u, v) if v >= 0 else Vector2i(-1, -1)
+	return level.pair_at((pos - rect.position) / rect.size * Vector2(level.foam.aspect, 1.0))
 
 
 func _after(origin: Vector2) -> void:
@@ -373,14 +363,27 @@ func _draw_strip(fg: Color, mid: Color, accent: Color) -> void:
 func _point_for(m: Vector3i) -> Vector2:
 	var foam := level.foam
 	for k in foam.swapping(session.col, m.x, m.y, m.z):
-		var a := site_px[foam.pairs_u[m.x][k]]
-		var b := site_px[foam.pairs_v[m.x][k]]
-		for f in [0.5, 0.45, 0.55, 0.4, 0.6, 0.3, 0.7]:
-			var pos := a.lerp(b, f)
+		for q in level.sides[foam.edge_of(foam.pairs_u[m.x][k], foam.pairs_v[m.x][k])]:
+			var pos := rect.position + q / Vector2(foam.aspect, 1.0) * rect.size
 			var p := pair_at(pos)
 			if p.x >= 0 and session.move_between(p.x, p.y) == m:
 				return pos
 	return Vector2(-1, -1)
+
+
+## Share of the edges that can be pointed at from a grid of points 6 screen pixels apart.
+func _pointable() -> float:
+	var seen := {}
+	var y := rect.position.y + 2.0
+	while y < rect.end.y:
+		var x := rect.position.x + 2.0
+		while x < rect.end.x:
+			var p := pair_at(Vector2(x, y))
+			if p.x >= 0:
+				seen[mini(p.x, p.y) * level.foam.n_cells + maxi(p.x, p.y)] = true
+			x += 6.0
+		y += 6.0
+	return seen.size() / float(level.foam.edge_u.size())
 
 
 func _smoke() -> void:
@@ -410,7 +413,7 @@ func _smoke() -> void:
 		solved = solved and session.solved()
 		click(buttons["reset"].get_center())
 		solved = solved and session.col == level.start
-		print("SMOKE %s: %s" % [ids[k], "solved at par by clicks" if solved else "FAILED"])
+		print("SMOKE %s: %s, %.3f of the edges can be pointed at" % [ids[k], "solved at par by clicks" if solved else "FAILED", _pointable()])
 		ok = ok and solved
 	print("SMOKE ", "PASS" if ok else "FAIL")
 	get_tree().quit(0 if ok else 1)

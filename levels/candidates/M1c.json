@@ -1,0 +1,25 @@
+{
+ "id": "M1c",
+ "title": "",
+ "foam": "grids/candidates/foam_M1c.json",
+ "colours": [
+  "#f1ede2",
+  "#d8402f"
+ ],
+ "picture": {
+  "regions": [
+   0,
+   1,
+   0
+  ]
+ },
+ "scramble": [
+  {
+   "group": 0,
+   "pair": [
+    0,
+    1
+   ]
+  }
+ ]
+}

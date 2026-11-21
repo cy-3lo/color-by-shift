@@ -1,0 +1,247 @@
+# Candidate levels for the ladder (tools/make_ladder.py): Chris picks 8 learning levels and
+# 6 paintings from the contact sheets in runs/ladder/.
+#
+# [[mondrian]]: a generated composition of `rects` rectangles in `colours` colours
+# (mosaic_model.mondrian, from `seed`), on a foam of `cells` cells, scrambled by `moves`
+# moves that cannot be undone in fewer.
+# [[painting]]: a [[pictures]] entry of toy/toy.toml (tools/make_painting_level.py).
+
+aspect = 1.3333
+min_side = 0.16                     # shortest side of a rectangle (picture height = 1)
+palette = ["#f1ede2", "#d8402f", "#2a56a5", "#efc23a", "#8d9399"]   # white, red, blue, yellow, grey
+
+# rung 1: the click, the groups
+[[mondrian]]
+id = "M1a"
+rects = 2
+colours = 2
+cells = 40
+moves = 1
+seed = 11
+[[mondrian]]
+id = "M1b"
+rects = 2
+colours = 2
+cells = 40
+moves = 1
+seed = 12
+[[mondrian]]
+id = "M1c"
+rects = 3
+colours = 2
+cells = 50
+moves = 1
+seed = 13
+
+# rung 2: two moves
+[[mondrian]]
+id = "M2a"
+rects = 3
+colours = 2
+cells = 50
+moves = 2
+seed = 21
+[[mondrian]]
+id = "M2b"
+rects = 3
+colours = 2
+cells = 60
+moves = 2
+seed = 22
+[[mondrian]]
+id = "M2c"
+rects = 4
+colours = 2
+cells = 60
+moves = 2
+seed = 23
+
+# rung 3: three colours, a pair has two colours
+[[mondrian]]
+id = "M3a"
+rects = 4
+colours = 3
+cells = 70
+moves = 2
+seed = 31
+[[mondrian]]
+id = "M3b"
+rects = 4
+colours = 3
+cells = 70
+moves = 2
+seed = 32
+[[mondrian]]
+id = "M3c"
+rects = 5
+colours = 3
+cells = 80
+moves = 2
+seed = 33
+
+# rung 4: order matters
+[[mondrian]]
+id = "M4a"
+rects = 5
+colours = 3
+cells = 80
+moves = 3
+seed = 41
+[[mondrian]]
+id = "M4b"
+rects = 5
+colours = 3
+cells = 90
+moves = 3
+seed = 42
+[[mondrian]]
+id = "M4c"
+rects = 6
+colours = 3
+cells = 90
+moves = 3
+seed = 43
+
+# rung 5: four colours
+[[mondrian]]
+id = "M5a"
+rects = 6
+colours = 4
+cells = 100
+moves = 3
+seed = 51
+[[mondrian]]
+id = "M5b"
+rects = 6
+colours = 4
+cells = 100
+moves = 3
+seed = 52
+[[mondrian]]
+id = "M5c"
+rects = 7
+colours = 4
+cells = 110
+moves = 3
+seed = 53
+
+# rung 6
+[[mondrian]]
+id = "M6a"
+rects = 7
+colours = 4
+cells = 110
+moves = 4
+seed = 61
+[[mondrian]]
+id = "M6b"
+rects = 7
+colours = 4
+cells = 120
+moves = 4
+seed = 62
+[[mondrian]]
+id = "M6c"
+rects = 8
+colours = 4
+cells = 120
+moves = 4
+seed = 63
+
+# rung 7: five colours
+[[mondrian]]
+id = "M7a"
+rects = 8
+colours = 5
+cells = 130
+moves = 5
+seed = 71
+[[mondrian]]
+id = "M7b"
+rects = 8
+colours = 5
+cells = 130
+moves = 5
+seed = 72
+[[mondrian]]
+id = "M7c"
+rects = 9
+colours = 5
+cells = 140
+moves = 5
+seed = 73
+
+# rung 8: the size of a painting level
+[[mondrian]]
+id = "M8a"
+rects = 10
+colours = 5
+cells = 150
+moves = 6
+seed = 81
+[[mondrian]]
+id = "M8b"
+rects = 10
+colours = 5
+cells = 150
+moves = 6
+seed = 82
+[[mondrian]]
+id = "M8c"
+rects = 11
+colours = 5
+cells = 160
+moves = 6
+seed = 83
+
+# paintings: 600 cells; the first two also at 350 cells for comparison
+[[painting]]
+id = "Q01"
+picture = "great_wave"
+[[painting]]
+id = "Q01s"
+picture = "great_wave"
+cells = 350
+[[painting]]
+id = "Q02"
+picture = "jawlensky_murnau"
+[[painting]]
+id = "Q02s"
+picture = "jawlensky_murnau"
+cells = 350
+[[painting]]
+id = "Q03"
+picture = "vallotton_the_wind"
+[[painting]]
+id = "Q04"
+picture = "vallotton_the_church_of_souain"
+[[painting]]
+id = "Q05"
+picture = "canaletto_piazza_san_marco"
+[[painting]]
+id = "Q06"
+picture = "modersohnbecker_old_factory"
+[[painting]]
+id = "Q07"
+picture = "gris_fantomas"
+[[painting]]
+id = "Q08"
+picture = "gris_glass_and_checkerboard"
+[[painting]]
+id = "Q09"
+picture = "marc_siberian_dogs_in_the"
+[[painting]]
+id = "Q10"
+picture = "kirchner_dance_hall_bellevue"
+[[painting]]
+id = "Q11"
+picture = "rousseau_the_repast_of_the"
+[[painting]]
+id = "Q12"
+picture = "bruce_peinture_nature_morte"
+[[painting]]
+id = "Q13"
+picture = "hiroshige_otomo_kihan"
+[[painting]]
+id = "Q14"
+picture = "seurat_the_gardener"

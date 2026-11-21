@@ -1,0 +1,99 @@
+{
+ "id": "Q07",
+ "title": "",
+ "foam": "grids/candidates/foam_Q07.json",
+ "colours": [
+  "#2b1d18",
+  "#316758",
+  "#80572e",
+  "#947f78",
+  "#d8d7b3"
+ ],
+ "picture": {
+  "regions": [
+   3,
+   0,
+   3,
+   2,
+   4,
+   2,
+   2,
+   2,
+   4,
+   1,
+   2,
+   0,
+   1,
+   4,
+   2,
+   1,
+   3,
+   3,
+   2,
+   2,
+   4,
+   0,
+   3,
+   0,
+   1,
+   4,
+   2,
+   1,
+   1
+  ]
+ },
+ "scramble": [
+  {
+   "group": 7,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 4,
+   "pair": [
+    2,
+    3
+   ]
+  },
+  {
+   "group": 6,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 4,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    0,
+    3
+   ]
+  }
+ ],
+ "reward": {
+  "image": "assets/paintings/gris_fantomas.jpg",
+  "crop": null,
+  "anchor": [
+   0.5,
+   0.5
+  ],
+  "artist": "Juan Gris",
+  "title": "Fantomas"
+ }
+}

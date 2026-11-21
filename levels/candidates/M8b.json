@@ -1,0 +1,70 @@
+{
+ "id": "M8b",
+ "title": "",
+ "foam": "grids/candidates/foam_M8b.json",
+ "colours": [
+  "#f1ede2",
+  "#d8402f",
+  "#2a56a5",
+  "#efc23a",
+  "#8d9399"
+ ],
+ "picture": {
+  "regions": [
+   2,
+   0,
+   1,
+   4,
+   2,
+   3,
+   4,
+   3,
+   1,
+   0
+  ]
+ },
+ "scramble": [
+  {
+   "group": 3,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 2,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    0,
+    2
+   ]
+  },
+  {
+   "group": 4,
+   "pair": [
+    0,
+    3
+   ]
+  },
+  {
+   "group": 6,
+   "pair": [
+    2,
+    4
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    0,
+    3
+   ]
+  }
+ ]
+}

@@ -1,0 +1,102 @@
+{
+ "id": "Q02",
+ "title": "",
+ "foam": "grids/candidates/foam_Q02.json",
+ "colours": [
+  "#293957",
+  "#4e7860",
+  "#c27422",
+  "#af8086",
+  "#c5b481"
+ ],
+ "picture": {
+  "regions": [
+   1,
+   3,
+   0,
+   3,
+   1,
+   1,
+   3,
+   1,
+   4,
+   1,
+   3,
+   4,
+   4,
+   4,
+   1,
+   4,
+   0,
+   3,
+   1,
+   4,
+   3,
+   1,
+   2,
+   0,
+   1,
+   3,
+   4,
+   2,
+   4,
+   1,
+   3,
+   0
+  ]
+ },
+ "scramble": [
+  {
+   "group": 7,
+   "pair": [
+    1,
+    4
+   ]
+  },
+  {
+   "group": 4,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 6,
+   "pair": [
+    0,
+    3
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 3,
+   "pair": [
+    1,
+    4
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    1,
+    2
+   ]
+  }
+ ],
+ "reward": {
+  "image": "assets/paintings/jawlensky_murnau.jpg",
+  "crop": null,
+  "anchor": [
+   0.5,
+   0.5
+  ],
+  "artist": "Alexej von Jawlensky",
+  "title": "Murnau"
+ }
+}

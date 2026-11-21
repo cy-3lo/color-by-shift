@@ -1,0 +1,32 @@
+{
+ "id": "M2a",
+ "title": "",
+ "foam": "grids/candidates/foam_M2a.json",
+ "colours": [
+  "#f1ede2",
+  "#d8402f"
+ ],
+ "picture": {
+  "regions": [
+   0,
+   0,
+   1
+  ]
+ },
+ "scramble": [
+  {
+   "group": 0,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 2,
+   "pair": [
+    0,
+    1
+   ]
+  }
+ ]
+}

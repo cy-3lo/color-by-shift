@@ -1,0 +1,35 @@
+{
+ "id": "M3c",
+ "title": "",
+ "foam": "grids/candidates/foam_M3c.json",
+ "colours": [
+  "#f1ede2",
+  "#d8402f",
+  "#2a56a5"
+ ],
+ "picture": {
+  "regions": [
+   2,
+   0,
+   1,
+   2,
+   0
+  ]
+ },
+ "scramble": [
+  {
+   "group": 3,
+   "pair": [
+    0,
+    2
+   ]
+  },
+  {
+   "group": 5,
+   "pair": [
+    0,
+    2
+   ]
+  }
+ ]
+}

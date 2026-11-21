@@ -1,9 +1,10 @@
 """Export the foam levels to the Godot project (game/data), which only loads data.
 
-    python tools/export_godot.py [--levels F01 P01 ...] [--width 1280]
+    python tools/export_godot.py [--src levels/candidates] [--levels F01 P01 ...] [--width 1280]
 
-Per level (levels/foam/<id>.json and its foam):
-  game/data/levels/<id>.json        sites, edges, groups, colours, target, start, par, reward
+Per level (<src>/<id>.json and its foam; src defaults to levels/foam):
+  game/data/levels/<id>.json        sites, edges, groups, points on every side, colours, target,
+                                    start, par, reward
   game/data/levels/<id>.labels.gz   cell index of every pixel, uint16 little-endian, row by
                                     row, gzip (2.4 MB raw, about 60 kB packed)
   game/data/paintings/<id>.jpg      the reward scan cut to the level's window (painting levels)
@@ -28,6 +29,34 @@ sys.path.insert(0, str(ROOT / "toy"))
 from mosaic_model.foam import FoamLevel, load_foam_level  # noqa: E402
 
 
+def side_points(labels: np.ndarray, edges: np.ndarray, aspect: float, k: int = 8) -> list:
+    """Up to k points on the side shared by the two cells of every edge (foam coordinates),
+    taken from the raster: used to find the side nearest to the pointer. An edge whose cells
+    do not touch on this raster gets no point: it cannot be pointed at, but still swaps."""
+    h, w = labels.shape
+    lab = labels.astype(np.int64)
+    n = int(lab.max()) + 1
+    keys, xs, ys = [], [], []
+    for dy, dx in ((0, 1), (1, 0)):
+        p, q = lab[: h - dy, : w - dx], lab[dy:, dx:]
+        yy, xx = np.nonzero(p != q)
+        keys.append(np.minimum(p[yy, xx], q[yy, xx]) * n + np.maximum(p[yy, xx], q[yy, xx]))
+        xs.append((xx + 0.5 + 0.5 * dx) / w * aspect)
+        ys.append((yy + 0.5 + 0.5 * dy) / h)
+    key, x, y = (np.concatenate(v) for v in (keys, xs, ys))
+    order = np.argsort(key, kind="stable")
+    key, x, y = key[order], x[order], y[order]
+    out = []
+    for u, v in edges:
+        i0, i1 = np.searchsorted(key, [u * n + v, u * n + v + 1])
+        if i1 == i0:  # neighbours on the coarser raster of the generator only: no side here
+            out.append([])
+            continue
+        pick = np.unique(np.linspace(i0, i1 - 1, k).round().astype(int))
+        out.append([c for i in pick for c in (round(float(x[i]), 4), round(float(y[i]), 4))])
+    return out
+
+
 def level_data(level: FoamLevel, width: int) -> tuple[dict, np.ndarray, list[list[int]]]:
     """The level as plain data, its raster of cell indices, and the golden states."""
     foam = level.foam
@@ -47,6 +76,7 @@ def level_data(level: FoamLevel, width: int) -> tuple[dict, np.ndarray, list[lis
         "sites": [[round(float(x), 5), round(float(y), 5)] for x, y in foam.sites],
         "edges": foam.edges.tolist(),
         "group": [int(g) for g in foam.group],
+        "sides": side_points(labels, foam.edges, foam.aspect),
         "colours": level.colours,
         "target": level.target.tolist(),
         "start": start.tolist(),
@@ -85,13 +115,17 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--levels", nargs="*", help="level ids in order (default: all, sorted)")
     ap.add_argument("--width", type=int, default=1280, help="width of the raster of cells")
+    ap.add_argument("--src", default="levels/foam", help="folder of level JSON files")
     args = ap.parse_args()
 
-    src = ROOT / "levels" / "foam"
+    src = ROOT / args.src
     ids = args.levels or sorted(p.stem for p in src.glob("*.json"))
     out = ROOT / "game" / "data"
     gold = ROOT / "game" / "tests" / "golden"
     for d in (out / "levels", out / "paintings", gold):
+        for old in d.glob("*") if d.exists() else []:  # derived data: start clean
+            if old.suffix in (".json", ".gz", ".jpg"):
+                old.unlink()
         d.mkdir(parents=True, exist_ok=True)
 
     index = []
@@ -105,9 +139,11 @@ def main() -> None:
         if data["painting"]:
             painting(level, args.width).save(out / "paintings" / data["painting"], quality=88)
         index.append({"id": lid, "kind": "painting" if data["painting"] else "learning"})
+        hidden = sum(not s for s in data["sides"])
         print(
             f"{lid}: {level.foam.n_cells} cells, {len(level.foam.edges)} edges, "
             f"{level.foam.n_groups} groups, par {level.par}"
+            + (f", {hidden} edges without a side on the raster" if hidden else "")
         )
     (out / "index.json").write_text(json.dumps({"levels": index}, indent=1))
 

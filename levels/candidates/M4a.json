@@ -1,0 +1,42 @@
+{
+ "id": "M4a",
+ "title": "",
+ "foam": "grids/candidates/foam_M4a.json",
+ "colours": [
+  "#f1ede2",
+  "#d8402f",
+  "#2a56a5"
+ ],
+ "picture": {
+  "regions": [
+   2,
+   0,
+   1,
+   2,
+   0
+  ]
+ },
+ "scramble": [
+  {
+   "group": 5,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 4,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    0,
+    2
+   ]
+  }
+ ]
+}

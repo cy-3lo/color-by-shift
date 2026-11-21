@@ -14,7 +14,7 @@ var n_groups := 0
 var pairs_u: Array[PackedInt32Array] = []  ## per group, the pairs (u, v)
 var pairs_v: Array[PackedInt32Array] = []
 var neighbours: Array[PackedInt32Array] = []  ## per cell
-var _group_of := {}  ## u * n_cells + v (u < v) -> group
+var _edge_of := {}  ## u * n_cells + v (u < v) -> edge
 
 
 ## Builds the foam from level data; returns "" or what is wrong.
@@ -32,7 +32,7 @@ func setup(p_aspect: float, p_sites: Array, p_edges: Array, p_group: Array) -> S
 	pairs_u.clear()
 	pairs_v.clear()
 	neighbours.clear()
-	_group_of.clear()
+	_edge_of.clear()
 	for g in n_groups:
 		pairs_u.append(PackedInt32Array())
 		pairs_v.append(PackedInt32Array())
@@ -60,13 +60,19 @@ func setup(p_aspect: float, p_sites: Array, p_edges: Array, p_group: Array) -> S
 		pairs_v[g].append(v)
 		neighbours[u].append(v)
 		neighbours[v].append(u)
-		_group_of[u * n_cells + v] = g
+		_edge_of[u * n_cells + v] = e
 	return ""
 
 
 ## Group of the edge between two cells, -1 if they are not neighbours.
 func group_of(u: int, v: int) -> int:
-	return _group_of.get(mini(u, v) * n_cells + maxi(u, v), -1)
+	var e := edge_of(u, v)
+	return edge_group[e] if e >= 0 else -1
+
+
+## Edge between two cells, -1 if they are not neighbours.
+func edge_of(u: int, v: int) -> int:
+	return _edge_of.get(mini(u, v) * n_cells + maxi(u, v), -1)
 
 
 ## Indices, within group g, of the pairs that hold colours a and b (none if a == b).

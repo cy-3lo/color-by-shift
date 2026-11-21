@@ -1,0 +1,53 @@
+{
+ "id": "M6c",
+ "title": "",
+ "foam": "grids/candidates/foam_M6c.json",
+ "colours": [
+  "#f1ede2",
+  "#d8402f",
+  "#2a56a5",
+  "#efc23a"
+ ],
+ "picture": {
+  "regions": [
+   3,
+   0,
+   2,
+   0,
+   3,
+   2,
+   0,
+   1
+  ]
+ },
+ "scramble": [
+  {
+   "group": 2,
+   "pair": [
+    0,
+    3
+   ]
+  },
+  {
+   "group": 6,
+   "pair": [
+    0,
+    3
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    1,
+    3
+   ]
+  },
+  {
+   "group": 5,
+   "pair": [
+    0,
+    2
+   ]
+  }
+ ]
+}

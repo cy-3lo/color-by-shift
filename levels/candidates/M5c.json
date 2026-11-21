@@ -1,0 +1,45 @@
+{
+ "id": "M5c",
+ "title": "",
+ "foam": "grids/candidates/foam_M5c.json",
+ "colours": [
+  "#f1ede2",
+  "#d8402f",
+  "#2a56a5",
+  "#efc23a"
+ ],
+ "picture": {
+  "regions": [
+   0,
+   2,
+   1,
+   2,
+   3,
+   0,
+   3
+  ]
+ },
+ "scramble": [
+  {
+   "group": 1,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 6,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 3,
+   "pair": [
+    1,
+    2
+   ]
+  }
+ ]
+}

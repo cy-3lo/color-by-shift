@@ -12,6 +12,7 @@ var par := 0
 var labels := PackedByteArray()  ## uint16 little-endian per pixel, row by row
 var label_w := 0
 var label_h := 0
+var sides: Array[PackedVector2Array] = []  ## per edge, points on the shared side (foam coordinates)
 var painting := ""  ## res:// path of the reward scan, "" if none
 var artist := ""
 var title := ""
@@ -33,6 +34,14 @@ static func load_level(level_id: String, folder := "res://data") -> FoamLevel:
 	lv.foam = Foam.new()
 	lv.error = lv.foam.setup(float(d["aspect"]), d["sites"], d["edges"], d["group"])
 	if not lv.error.is_empty():
+		return lv
+	for s in d["sides"]:
+		var pts := PackedVector2Array()
+		for k in range(0, s.size(), 2):
+			pts.append(Vector2(s[k], s[k + 1]))
+		lv.sides.append(pts)
+	if lv.sides.size() != lv.foam.edge_u.size():
+		lv.error = "sides and edges differ in number"
 		return lv
 	for c in d["colours"]:
 		lv.colours.append(Color.html(c))
@@ -66,6 +75,23 @@ func cell_at(uv: Vector2) -> int:
 		return -1
 	var k := (int(uv.y * label_h) * label_w + int(uv.x * label_w)) * 2
 	return labels[k] | (labels[k + 1] << 8)
+
+
+## The cell at a point (foam coordinates) and the neighbour whose shared side is nearest to
+## it; (-1, -1) outside the picture.
+func pair_at(p: Vector2) -> Vector2i:
+	var u := cell_at(p / Vector2(foam.aspect, 1.0))
+	if u < 0:
+		return Vector2i(-1, -1)
+	var v := -1
+	var best := INF
+	for w in foam.neighbours[u]:
+		for q in sides[foam.edge_of(u, w)]:
+			var d := p.distance_squared_to(q)
+			if d < best:
+				best = d
+				v = w
+	return Vector2i(u, v) if v >= 0 else Vector2i(-1, -1)
 
 
 static func _bytes(a: Array) -> PackedByteArray:

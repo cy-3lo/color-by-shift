@@ -80,13 +80,25 @@ func _level(id: String) -> void:
 	_ok(s.play(last) and s.moves() == lv.par - 1 and s.future.size() == 1, id + ": same move takes it back")
 	s.reset()
 	_ok(s.col == lv.start and s.moves() == 0 and not s.undo(), id + ": reset")
-	# pointing: for every edge, its two cells give the edge's group
+	# pointing: for every edge, its two cells give the edge's group, and a point of its side
+	# gives these two cells (or a pair of the same side point shared with a third cell)
 	var pointed := true
+	var found := 0
 	for e in f.edge_u.size():
 		var m2 := s.move_between(f.edge_u[e], f.edge_v[e])
 		var differ := s.col[f.edge_u[e]] != s.col[f.edge_v[e]]
 		pointed = pointed and ((m2.x == f.edge_group[e]) == differ) and (differ or m2.x == -1)
+		for q in lv.sides[e]:
+			var pr := lv.pair_at(q)
+			if mini(pr.x, pr.y) == f.edge_u[e] and maxi(pr.x, pr.y) == f.edge_v[e]:
+				found += 1
+				break
 	_ok(pointed, id + ": move_between")
+	var with_side := 0
+	for e in f.edge_u.size():
+		with_side += int(not lv.sides[e].is_empty())
+	_ok(found == with_side, "%s: every edge with a side can be pointed at (%d of %d)" % [id, found, with_side])
+	_ok(with_side >= 0.99 * f.edge_u.size(), "%s: at most 1 %% of the edges have no side (%d of %d)" % [id, f.edge_u.size() - with_side, f.edge_u.size()])
 
 
 func _refusals() -> void:

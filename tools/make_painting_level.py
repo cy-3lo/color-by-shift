@@ -92,6 +92,77 @@ def merge_small(col: np.ndarray, min_px: int) -> np.ndarray:
         col = new[lab]
 
 
+def build(
+    cfg: dict,
+    picture: str,
+    level_id: str,
+    cells: int = 600,
+    moves: int = 6,
+    res: int = 128,
+    up: int = 4,
+    min_area: float = 0.003,
+    seed: int = 1,
+    grids: Path = ROOT / "grids",
+    levels: Path = ROOT / "levels" / "foam",
+):
+    """Builds and writes the foam, its raster of blocks and the level; returns
+    (foam, level dict, palette, target, scramble, entry, colour choice)."""
+    entry = next(p for p in cfg["pictures"] if p["key"] == picture)
+    sc, cp = cfg["sim"], cfg["palettes"]
+    n, aspect = sc["colours"], sc["aspect"]
+    img = Image.open(ROOT / entry["file"]).convert("RGB")
+    if entry.get("crop"):
+        x0, y0, x1, y1 = entry["crop"]
+        W, H = img.size
+        img = img.crop((round(x0 * W), round(y0 * H), round(x1 * W), round(y1 * H)))
+    img = pictures.fit_aspect(img, aspect, entry.get("anchor", (0.5, 0.5)))
+    w0, h0 = res, round(res / aspect)
+    small = img.filter(ImageFilter.GaussianBlur(0.5 * img.size[0] / w0)).resize((w0, h0))
+    x = np.asarray(small, dtype=float).reshape(-1, 3)
+    choice = pictures.choice(entry, cp)
+    if choice == "present":
+        pal, lab = pictures.kmeans(x, n, sc["seed"])
+    else:
+        share = entry.get("share", cp[f"{choice}_share"])
+        pal, lab, _ = pictures.contrast_palette(x, n, sc["seed"], cp["clusters"], share)
+    col = np.kron(lab.reshape(h0, w0), np.ones((up, up), dtype=np.int64))
+    for _ in range(2):
+        col = majority(col, n, up // 2 + 1)
+    col = merge_small(col, int(min_area * col.size))
+    regions = components(col)
+    n_reg = int(regions.max()) + 1
+    region_colour = np.zeros(n_reg, dtype=np.int64)
+    region_colour[regions.ravel()] = col.ravel()
+    foam = make_foam(
+        cells, aspect, seed, relax=5, width=640, regions=regions.astype(np.uint16), min_sites=1
+    )
+    target = region_colour[foam.site_region]
+    scr = random_scramble(foam, target, n, moves, np.random.default_rng(seed + 1000))
+    grid = grids / f"foam_{level_id}.json"
+    grids.mkdir(parents=True, exist_ok=True)
+    levels.mkdir(parents=True, exist_ok=True)
+    np.save(grid.with_name(f"foam_{level_id}_regions.npy"), regions.astype(np.uint16))
+    data = foam.to_json() | {"seed": seed, "regions_file": f"foam_{level_id}_regions.npy"}
+    grid.write_text(json.dumps(data, indent=1) + "\n")
+    level = {
+        "id": level_id,
+        "title": "",
+        "foam": str(grid.relative_to(ROOT)),
+        "colours": ["#" + bytes(int(v) for v in c).hex() for c in pal],
+        "picture": {"regions": region_colour.tolist()},
+        "scramble": [{"group": g, "pair": [p, q]} for g, p, q in scr],
+        "reward": {
+            "image": entry["file"],
+            "crop": entry.get("crop"),
+            "anchor": list(entry.get("anchor", (0.5, 0.5))),
+            "artist": entry.get("artist", ""),
+            "title": entry.get("title", ""),
+        },
+    }
+    (levels / f"{level_id}.json").write_text(json.dumps(level, indent=1) + "\n")
+    return foam, level, pal, target, scr, entry, choice
+
+
 def main() -> None:
     cfg = tomllib.loads((ROOT / "toy" / "toy.toml").read_text())
     ap = argparse.ArgumentParser(description=__doc__)
@@ -105,59 +176,12 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--force", action="store_true")
     a = ap.parse_args()
-    grid = ROOT / "grids" / f"foam_{a.id}.json"
-    if grid.exists() and not a.force:
-        raise SystemExit(f"{grid} exists: use --force")
-    entry = next(p for p in cfg["pictures"] if p["key"] == a.picture)
-    sc, cp = cfg["sim"], cfg["palettes"]
-    n, aspect = sc["colours"], sc["aspect"]
-    img = Image.open(ROOT / entry["file"]).convert("RGB")
-    if entry.get("crop"):
-        x0, y0, x1, y1 = entry["crop"]
-        W, H = img.size
-        img = img.crop((round(x0 * W), round(y0 * H), round(x1 * W), round(y1 * H)))
-    img = pictures.fit_aspect(img, aspect, entry.get("anchor", (0.5, 0.5)))
-    w0, h0 = a.res, round(a.res / aspect)
-    small = img.filter(ImageFilter.GaussianBlur(0.5 * img.size[0] / w0)).resize((w0, h0))
-    x = np.asarray(small, dtype=float).reshape(-1, 3)
-    choice = pictures.choice(entry, cp)
-    if choice == "present":
-        pal, lab = pictures.kmeans(x, n, sc["seed"])
-    else:
-        share = entry.get("share", cp[f"{choice}_share"])
-        pal, lab, _ = pictures.contrast_palette(x, n, sc["seed"], cp["clusters"], share)
-    col = np.kron(lab.reshape(h0, w0), np.ones((a.up, a.up), dtype=np.int64))
-    for _ in range(2):
-        col = majority(col, n, a.up // 2 + 1)
-    col = merge_small(col, int(a.min_area * col.size))
-    regions = components(col)
-    n_reg = int(regions.max()) + 1
-    region_colour = np.zeros(n_reg, dtype=np.int64)
-    region_colour[regions.ravel()] = col.ravel()
-    foam = make_foam(
-        a.cells, aspect, a.seed, relax=5, width=640, regions=regions.astype(np.uint16), min_sites=1
+    if (ROOT / "grids" / f"foam_{a.id}.json").exists() and not a.force:
+        raise SystemExit(f"grids/foam_{a.id}.json exists: use --force")
+    foam, _, pal, target, scr, entry, choice = build(
+        cfg, a.picture, a.id, a.cells, a.moves, a.res, a.up, a.min_area, a.seed
     )
-    target = region_colour[foam.site_region]
-    scr = random_scramble(foam, target, n, a.moves, np.random.default_rng(a.seed + 1000))
-    np.save(grid.with_name(f"foam_{a.id}_regions.npy"), regions.astype(np.uint16))
-    data = foam.to_json() | {"seed": a.seed, "regions_file": f"foam_{a.id}_regions.npy"}
-    grid.write_text(json.dumps(data, indent=1) + "\n")
-    level = {
-        "id": a.id,
-        "title": "",
-        "foam": f"grids/foam_{a.id}.json",
-        "colours": ["#" + bytes(int(v) for v in c).hex() for c in pal],
-        "picture": {"regions": region_colour.tolist()},
-        "scramble": [{"group": g, "pair": [p, q]} for g, p, q in scr],
-        "reward": {
-            "image": entry["file"],
-            "crop": entry.get("crop"),
-            "anchor": list(entry.get("anchor", (0.5, 0.5))),
-            "artist": entry.get("artist", ""),
-            "title": entry.get("title", ""),
-        },
-    }
-    (ROOT / "levels" / "foam" / f"{a.id}.json").write_text(json.dumps(level, indent=1) + "\n")
+    aspect, n_reg = foam.aspect, foam.n_regions
     # preview: the blocks in their colours with the cell sides, next to the scrambled start
     out = ROOT / "runs" / "painting_level"
     out.mkdir(parents=True, exist_ok=True)
