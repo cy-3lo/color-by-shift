@@ -379,11 +379,14 @@ func _press_button(name_: String) -> void:
 			_settle()
 			if not session.future.is_empty():
 				_run(session.future[-1], "redo")
-		"reset":
+		"reset":  # back: to the start of the level, or to the level before if nothing was played
 			_settle()
-			session.reset()
-			solved_at = -1.0
-			_upload()
+			if session.moves() == 0 and session.future.is_empty():
+				_load(at - 1)
+			else:
+				session.reset()
+				solved_at = -1.0
+				_upload()
 	overlay.queue_redraw()
 
 
@@ -654,7 +657,9 @@ func _smoke() -> void:
 		_settle()
 		good = good and session.solved()
 		press(buttons["reset"].get_center())
-		good = good and session.col == level.start and session.moves() == 0
+		good = good and session.col == level.start and session.moves() == 0 and at == k
+		press(buttons["reset"].get_center())  # nothing played: back to the level before
+		good = good and at == posmod(k - 1, ids.size())
 		print("SMOKE %s: %s" % [ids[k], "solved at par by drags" if good else "FAILED"])
 		ok = ok and good
 	print("SMOKE ", "PASS" if ok else "FAIL")
