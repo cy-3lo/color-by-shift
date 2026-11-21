@@ -80,6 +80,25 @@ func _level(id: String) -> void:
 	_ok(s.play(last) and s.moves() == lv.par - 1 and s.future.size() == 1, id + ": same move takes it back")
 	s.reset()
 	_ok(s.col == lv.start and s.moves() == 0 and not s.undo(), id + ": reset")
+	# hints: from the start, following the hints solves at par; after a wrong move, the next
+	# move is its undo and following the hints solves in par + 1
+	var area := Hint.areas(lv)
+	_ok(_follow(lv, s, area) == lv.par and s.solved(), id + ": hints solve at par")
+	s.reset()
+	var wrong := Vector3i(-1, 0, 0)
+	for g in f.n_groups:
+		for a in n:
+			for b in range(a + 1, n):
+				var m3 := Vector3i(g, a, b)
+				if wrong.x >= 0 or m3 in lv.solution or not s.play(m3):
+					continue
+				if Hint.next_moves(lv, s.col, s.history) == [m3]:
+					wrong = m3
+				else:
+					s.undo()
+	_ok(wrong.x >= 0, id + ": a wrong move exists")
+	_ok(_follow(lv, s, area) == lv.par + 1 and s.solved(), id + ": after a wrong move, hints undo it and solve")
+	s.reset()
 	# pointing: for every edge, its two cells give the edge's group, and a point of its side
 	# gives these two cells (or a pair of the same side point shared with a third cell)
 	var pointed := true
@@ -99,6 +118,19 @@ func _level(id: String) -> void:
 		with_side += int(not lv.sides[e].is_empty())
 	_ok(found == with_side, "%s: every edge with a side can be pointed at (%d of %d)" % [id, found, with_side])
 	_ok(with_side >= 0.99 * f.edge_u.size(), "%s: at most 1 %% of the edges have no side (%d of %d)" % [id, f.edge_u.size() - with_side, f.edge_u.size()])
+
+
+## Plays the first next move of the hint until solved; the number of moves played (-1 if a hint
+## cell is missing or the hints loop).
+func _follow(lv: FoamLevel, s: Session, area: PackedFloat32Array) -> int:
+	var steps := 0
+	while not s.solved():
+		var nm := Hint.next_moves(lv, s.col, s.history)
+		if nm.is_empty() or Hint.cell(lv, s.col, s.history, area) < 0 or steps > 3 * lv.par + 4:
+			return -1
+		s.play(nm[0])
+		steps += 1
+	return steps
 
 
 func _refusals() -> void:

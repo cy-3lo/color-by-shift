@@ -10,8 +10,9 @@ extends Control
 ## settings open a panel over the picture (any press closes it, Escape too).
 ## Sounds: a pluck when a move tips over (pitch from its group, louder with more pairs), a
 ## chord when the picture is recovered (audio/, synthesised by tools/make_sounds.py).
-## Hints (a setting): after hint.after_s seconds without any action, a misplaced cell (the
-## largest one) gets an orange edge.
+## Hints (a setting): after hint.after_s seconds without any action, a cell of the next move
+## gets an orange edge (sim/hint.gd: the largest misplaced cell that the next move swaps; the
+## next move is the undo when the player has strayed).
 ## Options after "--": --level=ID, --solved (shows the level recovered, to look at the
 ## reward), --smoke (headless: solve every level by drags). In a browser:
 ## index.html?level=ID&solved.
@@ -50,6 +51,9 @@ var settings := {"sound": true, "hints": true}  ## kept in user://settings.json
 var last_action := 0.0  ## time of the last press or key
 var cell_area := PackedFloat32Array()  ## area of every cell (to pick the hint)
 var hint_shown := -1  ## the cell drawn with a hint edge, -1 for none
+var hint_for := PackedByteArray()  ## the colours the hint cell below was computed for
+var hint_cached := -1
+var hint_n := -1
 var plucks: Array[AudioStreamPlayer] = []
 var next_pluck := 0
 var tada_player: AudioStreamPlayer
@@ -186,15 +190,8 @@ func _load(k: int) -> void:
 	session = Session.new(level)
 	var n := level.foam.n_cells
 	last_action = now
-	cell_area.resize(n)
-	for c in n:  # shoelace formula on the outline
-		var pts := level.shapes[c]
-		var a := 0.0
-		for j in pts.size():
-			var q0 := pts[j]
-			var q1 := pts[(j + 1) % pts.size()]
-			a += q0.x * q1.y - q1.x * q0.y
-		cell_area[c] = absf(a) * 0.5
+	cell_area = Hint.areas(level)
+	hint_for = PackedByteArray()
 	var labels := Image.create_from_data(
 		level.label_w, level.label_h, false, Image.FORMAT_RG8, level.labels)
 	cell_image = Image.create(n, 3, false, Image.FORMAT_RGBA8)
@@ -601,17 +598,17 @@ func _process(delta: float) -> void:
 		overlay.queue_redraw()
 
 
-## The misplaced cell to show after a pause (the largest one), or -1: no hint now.
+## The cell to show after a pause (sim/hint.gd), or -1: no hint now.
 func _hint_cell() -> int:
 	if not settings["hints"] or solved_at >= 0.0 or phase != Phase.IDLE or not panel.is_empty():
 		return -1
 	if now - last_action < float(cfg["hint"]["after_s"]):
 		return -1
-	var best := -1
-	for c in level.foam.n_cells:
-		if session.col[c] != level.target[c] and (best < 0 or cell_area[c] > cell_area[best]):
-			best = c
-	return best
+	if session.col != hint_for or session.history.size() != hint_n:  # once per state
+		hint_for = session.col.duplicate()
+		hint_n = session.history.size()
+		hint_cached = Hint.cell(level, session.col, session.history, cell_area)
+	return hint_cached
 
 
 

@@ -9,6 +9,7 @@ var colours: Array[Color] = []
 var target := PackedByteArray()
 var start := PackedByteArray()
 var par := 0
+var solution: Array[Vector3i] = []  ## one shortest way from start to target (the reversed scramble)
 var labels := PackedByteArray()  ## uint16 little-endian per pixel, row by row
 var label_w := 0
 var label_h := 0
@@ -50,6 +51,8 @@ static func load_level(level_id: String, folder := "res://data") -> FoamLevel:
 	lv.target = _bytes(d["target"])
 	lv.start = _bytes(d["start"])
 	lv.par = int(d["par"])
+	for m in d.get("solution", []):
+		lv.solution.append(Vector3i(int(m[0]), int(m[1]), int(m[2])))
 	lv.artist = d.get("artist", "")
 	lv.date = d.get("date", "")
 	lv.title = d.get("title", "")

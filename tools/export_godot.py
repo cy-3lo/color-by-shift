@@ -119,6 +119,10 @@ def level_data(level: FoamLevel, width: int) -> tuple[dict, np.ndarray, list[lis
         "target": level.target.tolist(),
         "start": start.tolist(),
         "par": level.par,
+        # the reversed scramble, for the hints: one shortest way from the start to the picture
+        "solution": [
+            [int(g), int(min(a, b)), int(max(a, b))] for g, a, b in reversed(level.scramble)
+        ],
         "labels": {"file": f"{level.id}.labels.gz", "width": width, "height": height},
         "shapes": {"file": f"{level.id}.shapes.gz", "points": SHAPE_POINTS},
         "painting": f"{level.id}.jpg" if reward.get("image") else "",
