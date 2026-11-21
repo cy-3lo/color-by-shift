@@ -1,0 +1,44 @@
+{
+ "levels": [
+  {
+   "id": "F01",
+   "kind": "learning"
+  },
+  {
+   "id": "F02",
+   "kind": "learning"
+  },
+  {
+   "id": "F03",
+   "kind": "learning"
+  },
+  {
+   "id": "F04",
+   "kind": "learning"
+  },
+  {
+   "id": "F05",
+   "kind": "learning"
+  },
+  {
+   "id": "F06",
+   "kind": "learning"
+  },
+  {
+   "id": "F07",
+   "kind": "learning"
+  },
+  {
+   "id": "F08",
+   "kind": "learning"
+  },
+  {
+   "id": "P01",
+   "kind": "painting"
+  },
+  {
+   "id": "P02",
+   "kind": "painting"
+  }
+ ]
+}
