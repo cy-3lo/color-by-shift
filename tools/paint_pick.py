@@ -6,8 +6,8 @@ Paintings: assets/rawpixel/pictures.toml and the [[pictures]] of toy/toy.toml. E
 cut to 4:3 and quantised to the toy's 5 colours in up to four ways ("present" = the most
 present colours; "contrast" with a minimum share of 5 %, 2 % or 0.4 % of the picture), its
 colour map split into blocks with smooth outlines as tools/make_painting_level.py does,
-and a foam built inside the blocks for every number of cells. Each tile is the picture to recover as it
-would be shown in the game. Painters with flat shades come first (--first).
+and a foam built inside the blocks for every number of cells. Each tile is the picture to
+recover as it would be shown in the game. Painters with flat shades come first (FIRST).
 Writes runs/paintpick/<stamp>/index.html and cards_<k>.json; the page stores the picks in
 the artifact's database (collection "painting_picks").
 """
