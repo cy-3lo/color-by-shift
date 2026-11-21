@@ -6,6 +6,10 @@ extends Control
 ## shape, the colour that was picked passing above); below drag.commit of the way it is a preview, beyond it
 ## the picture tips into the shifted state (and comes back if the drag returns below
 ## drag.release before letting go).
+## Buttons, two by two: back and next level, undo and redo, credits and settings; credits and
+## settings open a panel over the picture (any press closes it, Escape too).
+## Sounds: a pluck when a move tips over (pitch from its group, louder with more pairs), a
+## chord when the picture is recovered (audio/, synthesised by tools/make_sounds.py).
 ## Options after "--": --level=ID, --solved (shows the level recovered, to look at the
 ## reward), --smoke (headless: solve every level by drags). In a browser:
 ## index.html?level=ID&solved.
@@ -35,6 +39,16 @@ var moving := PackedInt32Array()  ## cells of the pairs of the move under way: u
 var top_colour := -1  ## the colour that passes above the other
 var eased := 0.0  ## progress of the move as drawn
 var buttons := {}  ## name -> Rect2
+const BUTTONS: Array[String] = ["reset", "next", "undo", "redo", "credits", "settings"]
+var room := Rect2()  ## the part of the window left to the picture
+var panel := ""  ## "", "credits" or "settings": the panel open over the picture
+var panel_rect := Rect2()
+var rows := {}  ## settings panel: "sound", "fullscreen" -> Rect2
+var settings := {"sound": true}  ## kept in user://settings.json
+var plucks: Array[AudioStreamPlayer] = []
+var next_pluck := 0
+var tada_player: AudioStreamPlayer
+var credits := {}
 
 var picture: ColorRect
 var tiles: Control  ## the cells of the move under way, drawn above the picture
@@ -102,6 +116,9 @@ func _ready() -> void:
 	overlay.draw.connect(_draw_overlay)
 	add_child(overlay)
 	get_viewport().size_changed.connect(_layout)
+	_audio_setup()
+	var c: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/credits.json"))
+	credits = c if typeof(c) == TYPE_DICTIONARY else {}
 	_load(at)
 	if smoke:
 		_smoke()
@@ -109,6 +126,49 @@ func _ready() -> void:
 
 func _c(key: String) -> Color:
 	return Color.html(cfg["colours"][key])
+
+
+# ---- sound and settings -------------------------------------------------------------------
+func _audio_setup() -> void:
+	if FileAccess.file_exists("user://settings.json"):
+		var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string("user://settings.json"))
+		if typeof(saved) == TYPE_DICTIONARY:
+			settings.merge(saved, true)
+	var pluck: AudioStream = load("res://audio/pluck.wav")
+	for k in 6:  # several at once: undo while the last pluck still rings
+		var p := AudioStreamPlayer.new()
+		p.stream = pluck
+		add_child(p)
+		plucks.append(p)
+	tada_player = AudioStreamPlayer.new()
+	tada_player.stream = load("res://audio/tada.wav")
+	add_child(tada_player)
+
+
+func _save_settings() -> void:
+	var f := FileAccess.open("user://settings.json", FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify(settings))
+
+
+## The pluck of move m: pitch from its group (a note of the scale), louder with more pairs.
+func _pluck(m: Vector3i, extra_db: float = 0.0) -> void:
+	if not settings["sound"] or m.x < 0:
+		return
+	var ac: Dictionary = cfg["audio"]
+	var pairs := maxi(1, level.foam.swapping(session.col, m.x, m.y, m.z).size())
+	var p := plucks[next_pluck]
+	next_pluck = (next_pluck + 1) % plucks.size()
+	var scale_: Array = ac["scale"]
+	p.pitch_scale = float(scale_[m.x % scale_.size()])
+	p.volume_db = float(ac["pluck_db"]) + float(ac["pairs_db"]) * log(pairs) / log(2.0) + extra_db
+	p.play()
+
+
+func _tada() -> void:
+	if settings["sound"]:
+		tada_player.volume_db = float(cfg["audio"]["tada_db"])
+		tada_player.play()
 
 
 # ---- level --------------------------------------------------------------------------------
@@ -157,7 +217,6 @@ func _layout() -> void:
 	# the base window is 1280 x 720; a tall window keeps 1280 across, so its icons grow
 	unit = clampf(1.4 * size_.y / size_.x, 1.0, 3.2) if portrait else 1.0
 	var m := float(cfg["picture"]["margin"])
-	var room: Rect2
 	if portrait:
 		var bh := float(cfg["strip"]["bar_height"]) * unit
 		strip = Rect2(0.0, size_.y - bh, size_.x, bh)
@@ -195,10 +254,10 @@ func _layout() -> void:
 		site_px[i] = rect.position + level.foam.sites[i] / Vector2(level.foam.aspect, 1.0) * rect.size
 	# one style for everything in the bar: boxes of the same width, the same gap between them
 	var pad := float(cfg["strip"]["pad"]) * unit
-	var names := ["next", "reset", "undo", "redo"]
+	var names := BUTTONS
 	buttons = {}
 	boxes = {}
-	if portrait:  # boxes in a row under the picture, four square buttons in the bar
+	if portrait:  # boxes in a row under the picture, the six square buttons in the bar
 		var side := minf(strip.size.y - 2.0 * pad, (strip.size.x - pad * (names.size() + 1)) / names.size())
 		var gap := (strip.size.x - side * names.size()) / (names.size() + 1)
 		for k in names.size():
@@ -208,15 +267,27 @@ func _layout() -> void:
 		boxes["number"] = Rect2(gap, y0, side, hh * 0.5 - pad * 0.5)
 		boxes["par"] = Rect2(gap, y0 + hh * 0.5 + pad * 0.5, side, hh * 0.5 - pad * 0.5)
 		boxes["info"] = Rect2(gap + side + gap, y0, size_.x - 3.0 * gap - side, hh)
-	else:  # top to bottom: number, par, painting, then the four square buttons
+	else:  # top to bottom: number, par, painting, then the buttons two by two
 		var x := strip.position.x + pad
-		var side := strip.size.x - 2.0 * pad
+		var wide := strip.size.x - 2.0 * pad
+		var side := (wide - pad) * 0.5
+		var n_rows := ceili(names.size() / 2.0)
 		for k in names.size():
-			buttons[names[k]] = Rect2(x, size_.y - (names.size() - k) * (side + pad), side, side)
-		boxes["number"] = Rect2(x, pad, side, float(cfg["strip"]["number_height"]))
-		boxes["par"] = Rect2(x, boxes["number"].end.y + pad, side, float(cfg["strip"]["par_height"]))
+			var y := size_.y - (n_rows - k / 2) * (side + pad)
+			buttons[names[k]] = Rect2(x + (k % 2) * (side + pad), y, side, side)
+		boxes["number"] = Rect2(x, pad, wide, float(cfg["strip"]["number_height"]))
+		boxes["par"] = Rect2(x, boxes["number"].end.y + pad, wide, float(cfg["strip"]["par_height"]))
 		var y1: float = boxes["par"].end.y + pad
-		boxes["info"] = Rect2(x, y1, side, buttons["next"].position.y - pad - y1)
+		boxes["info"] = Rect2(x, y1, wide, buttons[names[0]].position.y - pad - y1)
+	# panels (credits, settings) cover the picture's part of the window
+	panel_rect = room.grow(-m)
+	var rw := minf(panel_rect.size.x * 0.6, 420.0 * unit)
+	var rh := 64.0 * unit
+	var c := panel_rect.get_center()
+	rows = {
+		"sound": Rect2(c.x - rw * 0.5, c.y - rh - pad, rw, rh),
+		"fullscreen": Rect2(c.x - rw * 0.5, c.y + pad, rw, rh),
+	}
 	overlay.queue_redraw()
 
 
@@ -272,7 +343,10 @@ func _apply() -> void:
 		"redo":
 			session.redo()
 	_drop()
+	var was := solved_at >= 0.0
 	solved_at = now if session.solved() else -1.0
+	if solved_at >= 0.0 and not was:
+		_tada()
 	if rewinding:
 		if session.history.is_empty():
 			rewinding = false
@@ -302,6 +376,7 @@ func _run(m: Vector3i, what: String) -> void:
 func _start(m: Vector3i, what: String) -> void:
 	_set_pending(m, what)
 	phase = Phase.SNAP
+	_pluck(m, float(cfg["audio"]["rewind_db"]) if rewinding else 0.0)
 
 
 # ---- pointer: press, drag, release --------------------------------------------------------
@@ -310,6 +385,18 @@ func press(pos: Vector2) -> void:
 		if buttons[name_].has_point(pos):
 			_press_button(name_)
 			return
+	if not panel.is_empty():  # a press on the panel: a setting, or closes it
+		if panel == "settings" and rows["sound"].has_point(pos):
+			settings["sound"] = not settings["sound"]
+			_save_settings()
+		elif panel == "settings" and rows["fullscreen"].has_point(pos):
+			var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+			DisplayServer.window_set_mode(
+				DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+		else:
+			panel = ""
+		overlay.queue_redraw()
+		return
 	if solved_at >= 0.0:
 		return
 	_settle()
@@ -369,6 +456,8 @@ func drag(pos: Vector2) -> void:
 	if pending.x < 0:
 		return
 	if drag_frac >= float(dc["commit"]):
+		if not committed:
+			_pluck(pending)
 		committed = true
 	elif drag_frac < float(dc["release"]):
 		committed = false
@@ -386,6 +475,12 @@ func release() -> void:
 
 
 func _press_button(name_: String) -> void:
+	if name_ in ["credits", "settings"]:
+		panel = "" if panel == name_ else name_
+		_settle()
+		overlay.queue_redraw()
+		return
+	panel = ""
 	match name_:
 		"prev":
 			_load(at - 1)
@@ -426,6 +521,9 @@ func _input(event: InputEvent) -> void:
 		drag(event.position)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
+			KEY_ESCAPE:
+				panel = ""
+				overlay.queue_redraw()
 			KEY_Z:
 				_press_button("undo")
 			KEY_Y:
@@ -590,17 +688,16 @@ func _draw_overlay() -> void:
 	overlay.draw_rect(strip, _c("panel"))
 	for name_ in boxes:
 		overlay.draw_style_box(_box(_c("button")), boxes[name_])
-	# level number (the file's name under it while levels are being chosen)
-	var number: Array = [["%02d" % (at + 1), float(cfg["strip"]["number_size"]), fg], [level.id, 12.0, dim]]
+	# level number, "LEVEL" above it (and the icon set just chosen with key I under it)
+	var st: Dictionary = cfg["strip"]
+	var number: Array = [["LEVEL", float(st["label_size"]), mid], ["%02d" % (at + 1), float(st["number_size"]), fg]]
 	if note_until >= 0.0:
-		number[1] = [note, 12.0, accent]
+		number.append([note, 12.0, accent])
 	_lines(boxes["number"], number)
 	# moves over par
 	_lines(boxes["par"], [["%d / %d" % [session.moves(), level.par], 20.0, accent if solved else fg]])
-	# the painting, or the message once recovered
+	# the painting
 	var about: Array = []
-	if solved:
-		about.append([cfg["messages"]["solved"], 14.0, accent])
 	if not level.artist.is_empty():
 		about.append([level.artist, 14.0, fg])
 		about.append([level.title, 13.0, mid])
@@ -613,10 +710,48 @@ func _draw_overlay() -> void:
 		var on := fg
 		if (name_ == "undo" and session.history.is_empty()) or (name_ == "redo" and session.future.is_empty()):
 			on = dim
-		var hot: bool = solved and name_ == "next"
+		var hot: bool = (solved and name_ == "next") or name_ == panel
 		overlay.draw_style_box(_box(accent if hot else _c("button")), r)
 		var tex := Icons.texture(icon_set, name_, roundi(r.size.x * float(cfg["strip"]["icon"])))
 		overlay.draw_texture(tex, (r.get_center() - tex.get_size() * 0.5).round(), _c("background") if hot else on)
+	if not panel.is_empty():
+		_draw_panel()
+
+
+## The credits, or the settings, over the picture.
+func _draw_panel() -> void:
+	var fg := _c("text")
+	var mid := _c("mid")
+	var accent := _c("accent")
+	var back := _c("panel")
+	back.a = 0.97
+	overlay.draw_style_box(_box(back), panel_rect)
+	if panel == "credits":
+		var cc: Dictionary = cfg["credits"]
+		var lines: Array = [[cc["title"], 30.0, fg]]
+		for l in cc["lines"]:
+			lines.append([l, 14.0, mid])
+		lines.append(["Paintings", 16.0, accent])
+		var k := 0
+		for p in credits.get("paintings", []):
+			k += 1
+			var what := "%02d   %s, %s" % [k, p["artist"], p["title"]]
+			if not String(p["date"]).is_empty():
+				what += ", " + String(p["date"])
+			if not String(p["source"]).is_empty():
+				what += " (" + String(p["source"]) + ")"
+			lines.append([what, 13.0, fg])
+		lines.append(["", 6.0, fg])
+		for l in cc["tail"]:
+			lines.append([l, 13.0, mid])
+		_lines(panel_rect.grow(-12.0 * unit), lines)
+	else:
+		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+		var state := {"sound": ["Sound", settings["sound"]], "fullscreen": ["Full screen", full]}
+		for name_ in rows:
+			var on: bool = state[name_][1]
+			overlay.draw_style_box(_box(_c("button")), rows[name_])
+			_lines(rows[name_], [["%s   %s" % [state[name_][0], "on" if on else "off"], 20.0, accent if on else fg]])
 
 
 # ---- headless check: solve every level by drags ---------------------------------------------

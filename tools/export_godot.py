@@ -10,8 +10,9 @@ Per level (<src>/<id>.json and its foam; src defaults to levels/foam):
   game/data/levels/<id>.shapes.gz   outline of every cell (48 points), for the moving cells
   game/data/paintings/<id>.jpg      the reward scan cut to the level's window (painting levels)
   game/tests/golden/<id>.json       colours after each move of the reversed scramble
-and game/data/index.json, the ordered list of levels. Files are rewritten at every run: they
-are derived data, the sources are levels/ and grids/.
+and game/data/index.json, the ordered list of levels, and game/data/credits.json (painter,
+title, date, collection and licence of each painting, in level order). Files are rewritten at
+every run: they are derived data, the sources are levels/ and grids/.
 """
 
 from __future__ import annotations
@@ -71,6 +72,27 @@ def source_date(image: str) -> str:
     entry = " ".join(m.group(1).split())
     d = re.search(r"\*(?: \([^)]*\))?,\s*((?:c\. |ca\. )?\d{4}(?:[–-]\d{2,4})?)", entry)
     return d.group(1).replace("ca. ", "c. ") if d else ""
+
+
+COLLECTIONS = [  # name as written in SOURCES.md -> name in the credits
+    ("Cleveland Museum of Art", "The Cleveland Museum of Art"),
+    ("Metropolitan Museum of Art", "The Metropolitan Museum of Art"),
+    ("National Gallery of Art", "National Gallery of Art, Washington"),
+    ("rawpixel", "rawpixel"),
+]
+
+
+def source_credit(image: str) -> str:
+    """Collection and licence of a painting from its entry in assets/paintings/SOURCES.md,
+    such as "National Gallery of Art, Washington, CC0"; "" if there is no entry."""
+    text = (ROOT / "assets" / "paintings" / "SOURCES.md").read_text()
+    m = re.search(rf"(?ms)^- {re.escape(Path(image).name)}:(.*?)(?=^- |\Z)", text)
+    if not m:
+        return ""
+    entry = " ".join(m.group(1).split())
+    where = next((name for key, name in COLLECTIONS if key in entry), "")
+    licence = "CC0" if "CC0" in entry else "public domain" if "open access" in entry.lower() else ""
+    return ", ".join(x for x in (where, licence) if x)
 
 
 def level_data(level: FoamLevel, width: int) -> tuple[dict, np.ndarray, list[list[int]]]:
@@ -153,7 +175,7 @@ def main() -> None:
                 old.unlink()
         d.mkdir(parents=True, exist_ok=True)
 
-    index = []
+    index, credits = [], []
     for lid in ids:
         level = load_foam_level(src / f"{lid}.json")
         data, labels, golden = level_data(level, args.width)
@@ -168,6 +190,11 @@ def main() -> None:
         if data["painting"]:
             painting(level, args.width).save(out / "paintings" / data["painting"], quality=88)
         index.append({"id": lid, "kind": "painting" if data["painting"] else "learning"})
+        if data["painting"]:
+            image = (level.reward or {})["image"]
+            credits.append(
+                {k: data[k] for k in ("artist", "title", "date")} | {"source": source_credit(image)}
+            )
         hidden = sum(not s for s in data["sides"])
         print(
             f"{lid}: {level.foam.n_cells} cells, {len(level.foam.edges)} edges, "
@@ -175,6 +202,7 @@ def main() -> None:
             + (f", {hidden} edges without a side on the raster" if hidden else "")
         )
     (out / "index.json").write_text(json.dumps({"levels": index}, indent=1))
+    (out / "credits.json").write_text(json.dumps({"paintings": credits}, indent=1) + "\n")
 
 
 if __name__ == "__main__":

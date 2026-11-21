@@ -1,12 +1,13 @@
-"""Fetch the four icons of the bar from free icon libraries (npm packages, via jsDelivr).
+"""Fetch the icons of the bar from free icon libraries (npm packages, via jsDelivr).
 
     python tools/fetch_icons.py
 
 For every library below: reads the latest version and the licence from its package.json,
-downloads the four SVG files of that exact version, normalises them (24 x 24, white instead
-of currentColor) and writes game/data/icons.json ({set: {package, version, licence, icons:
-{next, reset, undo, redo}}}) and game/data/ICONS.md (credits). A set with a missing file is
-left out and reported. The game draws them with game/ui/icons.gd.
+downloads the SVG files of that exact version (next, reset, undo, redo; credits and
+settings for the Ionicons sets, which the game also uses for the other sets), normalises
+them (24 x 24, white instead of currentColor) and writes game/data/icons.json ({set:
+{package, version, licence, icons: {name: svg}}}) and game/data/ICONS.md (credits). A set
+with a missing file is left out and reported. The game draws them with game/ui/icons.gd.
 """
 
 from __future__ import annotations
@@ -175,6 +176,8 @@ SETS = {
             "reset": "dist/svg/play-skip-back.svg",
             "undo": "dist/svg/arrow-undo.svg",
             "redo": "dist/svg/arrow-redo.svg",
+            "credits": "dist/svg/information-circle.svg",
+            "settings": "dist/svg/settings.svg",
         },
     ),
     "ionicons-outline": (
@@ -184,6 +187,8 @@ SETS = {
             "reset": "dist/svg/play-skip-back-outline.svg",
             "undo": "dist/svg/arrow-undo-outline.svg",
             "redo": "dist/svg/arrow-redo-outline.svg",
+            "credits": "dist/svg/information-circle-outline.svg",
+            "settings": "dist/svg/settings-outline.svg",
         },
     ),
     "fluent": (

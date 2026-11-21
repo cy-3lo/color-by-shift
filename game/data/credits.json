@@ -1,0 +1,94 @@
+{
+ "paintings": [
+  {
+   "artist": "Piet Mondrian",
+   "title": "Composition with Red, Yellow, and Blue",
+   "date": "1927",
+   "source": "The Cleveland Museum of Art, CC0"
+  },
+  {
+   "artist": "Henri Matisse",
+   "title": "Dance (I)",
+   "date": "1909",
+   "source": "rawpixel, CC0"
+  },
+  {
+   "artist": "Paul Cezanne",
+   "title": "The Card Players",
+   "date": "1890\u201392",
+   "source": "The Metropolitan Museum of Art, CC0"
+  },
+  {
+   "artist": "Katsushika Hokusai",
+   "title": "Under the Wave off Kanagawa",
+   "date": "c. 1830-32",
+   "source": "The Metropolitan Museum of Art, public domain"
+  },
+  {
+   "artist": "Imitator of Ralph Albert Blakelock",
+   "title": "Moonlight",
+   "date": "",
+   "source": "National Gallery of Art, Washington, CC0"
+  },
+  {
+   "artist": "Juan Gris",
+   "title": "Fantomas",
+   "date": "1915",
+   "source": "National Gallery of Art, Washington, CC0"
+  },
+  {
+   "artist": "Juan Gris",
+   "title": "Glass and Checkerboard",
+   "date": "c. 1917",
+   "source": "National Gallery of Art, Washington, CC0"
+  },
+  {
+   "artist": "Alexej von Jawlensky",
+   "title": "Murnau",
+   "date": "1910",
+   "source": "National Gallery of Art, Washington, CC0"
+  },
+  {
+   "artist": "Ernst Ludwig Kirchner",
+   "title": "Dance Hall Bellevue",
+   "date": "1909",
+   "source": "National Gallery of Art, Washington, CC0"
+  },
+  {
+   "artist": "Hans Memling",
+   "title": "Tommaso and Maria Portinari",
+   "date": "c. 1470",
+   "source": "The Metropolitan Museum of Art, CC0"
+  },
+  {
+   "artist": "Georges Seurat",
+   "title": "The Gardener",
+   "date": "1882\u201383",
+   "source": "The Metropolitan Museum of Art, CC0"
+  },
+  {
+   "artist": "Alfred Sisley",
+   "title": "The Road from Moret to Saint-Mammes",
+   "date": "1883\u201385",
+   "source": "The Metropolitan Museum of Art, CC0"
+  },
+  {
+   "artist": "Henry Ossawa Tanner",
+   "title": "The Seine",
+   "date": "c. 1902",
+   "source": "National Gallery of Art, Washington, CC0"
+  },
+  {
+   "artist": "Felix Vallotton",
+   "title": "The Church of Souain",
+   "date": "1917",
+   "source": "National Gallery of Art, Washington, CC0"
+  },
+  {
+   "artist": "Felix Vallotton",
+   "title": "The Wind",
+   "date": "1910",
+   "source": "National Gallery of Art, Washington, CC0"
+  }
+ ]
+}

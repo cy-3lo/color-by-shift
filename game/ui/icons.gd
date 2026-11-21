@@ -2,7 +2,8 @@ class_name Icons
 extends RefCounted
 ## Interface icons in several sets, drawn from SVG strings (24 x 24) at the size asked for:
 ## the game's own sets below, and sets fetched from free icon libraries (data/icons.json).
-## Every set has the four icons of the bar: next (level), reset, undo, redo.
+## Every set has next (level), reset, undo, redo; credits and settings come from FALLBACK
+## when a set does not have them.
 
 const HEAD := "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='white' stroke='none'>"
 const THIN := "<g fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>"
@@ -16,6 +17,7 @@ const U_SOLID := "<path d='M7 9 H14.5 a5.5 5.5 0 0 1 0 11 H9'" + BAR + "/><polyg
 const ROUND_SOLID := "<path d='M18.4 12 a6.4 6.4 0 1 1 -3.2 -5.54'" + BAR + "/><polygon points='20.2,9.3 17.6,2.3 12.8,8.6'/>"
 
 const ORDER: Array[String] = ["solid", "line", "bold", "media"]
+const FALLBACK := "ionicons"  ## where an icon missing from a set is taken (credits, settings)
 const SETS := {
 	"solid": {
 		"next": "<polygon points='6.5,4 6.5,20 19,12'/>",
@@ -71,12 +73,13 @@ static func texture(kind: String, name: String, px: int) -> Texture2D:
 	_load()
 	var key := "%s/%s@%d" % [kind, name, px]
 	if not _cache.has(key):
-		var svg: String
-		if _fetched.has(kind):
+		var svg := ""
+		if _fetched.has(kind) and _fetched[kind]["icons"].has(name):
 			svg = _fetched[kind]["icons"][name]
-		else:
-			var set_: Dictionary = SETS.get(kind, SETS[ORDER[0]])
-			svg = HEAD + String(set_[name]) + "</svg>"
+		elif SETS.has(kind) and SETS[kind].has(name):
+			svg = HEAD + String(SETS[kind][name]) + "</svg>"
+		elif _fetched.has(FALLBACK) and _fetched[FALLBACK]["icons"].has(name):
+			svg = _fetched[FALLBACK]["icons"][name]  # an icon the set does not have
 		var img := Image.new()
 		if img.load_svg_from_string(svg, px / 24.0) != OK:
 			img = Image.create(px, px, false, Image.FORMAT_RGBA8)

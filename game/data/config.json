@@ -1,6 +1,6 @@
 {
   "picture": {"margin": 15, "line_px": 1.6, "outline_px": 3.0},
-  "strip": {"width": 124, "bar_height": 150, "pad": 12, "radius": 10, "icon": 0.6, "number_height": 100, "number_size": 52, "par_height": 44},
+  "strip": {"width": 172, "bar_height": 150, "pad": 12, "radius": 10, "icon": 0.6, "number_height": 110, "number_size": 52, "label_size": 13, "par_height": 44},
   "colours": {
     "background": "#1c1c22", "panel": "#26262e", "line": "#101014", "text": "#ece9e0",
     "mid": "#9694a0", "dim": "#5c5a68", "button": "#3a3a46", "accent": "#f0b45a", "hole": "#121217"
@@ -10,7 +10,19 @@
     "follow_s": 0.06, "snap_s": 0.3, "rewind_s": 0.14, "back_s": 0.18, "lift": 0.08
   },
   "reward": {"lines_s": 0.8, "hold_s": 1.0, "fade_s": 2.5},
-  "messages": {"solved": "Picture recovered"},
+  "audio": {
+    "pluck_db": -10.0, "pairs_db": 2.0, "rewind_db": -8.0, "tada_db": -4.0,
+    "scale": [1.0, 1.125, 1.25, 1.5, 1.6667, 2.0, 2.25, 2.5]
+  },
+  "credits": {
+    "title": "Color by Shift",
+    "lines": ["Made for GitHub Game Off 2026, theme Shift."],
+    "tail": [
+      "Icons: Ionicons, MIT licence, copyright Ionic.",
+      "Made with Godot Engine, MIT licence, copyright Juan Linietsky, Ariel Manzur and contributors.",
+      "Sounds synthesised for the game."
+    ]
+  },
   "icons": "ionicons",
   "start_level": ""
 }
