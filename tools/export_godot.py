@@ -19,7 +19,9 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import re
 import sys
+import tomllib
 from pathlib import Path
 
 import numpy as np
@@ -59,6 +61,18 @@ def side_points(labels: np.ndarray, edges: np.ndarray, aspect: float, k: int = 8
     return out
 
 
+def source_date(image: str) -> str:
+    """Date of a painting as written in assets/paintings/SOURCES.md after its title
+    ("- file.jpg: Painter, *Title*, 1890-92, ..."); "" if there is none."""
+    text = (ROOT / "assets" / "paintings" / "SOURCES.md").read_text()
+    m = re.search(rf"(?ms)^- {re.escape(Path(image).name)}:(.*?)(?=^- |\Z)", text)
+    if not m:
+        return ""
+    entry = " ".join(m.group(1).split())
+    d = re.search(r"\*(?: \([^)]*\))?,\s*((?:c\. |ca\. )?\d{4}(?:[–-]\d{2,4})?)", entry)
+    return d.group(1).replace("ca. ", "c. ") if d else ""
+
+
 def level_data(level: FoamLevel, width: int) -> tuple[dict, np.ndarray, list[list[int]]]:
     """The level as plain data, its raster of cell indices, and the golden states."""
     foam = level.foam
@@ -87,6 +101,7 @@ def level_data(level: FoamLevel, width: int) -> tuple[dict, np.ndarray, list[lis
         "shapes": {"file": f"{level.id}.shapes.gz", "points": SHAPE_POINTS},
         "painting": f"{level.id}.jpg" if reward.get("image") else "",
         "artist": reward.get("artist", ""),
+        "date": source_date(reward["image"]) if reward.get("image") else "",
         "title": reward.get("title", "") or level.title,
     }
     golden = {
@@ -116,13 +131,20 @@ def painting(level: FoamLevel, width: int):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--levels", nargs="*", help="level ids in order (default: all, sorted)")
+    ap.add_argument(
+        "--levels",
+        nargs="*",
+        help="level ids in order (default: the order of <src>/ladder.toml, else sorted)",
+    )
     ap.add_argument("--width", type=int, default=1280, help="width of the raster of cells")
     ap.add_argument("--src", default="levels/foam", help="folder of level JSON files")
     args = ap.parse_args()
 
     src = ROOT / args.src
     ids = args.levels or sorted(p.stem for p in src.glob("*.json"))
+    if not args.levels and (src / "ladder.toml").exists():  # the order of the ladder file
+        spec = tomllib.loads((src / "ladder.toml").read_text())
+        ids = [lv["id"] for lv in spec.get("mondrian", []) + spec.get("painting", [])]
     out = ROOT / "game" / "data"
     gold = ROOT / "game" / "tests" / "golden"
     for d in (out / "levels", out / "paintings", gold):

@@ -16,6 +16,7 @@ var sides: Array[PackedVector2Array] = []  ## per edge, points on the shared sid
 var shapes: Array[PackedVector2Array] = []  ## per cell, its outline (foam coordinates), clockwise
 var painting := ""  ## res:// path of the reward scan, "" if none
 var artist := ""
+var date := ""
 var title := ""
 var error := ""
 
@@ -50,6 +51,7 @@ static func load_level(level_id: String, folder := "res://data") -> FoamLevel:
 	lv.start = _bytes(d["start"])
 	lv.par = int(d["par"])
 	lv.artist = d.get("artist", "")
+	lv.date = d.get("date", "")
 	lv.title = d.get("title", "")
 	if not String(d.get("painting", "")).is_empty():
 		lv.painting = "%s/paintings/%s" % [folder, d["painting"]]

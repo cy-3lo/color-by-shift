@@ -1,28 +1,63 @@
 class_name Icons
 extends RefCounted
-## Interface icons, drawn from SVG strings (24 x 24, solid shapes) at the size asked for.
+## Interface icons in several sets, drawn from SVG strings (24 x 24) at the size asked for.
+## Every set has the four icons of the bar: next (level), reset, undo, redo.
 
 const HEAD := "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='white' stroke='none'>"
-const BOLD := " fill='none' stroke='white' stroke-width='3.2' stroke-linecap='butt' stroke-linejoin='round'"
-const SHAPES := {
-	"undo": "<path d='M7 9 H14.5 a5.5 5.5 0 0 1 0 11 H9'%s/><polygon points='8.5,3 8.5,15 1.5,9'/>",
-	"redo": "<path d='M17 9 H9.5 a5.5 5.5 0 0 0 0 11 H15'%s/><polygon points='15.5,3 15.5,15 22.5,9'/>",
-	"reset": "<path d='M18.4 12 a6.4 6.4 0 1 1 -3.2 -5.54'%s/><polygon points='20.2,9.3 17.6,2.3 12.8,8.6'/>",
-	"prev": "<polygon points='17,4 17,20 5.5,12'/>",
-	"next": "<polygon points='7,4 7,20 18.5,12'/>",
-	"forward": "<polygon points='5,4 5,20 15.5,12'/><rect x='16.5' y='4' width='3.2' height='16'/>",
+const THIN := "<g fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'>"
+const THICK := "<g fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'>"
+const BAR := " fill='none' stroke='white' stroke-width='3.2'"
+const MIRROR := "<g transform='translate(24 0) scale(-1 1)'>"
+# shapes shared by several sets
+const U_TURN := "<polyline points='8.5,5 3.5,10 8.5,15'/><path d='M3.5 10 H14.5 a5 5 0 0 1 0 10 H10'/>"
+const ROUND := "<path d='M19 12 a7 7 0 1 1 -2.05 -4.95'/><polyline points='17.2,2.8 17.2,7.3 12.7,7.3'/>"
+const U_SOLID := "<path d='M7 9 H14.5 a5.5 5.5 0 0 1 0 11 H9'" + BAR + "/><polygon points='8.5,3 8.5,15 1.5,9'/>"
+const ROUND_SOLID := "<path d='M18.4 12 a6.4 6.4 0 1 1 -3.2 -5.54'" + BAR + "/><polygon points='20.2,9.3 17.6,2.3 12.8,8.6'/>"
+
+const ORDER: Array[String] = ["solid", "line", "bold", "media"]
+const SETS := {
+	"solid": {
+		"next": "<polygon points='6.5,4 6.5,20 19,12'/>",
+		"reset": ROUND_SOLID,
+		"undo": U_SOLID,
+		"redo": MIRROR + U_SOLID + "</g>",
+	},
+	"line": {
+		"next": THIN + "<polyline points='9.5,5 16.5,12 9.5,19'/></g>",
+		"reset": THIN + ROUND + "</g>",
+		"undo": THIN + U_TURN + "</g>",
+		"redo": MIRROR + THIN + U_TURN + "</g></g>",
+	},
+	"bold": {
+		"next": THICK + "<path d='M4 12 H19'/><polyline points='13,6 19,12 13,18'/></g>",
+		"reset": THICK + ROUND + "</g>",
+		"undo": THICK + U_TURN + "</g>",
+		"redo": MIRROR + THICK + U_TURN + "</g></g>",
+	},
+	"media": {
+		"next": "<polygon points='4.5,5 4.5,19 15,12'/><rect x='16.3' y='5' width='3.2' height='14'/>",
+		"reset": "<rect x='4.5' y='5' width='3.2' height='14'/><polygon points='19.5,5 19.5,19 9,12'/>",
+		"undo": MIRROR + ROUND_SOLID + "</g>",
+		"redo": ROUND_SOLID,
+	},
 }
 
 static var _cache := {}
 
 
-## White icon `name` as a texture `px` pixels wide; tint it when drawing.
-static func texture(name: String, px: int) -> Texture2D:
-	var key := "%s@%d" % [name, px]
+## White icon `name` of the set `kind` as a texture `px` pixels wide; tint it when drawing.
+static func texture(kind: String, name: String, px: int) -> Texture2D:
+	var key := "%s/%s@%d" % [kind, name, px]
 	if not _cache.has(key):
+		var set_: Dictionary = SETS.get(kind, SETS[ORDER[0]])
 		var img := Image.new()
-		var err := img.load_svg_from_string(HEAD + String(SHAPES[name]).replace("%s", BOLD) + "</svg>", px / 24.0)
+		var err := img.load_svg_from_string(HEAD + String(set_[name]) + "</svg>", px / 24.0)
 		if err != OK:
 			img = Image.create(px, px, false, Image.FORMAT_RGBA8)
 		_cache[key] = ImageTexture.create_from_image(img)
 	return _cache[key]
+
+
+## The set after `kind`, in ORDER.
+static func after(kind: String) -> String:
+	return ORDER[(ORDER.find(kind) + 1) % ORDER.size()]

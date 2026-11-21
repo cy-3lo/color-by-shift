@@ -22,7 +22,10 @@ var session: Session
 
 var rect := Rect2()  ## the picture on screen
 var strip := Rect2()  ## the strip (right) or the bar (bottom)
-var info := Rect2()  ## where the count and the messages go
+var boxes := {}  ## "number", "par", "info" -> Rect2: the boxes of the bar above the buttons
+var icon_set := "solid"
+var note := ""  ## a word shown for a moment (the icon set just chosen)
+var note_until := -1.0
 var unit := 1.0  ## scale of the interface (larger when the window is taller than wide)
 var portrait := false
 var site_px := PackedVector2Array()
@@ -60,6 +63,7 @@ func _ready() -> void:
 	for e in index["levels"]:
 		ids.append(e["id"])
 	var want: String = cfg.get("start_level", "")
+	icon_set = cfg.get("icons", "solid")
 	var smoke := false
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--level="):
@@ -161,7 +165,7 @@ func _layout() -> void:
 		room = Rect2(0.0, 0.0, size_.x - sw, size_.y)
 	var w := minf(room.size.x - 2.0 * m, (room.size.y - 2.0 * m) * level.foam.aspect)
 	if portrait:  # leave room under the picture for the count and the messages
-		w = minf(w, (room.size.y - 2.0 * m - 150.0 * unit) * level.foam.aspect)
+		w = minf(w, (room.size.y - 2.0 * m - 170.0 * unit) * level.foam.aspect)
 	var h := w / level.foam.aspect
 	var top := m if portrait else (room.size.y - h) * 0.5
 	rect = Rect2(Vector2((room.size.x - w) * 0.5, top).round(), Vector2(w, h))
@@ -186,26 +190,30 @@ func _layout() -> void:
 	site_px.resize(level.foam.n_cells)
 	for i in level.foam.n_cells:
 		site_px[i] = rect.position + level.foam.sites[i] / Vector2(level.foam.aspect, 1.0) * rect.size
-	var pad := 12.0 * unit
+	# one style for everything in the bar: boxes of the same width, the same gap between them
+	var pad := float(cfg["strip"]["pad"]) * unit
+	var names := ["next", "reset", "undo", "redo"]
 	buttons = {}
-	if portrait:  # five square buttons in a row
-		var names := ["prev", "undo", "redo", "reset", "next"]
+	boxes = {}
+	if portrait:  # boxes in a row under the picture, four square buttons in the bar
 		var side := minf(strip.size.y - 2.0 * pad, (strip.size.x - pad * (names.size() + 1)) / names.size())
 		var gap := (strip.size.x - side * names.size()) / (names.size() + 1)
 		for k in names.size():
 			buttons[names[k]] = Rect2(gap + k * (side + gap), strip.get_center().y - side * 0.5, side, side)
-		info = Rect2(pad, rect.end.y + pad, size_.x - 2.0 * pad, strip.position.y - rect.end.y - 2.0 * pad)
-	else:  # undo, redo, restart on top of each other; the levels at the top
-		var side := float(cfg["strip"]["button"])
-		var x := strip.get_center().x - side * 0.5
-		var names := ["undo", "redo", "reset"]
+		var y0 := rect.end.y + pad
+		var hh := strip.position.y - y0 - pad
+		boxes["number"] = Rect2(gap, y0, side, hh * 0.5 - pad * 0.5)
+		boxes["par"] = Rect2(gap, y0 + hh * 0.5 + pad * 0.5, side, hh * 0.5 - pad * 0.5)
+		boxes["info"] = Rect2(gap + side + gap, y0, size_.x - 3.0 * gap - side, hh)
+	else:  # top to bottom: number, par, painting, then the four square buttons
+		var x := strip.position.x + pad
+		var side := strip.size.x - 2.0 * pad
 		for k in names.size():
 			buttons[names[k]] = Rect2(x, size_.y - (names.size() - k) * (side + pad), side, side)
-		var small := 40.0
-		buttons["prev"] = Rect2(strip.position.x + pad, pad, small, small)
-		buttons["next"] = Rect2(strip.end.x - pad - small, pad, small, small)
-		var below := pad + small + 14.0
-		info = Rect2(strip.position.x + pad, below, strip.size.x - 2.0 * pad, buttons["undo"].position.y - below - pad)
+		boxes["number"] = Rect2(x, pad, side, float(cfg["strip"]["number_height"]))
+		boxes["par"] = Rect2(x, boxes["number"].end.y + pad, side, float(cfg["strip"]["par_height"]))
+		var y1: float = boxes["par"].end.y + pad
+		boxes["info"] = Rect2(x, y1, side, buttons["next"].position.y - pad - y1)
 	overlay.queue_redraw()
 
 
@@ -402,6 +410,11 @@ func _input(event: InputEvent) -> void:
 				_press_button("prev")
 			KEY_DOWN:
 				_press_button("next")
+			KEY_I:  # try the next set of icons
+				icon_set = Icons.after(icon_set)
+				note = icon_set
+				note_until = now + 2.5
+				overlay.queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -436,6 +449,9 @@ func _process(delta: float) -> void:
 	material_.set_shader_parameter("outline_alpha", flat)
 	material_.set_shader_parameter("painting_mix", _painting_alpha())
 	if t >= 0.0 and t < float(rw["lines_s"]) + float(rw["hold_s"]) + float(rw["fade_s"]) + 0.5:
+		overlay.queue_redraw()
+	if note_until >= 0.0 and now > note_until:
+		note_until = -1.0
 		overlay.queue_redraw()
 
 
@@ -500,18 +516,41 @@ func _draw_tiles() -> void:
 
 
 # ---- drawing ------------------------------------------------------------------------------
-func _icon(name_: String, r: Rect2, colour: Color, px: float) -> void:
-	var tex := Icons.texture(name_, roundi(px))
-	overlay.draw_texture(tex, (r.get_center() - tex.get_size() * 0.5).round(), colour)
+func _box(colour: Color) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = colour
+	sb.set_corner_radius_all(roundi(float(cfg["strip"]["radius"]) * unit))
+	return sb
 
 
-func _text(s: String, y: float, px: float, colour: Color) -> float:
+## Lines of text centred in a box: [text, size, colour] each; the sizes shrink together if
+## the lines do not fit the height.
+func _lines(r: Rect2, lines: Array) -> void:
 	var font := ThemeDB.fallback_font
-	var fs := roundi(px * unit)
+	var inner := r.grow(-8.0 * unit)
 	var align := HORIZONTAL_ALIGNMENT_CENTER
-	overlay.draw_multiline_string(font, Vector2(info.position.x, y + font.get_ascent(fs)), s,
-		align, info.size.x, fs, -1, colour)
-	return y + font.get_multiline_string_size(s, align, info.size.x, fs).y + 6.0 * unit
+	var gap := 5.0 * unit
+	var scale := 1.0
+	var heights: Array[float] = []
+	for attempt in 6:
+		heights.clear()
+		var total := -gap
+		for l in lines:
+			var h := font.get_multiline_string_size(l[0], align, inner.size.x, roundi(l[1] * unit * scale)).y
+			heights.append(h)
+			total += h + gap
+		if total <= inner.size.y:
+			break
+		scale *= 0.88
+	var sum := -gap
+	for h in heights:
+		sum += h + gap
+	var y := inner.position.y + maxf(0.0, (inner.size.y - sum) * 0.5)
+	for k in lines.size():
+		var fs := roundi(lines[k][1] * unit * scale)
+		overlay.draw_multiline_string(font, Vector2(inner.position.x, y + font.get_ascent(fs)),
+			lines[k][0], align, inner.size.x, fs, -1, lines[k][2])
+		y += heights[k] + gap
 
 
 func _draw_overlay() -> void:
@@ -525,42 +564,35 @@ func _draw_overlay() -> void:
 	if solved:
 		overlay.draw_rect(rect.grow(6.0), accent, false, 3.0)
 	overlay.draw_rect(strip, _c("panel"))
+	for name_ in boxes:
+		overlay.draw_style_box(_box(_c("button")), boxes[name_])
+	# level number (the file's name under it while levels are being chosen)
+	var number: Array = [["%02d" % (at + 1), 30.0, fg], [level.id, 12.0, dim]]
+	if note_until >= 0.0:
+		number[1] = [note, 12.0, accent]
+	_lines(boxes["number"], number)
+	# moves over par
+	_lines(boxes["par"], [["%d / %d" % [session.moves(), level.par], 20.0, accent if solved else fg]])
+	# the painting, or the message once recovered
+	var about: Array = []
+	if solved:
+		about.append([cfg["messages"]["solved"], 14.0, accent])
+	if not level.artist.is_empty():
+		about.append([level.artist, 14.0, fg])
+		about.append([level.title, 13.0, mid])
+		if not level.date.is_empty():
+			about.append([level.date, 12.0, mid])
+	_lines(boxes["info"], about)
+	# buttons
 	for name_ in buttons:
 		var r: Rect2 = buttons[name_]
 		var on := fg
 		if (name_ == "undo" and session.history.is_empty()) or (name_ == "redo" and session.future.is_empty()):
 			on = dim
 		var hot: bool = solved and name_ == "next"
-		overlay.draw_style_box(_box(accent if hot else _c("button"), 8.0 * unit), r)
-		var icon: String = "forward" if hot else name_
-		_icon(icon, r, _c("background") if hot else on, r.size.x * 0.7)
-	# level, count, messages
-	var y := info.position.y
-	if not portrait:
-		var font := ThemeDB.fallback_font
-		overlay.draw_string(font, Vector2(info.position.x, info.position.y + 16.0), level.id,
-			HORIZONTAL_ALIGNMENT_CENTER, info.size.x, 18, mid)
-		y += 34.0
-	var msg: Dictionary = cfg["messages"]
-	var count := "%d / %d" % [session.moves(), level.par]
-	if solved:
-		y = _text(msg["solved"], y, 20.0, accent)
-		var n := session.moves()
-		y = _text((msg["one_move"] % level.par) if n == 1 else (msg["moves"] % [n, level.par]), y, 15.0, fg)
-		var a := _painting_alpha()
-		if a > 0.0:
-			y = _text(level.artist, y + 10.0 * unit, 16.0, Color(fg, a))
-			y = _text(level.title, y, 14.0, Color(mid, a))
-	else:
-		var label := count if not portrait else "%s    %s" % [level.id, count]
-		_text(label, y if portrait else info.end.y - 30.0, 22.0, fg)
-
-
-func _box(colour: Color, radius: float) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = colour
-	sb.set_corner_radius_all(roundi(radius))
-	return sb
+		overlay.draw_style_box(_box(accent if hot else _c("button")), r)
+		var tex := Icons.texture(icon_set, name_, roundi(r.size.x * float(cfg["strip"]["icon"])))
+		overlay.draw_texture(tex, (r.get_center() - tex.get_size() * 0.5).round(), _c("background") if hot else on)
 
 
 # ---- headless check: solve every level by drags ---------------------------------------------
