@@ -10,7 +10,7 @@ file = "assets/rawpixel/image-from-rawpixel-id-22769428-original.jpg"
 artist = "Henri Matisse"
 title = "Dance (I)"
 date = "1909"
-rights = "Matisse died in 1954: public domain in France since 2025; status elsewhere to check"
+licence = "CC0 on rawpixel (stated by Chris, 2026-11-21)"
 
 [[pictures]]
 key = "rp_klee_harbinger"

@@ -2,7 +2,8 @@ extends Control
 ## Play screen: the foam picture and a strip of icons (a bar at the bottom when the window
 ## is taller than wide, as on a phone).
 ## The gesture: press a cell and drag toward a neighbour, with the mouse or a finger. Every
-## pair of the move follows the drag; below drag.commit of the way it is a preview, beyond it
+## pair of the move follows the drag (each cell travels to its partner's place and takes its
+## shape, the colour that was picked passing above); below drag.commit of the way it is a preview, beyond it
 ## the picture tips into the shifted state (and comes back if the drag returns below
 ## drag.release before letting go).
 ## Options after "--": --level=ID, --solved (shows the level recovered, to look at the
@@ -25,9 +26,15 @@ var info := Rect2()  ## where the count and the messages go
 var unit := 1.0  ## scale of the interface (larger when the window is taller than wide)
 var portrait := false
 var site_px := PackedVector2Array()
+var shape_px: Array[PackedVector2Array] = []  ## outline of every cell, pixels from the picture's corner
+var centre_px := PackedVector2Array()  ## middle of every outline
+var moving := PackedInt32Array()  ## cells of the pairs of the move under way: u, v, u, v ...
+var top_colour := -1  ## the colour that passes above the other
+var eased := 0.0  ## progress of the move as drawn
 var buttons := {}  ## name -> Rect2
 
 var picture: ColorRect
+var tiles: Control  ## the cells of the move under way, drawn above the picture
 var overlay: Control
 var material_: ShaderMaterial
 var cell_image: Image
@@ -79,6 +86,11 @@ func _ready() -> void:
 	material_.shader = SHADER
 	picture.material = material_
 	add_child(picture)
+	tiles = Control.new()
+	tiles.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tiles.clip_contents = true
+	tiles.draw.connect(_draw_tiles)
+	add_child(tiles)
 	overlay = Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -105,21 +117,18 @@ func _load(k: int) -> void:
 	var n := level.foam.n_cells
 	var labels := Image.create_from_data(
 		level.label_w, level.label_h, false, Image.FORMAT_RG8, level.labels)
-	cell_image = Image.create(n, 4, false, Image.FORMAT_RGBA8)
+	cell_image = Image.create(n, 3, false, Image.FORMAT_RGBA8)
 	for i in n:
 		var t := level.colours[level.target[i]]
 		cell_image.set_pixel(i, 1, Color(t.r, t.g, t.b, level.target[i] / 255.0))
-		var s := level.foam.sites[i] / Vector2(level.foam.aspect, 1.0)
-		var x := clampi(roundi(s.x * 65535.0), 0, 65535)
-		var y := clampi(roundi(s.y * 65535.0), 0, 65535)
-		cell_image.set_pixel(i, 3, Color8(x & 255, x >> 8, y & 255, y >> 8))
 	cell_texture = ImageTexture.create_from_image(cell_image)
 	material_.set_shader_parameter("labels", ImageTexture.create_from_image(labels))
 	material_.set_shader_parameter("cells", cell_texture)
 	material_.set_shader_parameter("label_size", Vector2(level.label_w, level.label_h))
 	var line := _c("line")
 	material_.set_shader_parameter("line_colour", Vector3(line.r, line.g, line.b))
-	material_.set_shader_parameter("front", float(cfg["drag"]["front"]))
+	var hole := _c("hole")
+	material_.set_shader_parameter("hole_colour", Vector3(hole.r, hole.g, hole.b))
 	if not level.painting.is_empty() and ResourceLoader.exists(level.painting):
 		material_.set_shader_parameter("painting", load(level.painting))
 	phase = Phase.IDLE
@@ -158,6 +167,19 @@ func _layout() -> void:
 	rect = Rect2(Vector2((room.size.x - w) * 0.5, top).round(), Vector2(w, h))
 	picture.position = rect.position
 	picture.size = rect.size
+	tiles.position = rect.position
+	tiles.size = rect.size
+	var to_px := rect.size / Vector2(level.foam.aspect, 1.0)
+	shape_px.clear()
+	centre_px.resize(level.foam.n_cells)
+	for c in level.foam.n_cells:
+		var pts := PackedVector2Array()
+		var sum := Vector2.ZERO
+		for q in level.shapes[c]:
+			pts.append(q * to_px)
+			sum += q * to_px
+		shape_px.append(pts)
+		centre_px[c] = sum / pts.size()
 	material_.set_shader_parameter("picture_px", rect.size)
 	material_.set_shader_parameter("line_px", float(cfg["picture"]["line_px"]) * unit)
 	material_.set_shader_parameter("outline_px", float(cfg["picture"]["outline_px"]) * unit)
@@ -165,47 +187,53 @@ func _layout() -> void:
 	for i in level.foam.n_cells:
 		site_px[i] = rect.position + level.foam.sites[i] / Vector2(level.foam.aspect, 1.0) * rect.size
 	var pad := 12.0 * unit
-	if portrait:
+	buttons = {}
+	if portrait:  # five square buttons in a row
 		var names := ["prev", "undo", "redo", "reset", "next"]
-		var bw := (strip.size.x - pad * (names.size() + 1)) / names.size()
-		buttons = {}
+		var side := minf(strip.size.y - 2.0 * pad, (strip.size.x - pad * (names.size() + 1)) / names.size())
+		var gap := (strip.size.x - side * names.size()) / (names.size() + 1)
 		for k in names.size():
-			buttons[names[k]] = Rect2(pad + k * (bw + pad), strip.position.y + pad, bw, strip.size.y - 2.0 * pad)
+			buttons[names[k]] = Rect2(gap + k * (side + gap), strip.get_center().y - side * 0.5, side, side)
 		info = Rect2(pad, rect.end.y + pad, size_.x - 2.0 * pad, strip.position.y - rect.end.y - 2.0 * pad)
-	else:
-		var x := strip.position.x + pad
-		var bw := strip.size.x - 2.0 * pad
-		buttons = {
-			"prev": Rect2(x, 14.0, 34.0, 34.0),
-			"next": Rect2(x + bw - 34.0, 14.0, 34.0, 34.0),
-			"undo": Rect2(x, size_.y - 118.0, bw * 0.5 - 4.0, 48.0),
-			"redo": Rect2(x + bw * 0.5 + 4.0, size_.y - 118.0, bw * 0.5 - 4.0, 48.0),
-			"reset": Rect2(x, size_.y - 62.0, bw, 48.0),
-		}
-		info = Rect2(x, 64.0, bw, size_.y - 118.0 - 76.0)
+	else:  # undo, redo, restart on top of each other; the levels at the top
+		var side := float(cfg["strip"]["button"])
+		var x := strip.get_center().x - side * 0.5
+		var names := ["undo", "redo", "reset"]
+		for k in names.size():
+			buttons[names[k]] = Rect2(x, size_.y - (names.size() - k) * (side + pad), side, side)
+		var small := 40.0
+		buttons["prev"] = Rect2(strip.position.x + pad, pad, small, small)
+		buttons["next"] = Rect2(strip.end.x - pad - small, pad, small, small)
+		var below := pad + small + 14.0
+		info = Rect2(strip.position.x + pad, below, strip.size.x - 2.0 * pad, buttons["undo"].position.y - below - pad)
 	overlay.queue_redraw()
 
 
-## Writes the colours of the cells (row 0) and the partners of the move under way (row 2).
+## Writes the colours of the cells (row 0) and marks the cells of the move under way (row 2).
 func _upload() -> void:
 	var n := level.foam.n_cells
 	for i in n:
 		cell_image.set_pixel(i, 0, level.colours[session.col[i]])
 		cell_image.set_pixel(i, 2, Color(0, 0, 0, 1))
+	moving = PackedInt32Array()
 	if pending.x >= 0:
 		var foam := level.foam
 		for k in foam.swapping(session.col, pending.x, pending.y, pending.z):
 			var u := foam.pairs_u[pending.x][k]
 			var v := foam.pairs_v[pending.x][k]
-			cell_image.set_pixel(u, 2, Color8(v & 255, v >> 8, 255, 255))
-			cell_image.set_pixel(v, 2, Color8(u & 255, u >> 8, 255, 255))
+			moving.append(u)
+			moving.append(v)
+			cell_image.set_pixel(u, 2, Color(0, 0, 1, 1))
+			cell_image.set_pixel(v, 2, Color(0, 0, 1, 1))
 	cell_texture.update(cell_image)
+	tiles.queue_redraw()
 
 
 # ---- the move under way -------------------------------------------------------------------
-func _set_pending(m: Vector3i, what: String) -> void:
+func _set_pending(m: Vector3i, what: String, above: int = -1) -> void:
 	pending = m
 	action = what
+	top_colour = above if above >= 0 else m.z
 	shift = 0.0
 	_upload()
 
@@ -304,7 +332,7 @@ func drag(pos: Vector2) -> void:
 		var v := _toward(d.normalized())
 		if v != drag_v:
 			drag_v = v
-			_set_pending(session.move_between(drag_u, v), "play")
+			_set_pending(session.move_between(drag_u, v), "play", session.col[drag_u])
 	if drag_v < 0:
 		return
 	var span := site_px[drag_v] - site_px[drag_u]
@@ -396,8 +424,11 @@ func _process(delta: float) -> void:
 			shift = maxf(0.0, shift - delta / float(dc["back_s"]))
 			if shift <= 0.0:
 				_drop()
-	# eased, so that the colours start and stop gently
-	material_.set_shader_parameter("shift", smoothstep(0.0, 1.0, shift) if phase == Phase.SNAP else shift)
+	# eased when it runs by itself, so that the cells start and stop gently
+	eased = smoothstep(0.0, 1.0, shift) if phase == Phase.SNAP and action != "play" else shift
+	material_.set_shader_parameter("holes", 1.0 if eased > 0.0 and not moving.is_empty() else 0.0)
+	if phase != Phase.IDLE:
+		tiles.queue_redraw()
 	var rw: Dictionary = cfg["reward"]
 	var t := now - solved_at if solved_at >= 0.0 else -1.0
 	var flat := clampf(t / float(rw["lines_s"]), 0.0, 1.0) if t >= 0.0 else 0.0
@@ -414,6 +445,58 @@ func _painting_alpha() -> float:
 	var rw: Dictionary = cfg["reward"]
 	var t := now - solved_at - float(rw["lines_s"]) - float(rw["hold_s"])
 	return clampf(t / float(rw["fade_s"]), 0.0, 1.0)
+
+
+# ---- the moving cells ---------------------------------------------------------------------
+## Outline of the cell `from` on its way to the place and shape of the cell `to`.
+func _tile(from: int, to: int, grow: float) -> PackedVector2Array:
+	var a := shape_px[from]
+	var b := shape_px[to]
+	var c := centre_px[from].lerp(centre_px[to], eased)
+	var pts := PackedVector2Array()
+	pts.resize(a.size() + 1)
+	pts[0] = c
+	for k in a.size():
+		pts[k + 1] = c + (a[k].lerp(b[k], eased) - c) * grow
+	return pts
+
+
+func _draw_tiles() -> void:
+	if moving.is_empty() or eased <= 0.0 or level == null:
+		return
+	var lift := float(cfg["drag"]["lift"]) * sin(PI * eased)
+	var line := _c("line")
+	var width := float(cfg["picture"]["line_px"]) * unit
+	# two layers: the cells of the colour that passes above are drawn last
+	for layer in 2:
+		var points := PackedVector2Array()
+		var colours := PackedColorArray()
+		var indices := PackedInt32Array()
+		var rims: Array[PackedVector2Array] = []
+		for k in range(0, moving.size(), 2):
+			for pair in [[moving[k], moving[k + 1]], [moving[k + 1], moving[k]]]:
+				var from: int = pair[0]
+				var above := session.col[from] == top_colour
+				if above != (layer == 1):
+					continue
+				var pts := _tile(from, pair[1], 1.0 + lift if above else 1.0 - lift)
+				var base := points.size()
+				var n := pts.size() - 1
+				var col := level.colours[session.col[from]]
+				points.append_array(pts)
+				for j in pts.size():
+					colours.append(col)
+				for j in n:  # a fan around the middle
+					indices.append(base)
+					indices.append(base + 1 + j)
+					indices.append(base + 1 + (j + 1) % n)
+				var rim := pts.slice(1)
+				rim.append(pts[1])
+				rims.append(rim)
+		if not points.is_empty():
+			RenderingServer.canvas_item_add_triangle_array(tiles.get_canvas_item(), indices, points, colours)
+		for rim in rims:
+			tiles.draw_polyline(rim, line, width, true)
 
 
 # ---- drawing ------------------------------------------------------------------------------
@@ -450,13 +533,14 @@ func _draw_overlay() -> void:
 		var hot: bool = solved and name_ == "next"
 		overlay.draw_style_box(_box(accent if hot else _c("button"), 8.0 * unit), r)
 		var icon: String = "forward" if hot else name_
-		_icon(icon, r, _c("background") if hot else on, minf(r.size.x, r.size.y) * 0.62)
+		_icon(icon, r, _c("background") if hot else on, r.size.x * 0.7)
 	# level, count, messages
 	var y := info.position.y
 	if not portrait:
 		var font := ThemeDB.fallback_font
-		overlay.draw_string(font, Vector2(info.position.x, 38.0), level.id,
-			HORIZONTAL_ALIGNMENT_CENTER, info.size.x, 20, mid)
+		overlay.draw_string(font, Vector2(info.position.x, info.position.y + 16.0), level.id,
+			HORIZONTAL_ALIGNMENT_CENTER, info.size.x, 18, mid)
+		y += 34.0
 	var msg: Dictionary = cfg["messages"]
 	var count := "%d / %d" % [session.moves(), level.par]
 	if solved:
@@ -516,8 +600,10 @@ func _smoke() -> void:
 		for kk in level.foam.swapping(session.col, m0.x, m0.y, m0.z):
 			var u := level.foam.pairs_u[m0.x][kk]
 			var v := level.foam.pairs_v[m0.x][kk]
+			var aim := (_side_mid(u, v) - site_px[u]).normalized()
+			var travel := maxf(site_px[u].distance_to(site_px[v]), float(cfg["drag"]["min_travel_px"]) * unit)
 			press(site_px[u])
-			drag(site_px[u] + (site_px[v] - site_px[u]) * 0.3)
+			drag(site_px[u] + aim * 0.45 * travel)
 			release()
 			_settle()
 			good = good and session.moves() == 0 and session.col == level.start

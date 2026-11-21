@@ -1,6 +1,6 @@
-# Colour by Shift: Game Off 2026 project brief
+# Color by Shift: Game Off 2026 project brief
 
-Working title "Colour by Shift" (see Open questions; the repo and the Python package keep the name mosaic). This file is the single brief for the whole jam, from the Python twin to the submitted Godot game. Claude Code reads it at the start of every session. It replaces all earlier briefs (sand frame, boat race).
+Title "Color by Shift" (Chris, 2026-11-21; the repo and the Python package keep the name mosaic). This file is the single brief for the whole jam, from the Python twin to the submitted Godot game. Claude Code reads it at the start of every session. It replaces all earlier briefs (sand frame, boat race).
 
 ## How to work with this file
 
@@ -67,6 +67,7 @@ Working title "Colour by Shift" (see Open questions; the repo and the Python pac
 - 2026-11-21: Chris: training = 3-4 levels like real Mondrian paintings, black and white first, then red, yellow, blue; painting outlines smooth, not pixelated; a page to pick paintings with their colours and number of cells; 10 scans added by hand in assets/rawpixel (originals git-ignored, 170 MB; assets/rawpixel/pictures.toml: painter and title read from the picture, several to confirm; Hopper's Nighthawks is under copyright in France until 2038, Matisse public domain in France since 2025). Training candidates T1a-T4c (mosaic_model.mondrian.lined_composition: rectangles separated by black lines 0.03 wide, white except one rectangle per extra colour; 2, 3, 4, 5 colours, par 2-5; make_foam region_sites gives the lines enough cells, otherwise a line cell had up to 46 neighbours). Painting outlines: each block blurred in floating point (sigma 3 px at 512), enlarged to 1280 px, pixel to the largest block (make_painting_level.smooth_regions; region rasters now .npz); 16 painting candidates rebuilt, par 6 proven. merge_small could loop for ever (two small blocks trading colours): capped at 40 rounds. Pick page (tools/paint_pick.py + paint_pick.html): 55 paintings x up to 4 colour sets x 250/400/600 cells, picks in the artifact database, collection painting_picks: https://claude.ai/artifact/Bze2WXZEHjf8eSpoi7RL3k. The Met has no open-access Klee (0 of 100 results) and then answered 403; no Gris beyond the two present, no Picasso, no Mondrian found. Game data = 12 training + 16 painting candidates; 478 Godot checks and 128 Python tests pass. Waiting for Chris's picks on the page.
 - 2026-11-21: Chris picked 17 paintings on the page, each with its colours and cells (250, 400 or 600; 14 at 400): levels P01-P17 in levels/candidates (ladder.toml lists picture, palette, share, cells), par 6 proven for all, 9-21 groups. make_painting_level.build takes the picked palette and share and opens the scan as the pick page does (open_cut); the three rawpixel picks (Fuji, a second Great Wave, Matisse's Dance) are saved cut to 4:3 in assets/paintings/rp_*.jpg with sources and rights caveats in SOURCES.md. Game data = 12 training candidates + 17 paintings; 495 Godot checks, click test and 128 Python tests pass; web pack 23 MB (paintings stored lossless). Open: which of the 17 ship (plan said 6), one training level per rung, title, brief rewrite.
 - 2026-11-21: Chris: ship all the paintings but one Great Wave only (the Met scan kept, 16 paintings), Matisse, Cezanne, Modigliani, Hokusai first; brief rewritten at his request (game in one page, Godot game, Plan, Decisions, Open questions). Gesture changed to press and drag (mouse or finger): the pairs of the move follow the drag, preview below 60 % of the way, tip over beyond, back below 40 % before letting go ([drag] in game/data/config.json); the neighbour is the one whose shared side lies in the direction of the drag; no hover preview. Motion: the partner's colour enters each cell from the shared side (shader, per-cell partner and site in the cell texture); undo and redo use the same motion. Icons from SVG strings (game/ui/icons.gd), message 'Picture recovered' with the move count and a highlighted next arrow, portrait layout with a bottom bar for phones. Checked in headless Chrome: mid-drag, tipped, finish message, 390 px wide window; 478 Godot checks, drag test on the 28 levels and 128 Python tests pass. Not checked: a real finger on a real phone. Waiting for Chris to play: godot --path game
+- 2026-11-21: Chris: title 'Color by Shift'; Matisse's Dance is CC0 on rawpixel; Mount Fuji dropped (15 paintings); paintings at 3 or 4 moves, not 6 (too hard without a model): P01-P05 par 3, P06-P15 par 4, training T1-T4 par 1, 2, 3, 3 (my choice, to stay below the paintings), all proven. Motion redone at his request: each cell of a pair travels to its partner's place and takes its shape (outline of every cell traced from the raster, 48 points, mosaic_model.foam.outlines, exported as <id>.shapes.gz; the moving cells are drawn above the picture, which shows holes under them), the picked colour passing above with a slight lift ([drag] lift). Icons: second set, solid shapes; undo, redo, restart as three square buttons on top of each other (strip 120 px). 461 Godot checks, drag test on the 27 levels, 129 Python tests pass; mid-drag checked on a screenshot of the web build. Waiting for Chris to play: godot --path game
 
 ## Deadline and jam
 
@@ -87,11 +88,11 @@ The only verb. A move = (group, two colours a and b): every pair of that group h
 
 The gesture. Press a cell and drag toward a neighbour (mouse or finger). All the pairs of the move follow the drag: below a threshold (60 % of the way) this is only a preview and letting go brings everything back; beyond it the picture tips into the shifted state. No hover preview.
 
-Start and goal. The level stores the picture (one colour per region) and a scrambling list of 2 to 6 moves that cannot be undone in fewer (proven by search); the game starts from the scrambled picture. Solved = every cell has its target colour. The move count is shown over par. No score, no timer, no failure.
+Start and goal. The level stores the picture (one colour per region) and a scrambling list of 1 to 4 moves that cannot be undone in fewer (proven by search); the game starts from the scrambled picture. Solved = every cell has its target colour. The move count is shown over par. No score, no timer, no failure.
 
 Reward. A message, the lines between cells fade and the flat shapes remain; for a painting the scan fades in with painter and title.
 
-Ladder. 4 generated compositions in the manner of Mondrian's grid paintings (black lines and white fields first, then red, yellow, blue added one per level), then 16 public-domain paintings picked by Chris (Matisse, Cezanne, Modigliani and Hokusai first), each with its own five colours and number of cells (250 to 600).
+Ladder. 4 generated compositions in the manner of Mondrian's grid paintings (black lines and white fields first, then red, yellow, blue added one per level), then 15 public-domain paintings picked by Chris (Matisse, Cezanne, Modigliani and Hokusai first), each with its own five colours and number of cells (250 to 600).
 
 Why it is hard: a move acts on the whole picture, so repairing one place disturbs another; moves of different groups do not commute when they share cells; the order must be deduced.
 
@@ -183,7 +184,7 @@ Campaign of 8–10 levels: learn the swap on a two-reaction level; voter-model c
 - Levels are generated offline in Python (mosaic_model/foam.py, mondrian.py, foam_solver.py; tools/make_ladder.py from levels/candidates/ladder.toml, tools/make_painting_level.py) and exported by tools/export_godot.py to game/data/: one JSON per level (sites, edges, groups, points on every side, colours, target, start, par, artist, title), a gzip raster of cell indices (uint16, 1280 wide), the painting cut to the level's window, an ordered index, golden states for the tests. Godot never builds a foam, colours edges or scrambles.
 - Simulation in plain classes (RefCounted), no Nodes, testable headless: Foam, FoamLevel, Session, Progress. Scenes only display state and pass input.
 - Tests: `godot --headless --path game --script res://tests/run_tests.gd` (groups are matchings, moves undo themselves, the reversed scramble reproduces the Python colours exactly at every move, every edge with a side can be pointed at); `godot --headless --path game -- --smoke` solves every level by simulated drags; tools/web_shot.py takes screenshots of the web build in headless Chrome (no window).
-- Rendering: one shader on one rectangle; a texture of cell indices and a small texture of per-cell data (colour, target colour, partner in the move under way, site); the shift of a pair is drawn as the partner's colour entering each cell from the shared side; uniforms for the shift and the reward.
+- Rendering: one shader on one rectangle; a texture of cell indices and a small texture of per-cell data (colour, target colour, partner in the move under way, site); during a move each cell of a pair is drawn above the picture as a shape that travels to its partner's place and deforms into it (outlines of 48 points per cell, exported); uniforms for the reward.
 - UI: icons drawn from SVG strings at the size needed; moves over par, undo, redo, restart, previous and next level; keys Z, Y, R, Up, Down. A gallery of levels and progress in user://progress.json are still to build.
 - Audio (to build): one soft pluck per move, a chord when solved; samples synthesised by tools/make_sounds.py.
 - Timings, sizes and interface colours in game/data/config.json.
@@ -215,7 +216,7 @@ mosaic/
 Dates are guesses. Phases 0 to 2 (benchmark, Python twin, design search) are done; see Status.
 
 Step 1, Godot core (Sat 21 Nov): done.
-Step 2, levels (Sat 21 Nov): 16 paintings picked and built; Chris still picks one training level per rung (T1 to T4).
+Step 2, levels (Sat 21 Nov): 15 paintings picked and built; Chris still picks one training level per rung (T1 to T4).
 Step 3, ergonomics (Sun 22 – Wed 25 Nov): drag gesture and motion tuned by Chris's play, gallery, progress, tutorial hint on level 1.
 Step 4, look and sound (Thu 26 – Fri 27 Nov): audio, title screen, palette pass, credits screen (painting sources and rights).
 Step 5, freeze and submit (Sat 28 – Mon 30 Nov; Tue 1 Dec buffer): feature freeze on Sunday 29; two or three outside players; README, itch page, web build, submission on Monday 30.
@@ -229,17 +230,15 @@ Cut list, in this order: audio beyond one sample; gallery thumbnails of scramble
 - The game is the foam colour-by-shift puzzle (2026-11-21): one gesture swaps two colours across every like pair of an edge group; every move is its own inverse.
 - Gesture (2026-11-21): press and drag toward a neighbour; preview below 60 % of the way, shift beyond; no hover preview. Mouse and touch.
 - Levels are generated offline in Python; Godot only loads data.
-- Ladder: 4 training levels in the manner of Mondrian (black and white, then red, yellow, blue), then the 16 paintings picked by Chris, all shipped (Matisse, Cezanne, Modigliani, Hokusai first; one Great Wave only).
+- Ladder: 4 training levels in the manner of Mondrian (black and white, then red, yellow, blue), then the 15 paintings picked by Chris, all shipped (Matisse, Cezanne, Modigliani, Hokusai first; one Great Wave only).
 - Painting outlines are smooth curves; everything at 4:3.
 - Par = shortest solution, proven by search from both ends.
 - No score, no timer, no failure; a message when a level is recovered.
-- Working title: Colour by Shift (not confirmed by Chris).
+- Title: Color by Shift (Chris, 2026-11-21).
 
 ## Open questions (as tasks)
 
-- Title: Chris confirms "Colour by Shift" (and the spelling) or proposes another; same clash check on any new candidate.
 - Training levels: one of a, b, c for each of T1 to T4.
-- Rights before release: Matisse's Dance outside France; painter of the Mount Fuji print.
 - Confirm the jam's rule on AI-assisted code before submitting.
 - Phones: cells of a 400-cell painting are about 15 px wide on a phone; zoom is not planned.
 - Size of the web build: paintings are stored lossless in the pack (about 1 MB each).

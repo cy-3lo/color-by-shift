@@ -3,36 +3,57 @@
  "title": "",
  "foam": "grids/candidates/foam_P11.json",
  "colours": [
-  "#2f4264",
-  "#6c798b",
-  "#abacad",
-  "#c7b07a",
-  "#ebe6d5"
+  "#395846",
+  "#547070",
+  "#889751",
+  "#c4be52",
+  "#c1cab1"
  ],
  "picture": {
   "regions": [
+   1,
+   2,
+   0,
+   4,
    3,
    4,
    1,
    0,
    0,
    2,
+   3,
+   2,
    1,
-   0
+   3,
+   3,
+   3,
+   1,
+   3,
+   2,
+   4,
+   2,
+   3,
+   2,
+   3,
+   2,
+   2,
+   3,
+   1,
+   2
   ]
  },
  "scramble": [
   {
    "group": 6,
    "pair": [
-    3,
+    2,
     4
    ]
   },
   {
-   "group": 3,
+   "group": 4,
    "pair": [
-    3,
+    1,
     4
    ]
   },
@@ -40,7 +61,7 @@
    "group": 6,
    "pair": [
     0,
-    4
+    1
    ]
   },
   {
@@ -49,30 +70,16 @@
     0,
     2
    ]
-  },
-  {
-   "group": 3,
-   "pair": [
-    1,
-    4
-   ]
-  },
-  {
-   "group": 1,
-   "pair": [
-    0,
-    4
-   ]
   }
  ],
  "reward": {
-  "image": "assets/paintings/rp_fuji.jpg",
+  "image": "assets/paintings/seurat_the_gardener.jpg",
   "crop": null,
   "anchor": [
    0.5,
    0.5
   ],
-  "artist": "Kamisaka Sekka (?)",
-  "title": "Mount Fuji"
+  "artist": "Georges Seurat",
+  "title": "The Gardener"
  }
 }

@@ -1,10 +1,8 @@
 shader_type canvas_item;
 // The foam: `labels` gives the cell of every pixel (index in R + 256 G). `cells` holds, per
 // cell (column): row 0 the colour shown, row 1 the colour of the picture to recover (alpha =
-// colour index), row 2 the partner in the move under way (index in R + 256 G, B = 1 if the
-// cell takes part), row 3 the site of the cell (x in R + 256 G, y in B + 256 A, 0..1).
-// During a move, `shift` goes from 0 to 1 and the partner's colour enters each cell from the
-// side the two cells share.
+// colour index), row 2 whether the cell takes part in the move under way (B = 1). The cells
+// of a move are drawn by the game as moving shapes above the picture; here they are holes.
 
 uniform sampler2D labels : filter_nearest, repeat_disable;
 uniform sampler2D cells : filter_nearest, repeat_disable;
@@ -17,8 +15,8 @@ uniform float outline_px = 3.0;  // outline of the shapes of the picture, screen
 uniform float line_alpha = 1.0;
 uniform float outline_alpha = 0.0;
 uniform float painting_mix = 0.0;
-uniform float shift = 0.0;
-uniform float front = 2.4;  // reach of the entering colour at shift = 1, in half distances between sites
+uniform vec3 hole_colour = vec3(0.07, 0.07, 0.09);
+uniform float holes = 0.0;  // 1 while a move is under way
 
 const vec2 RING[8] = vec2[](
 	vec2(1.0, 0.0), vec2(0.7071, 0.7071), vec2(0.0, 1.0), vec2(-0.7071, 0.7071),
@@ -30,29 +28,10 @@ int cell_at(vec2 p) {
 	return int(t.r * 255.0 + 0.5) + 256 * int(t.g * 255.0 + 0.5);
 }
 
-vec2 site_px(int cell) {
-	vec4 s = texelFetch(cells, ivec2(cell, 3), 0);
-	return vec2(s.r * 255.0 + s.g * 65280.0, s.b * 255.0 + s.a * 65280.0) / 65535.0 * picture_px;
-}
-
-// colour of `cell` at a point of the picture (screen pixels from its corner)
-vec3 shown(int cell, vec2 at) {
-	vec3 own = texelFetch(cells, ivec2(cell, 0), 0).rgb;
-	vec4 pt = texelFetch(cells, ivec2(cell, 2), 0);
-	if (pt.b < 0.5 || shift <= 0.0) {
-		return own;
-	}
-	int partner = int(pt.r * 255.0 + 0.5) + 256 * int(pt.g * 255.0 + 0.5);
-	vec3 other = texelFetch(cells, ivec2(partner, 0), 0).rgb;
-	if (shift >= 0.999) {
-		return other;
-	}
-	vec2 a = site_px(cell);
-	vec2 b = site_px(partner);
-	float half_d = 0.5 * distance(a, b);
-	float depth = dot(at - 0.5 * (a + b), (a - b) / (2.0 * half_d));  // from the shared side into the cell
-	float reach = (shift * (front + 0.8) - 0.8) * half_d;
-	return mix(own, other, clamp((reach - depth) / 1.5 + 0.5, 0.0, 1.0));
+// colour of `cell`; a cell that is moving leaves a hole (its shape is drawn above the picture)
+vec3 shown(int cell) {
+	float moving = texelFetch(cells, ivec2(cell, 2), 0).b;
+	return mix(texelFetch(cells, ivec2(cell, 0), 0).rgb, hole_colour, moving * holes);
 }
 
 float wanted(int cell) {
@@ -61,14 +40,13 @@ float wanted(int cell) {
 
 void fragment() {
 	vec2 p = UV * label_size;
-	vec2 at = UV * picture_px;
 	// colours of the four nearest pixels of the raster, blended: smooth cell borders
 	vec2 q = p - 0.5;
 	vec2 f = fract(q);
 	vec2 b = floor(q) + 0.5;
 	vec3 col = mix(
-		mix(shown(cell_at(b), at), shown(cell_at(b + vec2(1.0, 0.0)), at), f.x),
-		mix(shown(cell_at(b + vec2(0.0, 1.0)), at), shown(cell_at(b + vec2(1.0, 1.0)), at), f.x), f.y);
+		mix(shown(cell_at(b)), shown(cell_at(b + vec2(1.0, 0.0))), f.x),
+		mix(shown(cell_at(b + vec2(0.0, 1.0))), shown(cell_at(b + vec2(1.0, 1.0))), f.x), f.y);
 	// share of a ring around the point that lies in another cell (or another shape)
 	int here = cell_at(p);
 	float want = wanted(here);

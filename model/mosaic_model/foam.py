@@ -362,3 +362,70 @@ def load_foam_level(path: str | Path, root: str | Path | None = None) -> FoamLev
     return FoamLevel(
         d["id"], foam, list(d["colours"]), target, scr, d.get("title", ""), d.get("reward")
     )
+
+
+# ---- outlines of the cells (for drawing a cell that moves) -------------------------------------
+def outlines(labels: np.ndarray, n_cells: int, k: int = 48) -> np.ndarray:
+    """Outline of every cell of a raster of cell indices, as k points: array (n_cells, k, 2)
+    of (x, y) in pixels of the raster (corners of pixels, so 0..width and 0..height).
+    The sides of the pixels of a cell that face another cell are chained into loops, the
+    loop enclosing the largest area is kept, and k points are placed at equal distances
+    along it, clockwise on screen, starting where the outline crosses the horizontal line to
+    the right of its centre: two cells then correspond point by point."""
+    h, w = labels.shape
+    lab = np.pad(labels.astype(np.int64), 1, constant_values=-1)
+    core = lab[1:-1, 1:-1]
+    yy, xx = np.mgrid[0:h, 0:w]
+    cell, start, end = [], [], []
+    corner = lambda x, y: y * (w + 1) + x  # noqa: E731
+    # (neighbour, start corner, end corner): the cell stays on the right of the walk
+    for other, (ax, ay), (bx, by) in (
+        (lab[:-2, 1:-1], (0, 0), (1, 0)),  # top side, walked to the right
+        (lab[1:-1, 2:], (1, 0), (1, 1)),  # right side, downward
+        (lab[2:, 1:-1], (1, 1), (0, 1)),  # bottom side, to the left
+        (lab[1:-1, :-2], (0, 1), (0, 0)),  # left side, upward
+    ):
+        m = core != other
+        cell.append(core[m])
+        start.append(corner(xx[m] + ax, yy[m] + ay))
+        end.append(corner(xx[m] + bx, yy[m] + by))
+    cell, start, end = (np.concatenate(v) for v in (cell, start, end))
+    order = np.argsort(cell, kind="stable")
+    cell, start, end = cell[order], start[order], end[order]
+    bounds = np.searchsorted(cell, np.arange(n_cells + 1))
+    out = np.zeros((n_cells, k, 2))
+    for c in range(n_cells):
+        i0, i1 = bounds[c], bounds[c + 1]
+        if i1 == i0:
+            raise ValueError(f"cell {c} is not on the raster")
+        nxt: dict[int, list[int]] = {}
+        for s, e in zip(start[i0:i1].tolist(), end[i0:i1].tolist(), strict=True):
+            nxt.setdefault(s, []).append(e)
+        best, best_area = None, -1.0
+        while nxt:
+            first = next(iter(nxt))
+            loop, at = [first], first
+            while True:
+                ends = nxt[at]
+                to = ends.pop()
+                if not ends:
+                    del nxt[at]
+                if to == first:
+                    break
+                loop.append(to)
+                at = to
+            pts = np.array([(p % (w + 1), p // (w + 1)) for p in loop], dtype=float)
+            x, y = pts[:, 0], pts[:, 1]
+            area = 0.5 * abs(float(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
+            if area > best_area:
+                best, best_area = pts, area
+        # start to the right of the centre, then k points at equal distances along the loop
+        centre = best.mean(axis=0)
+        angle = np.arctan2(best[:, 1] - centre[1], best[:, 0] - centre[0])
+        best = np.roll(best, -int(np.argmin(np.abs(angle))), axis=0)
+        closed = np.vstack([best, best[:1]])
+        s = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(closed, axis=0).T))])
+        at_s = np.arange(k) * s[-1] / k
+        out[c, :, 0] = np.interp(at_s, s, closed[:, 0])
+        out[c, :, 1] = np.interp(at_s, s, closed[:, 1])
+    return out

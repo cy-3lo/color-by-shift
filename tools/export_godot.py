@@ -7,6 +7,7 @@ Per level (<src>/<id>.json and its foam; src defaults to levels/foam):
                                     start, par, reward
   game/data/levels/<id>.labels.gz   cell index of every pixel, uint16 little-endian, row by
                                     row, gzip (2.4 MB raw, about 60 kB packed)
+  game/data/levels/<id>.shapes.gz   outline of every cell (48 points), for the moving cells
   game/data/paintings/<id>.jpg      the reward scan cut to the level's window (painting levels)
   game/tests/golden/<id>.json       colours after each move of the reversed scramble
 and game/data/index.json, the ordered list of levels. Files are rewritten at every run: they
@@ -24,9 +25,10 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
+SHAPE_POINTS = 48  # points on the outline of a cell
 sys.path.insert(0, str(ROOT / "toy"))
 
-from mosaic_model.foam import FoamLevel, load_foam_level  # noqa: E402
+from mosaic_model.foam import FoamLevel, load_foam_level, outlines  # noqa: E402
 
 
 def side_points(labels: np.ndarray, edges: np.ndarray, aspect: float, k: int = 8) -> list:
@@ -82,6 +84,7 @@ def level_data(level: FoamLevel, width: int) -> tuple[dict, np.ndarray, list[lis
         "start": start.tolist(),
         "par": level.par,
         "labels": {"file": f"{level.id}.labels.gz", "width": width, "height": height},
+        "shapes": {"file": f"{level.id}.shapes.gz", "points": SHAPE_POINTS},
         "painting": f"{level.id}.jpg" if reward.get("image") else "",
         "artist": reward.get("artist", ""),
         "title": reward.get("title", "") or level.title,
@@ -135,6 +138,10 @@ def main() -> None:
         (out / "levels" / f"{lid}.json").write_text(json.dumps(data, separators=(",", ":")))
         packed = gzip.compress(labels.tobytes(), mtime=0)
         (out / "levels" / f"{lid}.labels.gz").write_bytes(packed)
+        # outline of every cell: SHAPE_POINTS points, x then y, uint16 (0..65535 = the picture)
+        shape = outlines(labels, level.foam.n_cells, SHAPE_POINTS) / labels.shape[::-1]
+        packed = gzip.compress(np.round(shape * 65535).astype("<u2").tobytes(), mtime=0)
+        (out / "levels" / f"{lid}.shapes.gz").write_bytes(packed)
         (gold / f"{lid}.json").write_text(json.dumps(golden, separators=(",", ":")))
         if data["painting"]:
             painting(level, args.width).save(out / "paintings" / data["painting"], quality=88)

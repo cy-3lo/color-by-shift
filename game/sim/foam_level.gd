@@ -13,6 +13,7 @@ var labels := PackedByteArray()  ## uint16 little-endian per pixel, row by row
 var label_w := 0
 var label_h := 0
 var sides: Array[PackedVector2Array] = []  ## per edge, points on the shared side (foam coordinates)
+var shapes: Array[PackedVector2Array] = []  ## per cell, its outline (foam coordinates), clockwise
 var painting := ""  ## res:// path of the reward scan, "" if none
 var artist := ""
 var title := ""
@@ -66,6 +67,21 @@ static func load_level(level_id: String, folder := "res://data") -> FoamLevel:
 	lv.labels = packed.decompress(lv.label_w * lv.label_h * 2, FileAccess.COMPRESSION_GZIP)
 	if lv.labels.size() != lv.label_w * lv.label_h * 2:
 		lv.error = "raster of cells missing or of the wrong size"
+		return lv
+	var k := int(d["shapes"]["points"])
+	var raw := FileAccess.get_file_as_bytes("%s/levels/%s" % [folder, d["shapes"]["file"]])
+	raw = raw.decompress(n * k * 4, FileAccess.COMPRESSION_GZIP)
+	if raw.size() != n * k * 4:
+		lv.error = "outlines of the cells missing or of the wrong size"
+		return lv
+	var scale := Vector2(lv.foam.aspect, 1.0) / 65535.0
+	for c in n:
+		var pts := PackedVector2Array()
+		pts.resize(k)
+		for j in k:
+			var o := (c * k + j) * 4
+			pts[j] = Vector2(raw.decode_u16(o), raw.decode_u16(o + 2)) * scale
+		lv.shapes.append(pts)
 	return lv
 
 

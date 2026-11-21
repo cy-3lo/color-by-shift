@@ -151,3 +151,23 @@ def test_foam_follows_a_raster_of_regions(tmp_path) -> None:
     )
     back = load_foam(tmp_path / "foam_x.json")
     assert (back.raster(120, 80) == f.raster(120, 80)).mean() > 0.99  # sites rounded in JSON
+
+
+def test_outlines_follow_the_cells() -> None:
+    from mosaic_model.foam import outlines
+
+    shapes = [[[0.3, 0.2], [1.2, 0.2], [1.2, 0.8], [0.3, 0.8]]]
+    f = make_foam(40, 1.5, 4, relax=3, width=240, shapes=shapes)
+    w, h = 600, 400
+    lab = f.raster(w, h)
+    out = outlines(lab, f.n_cells, k=48)
+    assert out.shape == (f.n_cells, 48, 2)
+    assert out.min() >= 0 and out[..., 0].max() <= w and out[..., 1].max() <= h
+    x, y = out[..., 0], out[..., 1]
+    signed = 0.5 * (x * np.roll(y, -1, axis=1) - y * np.roll(x, -1, axis=1)).sum(axis=1)
+    assert (signed > 0).all()  # clockwise on screen (y down) for every cell
+    pixels = np.bincount(lab.ravel(), minlength=f.n_cells)
+    assert np.abs(signed / pixels - 1).max() < 0.06  # 48 points keep the area within 6 %
+    for c in range(f.n_cells):  # the first point lies to the right of the centre
+        cx, cy = out[c].mean(axis=0)
+        assert out[c, 0, 0] > cx and abs(out[c, 0, 1] - cy) < 0.35 * np.ptp(out[c, :, 1]) + 2

@@ -19,21 +19,21 @@ id = "T1a"
 rects = 4
 colours = 2
 cells = 70
-moves = 2
+moves = 1
 seed = 11
 [[mondrian]]
 id = "T1b"
 rects = 4
 colours = 2
 cells = 70
-moves = 2
+moves = 1
 seed = 12
 [[mondrian]]
 id = "T1c"
 rects = 5
 colours = 2
 cells = 70
-moves = 2
+moves = 1
 seed = 13
 
 # rung 2: red comes in
@@ -42,21 +42,21 @@ id = "T2a"
 rects = 5
 colours = 3
 cells = 90
-moves = 3
+moves = 2
 seed = 21
 [[mondrian]]
 id = "T2b"
 rects = 5
 colours = 3
 cells = 90
-moves = 3
+moves = 2
 seed = 22
 [[mondrian]]
 id = "T2c"
 rects = 6
 colours = 3
 cells = 90
-moves = 3
+moves = 2
 seed = 23
 
 # rung 3: yellow
@@ -65,21 +65,21 @@ id = "T3a"
 rects = 6
 colours = 4
 cells = 110
-moves = 4
+moves = 3
 seed = 31
 [[mondrian]]
 id = "T3b"
 rects = 6
 colours = 4
 cells = 110
-moves = 4
+moves = 3
 seed = 32
 [[mondrian]]
 id = "T3c"
 rects = 7
 colours = 4
 cells = 110
-moves = 4
+moves = 3
 seed = 33
 
 # rung 4: blue
@@ -88,21 +88,21 @@ id = "T4a"
 rects = 8
 colours = 5
 cells = 130
-moves = 5
+moves = 3
 seed = 41
 [[mondrian]]
 id = "T4b"
 rects = 8
 colours = 5
 cells = 130
-moves = 5
+moves = 3
 seed = 42
 [[mondrian]]
 id = "T4c"
 rects = 9
 colours = 5
 cells = 130
-moves = 5
+moves = 3
 seed = 43
 
 # paintings picked by Chris on the pick page (2026-11-21), with their colours and cells
@@ -111,91 +111,100 @@ id = "P01"
 picture = "rp_matisse_dance"
 palette = "present"
 cells = 400
+moves = 3
 [[painting]]
 id = "P02"
 picture = "card_players"
 palette = "present"
 cells = 400
+moves = 3
 [[painting]]
 id = "P03"
 picture = "modigliani_nude_on_a_divan"
 palette = "contrast"
 share = 0.004
 cells = 400
+moves = 3
 [[painting]]
 id = "P04"
 picture = "great_wave"
 palette = "contrast"
 share = 0.004
 cells = 400
+moves = 3
 [[painting]]
 id = "P05"
 picture = "blakelock_moonlight"
 palette = "contrast"
 share = 0.004
 cells = 400
+moves = 3
 [[painting]]
 id = "P06"
 picture = "gris_fantomas"
 palette = "contrast"
 share = 0.02
 cells = 250
+moves = 4
 [[painting]]
 id = "P07"
 picture = "gris_glass_and_checkerboard"
 palette = "contrast"
 share = 0.05
 cells = 400
+moves = 4
 [[painting]]
 id = "P08"
 picture = "jawlensky_murnau"
 palette = "contrast"
 share = 0.004
 cells = 400
+moves = 4
 [[painting]]
 id = "P09"
 picture = "kirchner_dance_hall_bellevue"
 palette = "contrast"
 share = 0.02
 cells = 400
+moves = 4
 [[painting]]
 id = "P10"
 picture = "portinari"
 palette = "contrast"
 share = 0.004
 cells = 400
+moves = 4
 [[painting]]
 id = "P11"
-picture = "rp_fuji"
-palette = "contrast"
-share = 0.004
-cells = 250
-[[painting]]
-id = "P12"
 picture = "seurat_the_gardener"
 palette = "present"
 cells = 400
+moves = 4
 [[painting]]
-id = "P13"
+id = "P12"
 picture = "sisley_the_road_from_moret"
 palette = "contrast"
 share = 0.004
 cells = 400
+moves = 4
 [[painting]]
-id = "P14"
+id = "P13"
 picture = "tanner_the_seine"
 palette = "contrast"
 share = 0.004
 cells = 400
+moves = 4
 [[painting]]
-id = "P15"
+id = "P14"
 picture = "vallotton_the_church_of_souain"
 palette = "contrast"
 share = 0.02
 cells = 600
+moves = 4
 [[painting]]
-id = "P16"
+id = "P15"
 picture = "vallotton_the_wind"
 palette = "contrast"
 share = 0.02
 cells = 400
+moves = 4

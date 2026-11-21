@@ -181,10 +181,6 @@
   National Gallery of Art, Washington, Open Access (CC0), object 73835, https://www.nga.gov/artworks/73835
   (small image). Downloaded 2026-11-20.
 
-- rp_fuji.jpg: painter and title to confirm (read from the picture: Mount Fuji, possibly Kamisaka Sekka).
-  Downloaded by Chris from rawpixel.com, image id 2049919, https://www.rawpixel.com/image/2049919
-  Cut to 4:3 and reduced by tools/make_painting_level.py. Licence: to confirm before release. Downloaded 2026-11-21.
-
 - rp_matisse_dance.jpg: Henri Matisse, *Dance (I)*, 1909, oil on canvas (title read from the picture, to confirm).
   Downloaded by Chris from rawpixel.com, image id 22769428, https://www.rawpixel.com/image/22769428
-  Cut to 4:3 and reduced. Licence: Matisse died in 1954, public domain in France since 2025; status elsewhere to confirm before release. Downloaded 2026-11-21.
+  Cut to 4:3 and reduced. Licence: CC0 on rawpixel (stated by Chris, 2026-11-21). Downloaded 2026-11-21.
