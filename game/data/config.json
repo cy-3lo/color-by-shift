@@ -1,13 +1,13 @@
 {
   "picture": {"margin": 15, "line_px": 1.6, "outline_px": 3.0},
-  "strip": {"width": 124, "bar_height": 150, "pad": 12, "radius": 10, "icon": 0.6, "number_height": 76, "par_height": 44},
+  "strip": {"width": 124, "bar_height": 150, "pad": 12, "radius": 10, "icon": 0.6, "number_height": 100, "number_size": 52, "par_height": 44},
   "colours": {
     "background": "#1c1c22", "panel": "#26262e", "line": "#101014", "text": "#ece9e0",
     "mid": "#9694a0", "dim": "#5c5a68", "button": "#3a3a46", "accent": "#f0b45a", "hole": "#121217"
   },
   "drag": {
     "commit": 0.6, "release": 0.4, "dead_px": 8, "min_travel_px": 40, "rechoose": 0.3,
-    "follow_s": 0.06, "snap_s": 0.3, "back_s": 0.18, "lift": 0.08
+    "follow_s": 0.06, "snap_s": 0.3, "rewind_s": 0.14, "back_s": 0.18, "lift": 0.08
   },
   "reward": {"lines_s": 0.8, "hold_s": 1.0, "fade_s": 2.5},
   "messages": {"solved": "Picture recovered"},

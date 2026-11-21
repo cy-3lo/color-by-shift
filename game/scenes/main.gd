@@ -52,6 +52,7 @@ var drag_u := -1
 var drag_v := -1
 var drag_frac := 0.0
 var committed := false
+var rewinding := false  ## the moves are being taken back one after the other, to the start
 var solved_at := -1.0
 var now := 0.0
 var preview := false  ## start from the recovered picture
@@ -136,6 +137,7 @@ func _load(k: int) -> void:
 	if not level.painting.is_empty() and ResourceLoader.exists(level.painting):
 		material_.set_shader_parameter("painting", load(level.painting))
 	phase = Phase.IDLE
+	rewinding = false
 	shift = 0.0
 	pending = Vector3i(-1, 0, 0)
 	solved_at = -1.0
@@ -248,6 +250,12 @@ func _set_pending(m: Vector3i, what: String, above: int = -1) -> void:
 
 ## Ends the move under way at once: applied if it was tipping over, dropped otherwise.
 func _settle() -> void:
+	if rewinding:  # straight to the scrambled start
+		rewinding = false
+		session.reset()
+		solved_at = -1.0
+		_drop()
+		return
 	if phase == Phase.SNAP:
 		_apply()
 	elif phase != Phase.IDLE:
@@ -264,6 +272,13 @@ func _apply() -> void:
 			session.redo()
 	_drop()
 	solved_at = now if session.solved() else -1.0
+	if rewinding:
+		if session.history.is_empty():
+			rewinding = false
+			session.reset()  # nothing to redo after a rewind
+			overlay.queue_redraw()
+		else:
+			_start(session.history[-1], "undo")
 
 
 func _drop() -> void:
@@ -280,6 +295,10 @@ func _drop() -> void:
 ## Shifts a whole move without a drag (undo, redo).
 func _run(m: Vector3i, what: String) -> void:
 	_settle()
+	_start(m, what)
+
+
+func _start(m: Vector3i, what: String) -> void:
 	_set_pending(m, what)
 	phase = Phase.SNAP
 
@@ -383,10 +402,13 @@ func _press_button(name_: String) -> void:
 			_settle()
 			if session.moves() == 0 and session.future.is_empty():
 				_load(at - 1)
-			else:
+			elif session.history.is_empty():
 				session.reset()
-				solved_at = -1.0
 				_upload()
+			else:  # the moves played, backwards and quickly
+				rewinding = true
+				solved_at = -1.0
+				_start(session.history[-1], "undo")
 	overlay.queue_redraw()
 
 
@@ -433,7 +455,7 @@ func _process(delta: float) -> void:
 				else:  # follows the finger, a little behind
 					shift += (drag_frac - shift) * minf(1.0, delta / float(dc["follow_s"]))
 		Phase.SNAP:
-			shift = minf(1.0, shift + delta / float(dc["snap_s"]))
+			shift = minf(1.0, shift + delta / float(dc["rewind_s" if rewinding else "snap_s"]))
 			if shift >= 1.0:
 				_apply()
 		Phase.BACK:
@@ -570,7 +592,7 @@ func _draw_overlay() -> void:
 	for name_ in boxes:
 		overlay.draw_style_box(_box(_c("button")), boxes[name_])
 	# level number (the file's name under it while levels are being chosen)
-	var number: Array = [["%02d" % (at + 1), 30.0, fg], [level.id, 12.0, dim]]
+	var number: Array = [["%02d" % (at + 1), float(cfg["strip"]["number_size"]), fg], [level.id, 12.0, dim]]
 	if note_until >= 0.0:
 		number[1] = [note, 12.0, accent]
 	_lines(boxes["number"], number)
@@ -657,7 +679,10 @@ func _smoke() -> void:
 		_settle()
 		good = good and session.solved()
 		press(buttons["reset"].get_center())
+		good = good and rewinding and session.moves() == level.par
+		_settle()
 		good = good and session.col == level.start and session.moves() == 0 and at == k
+		good = good and session.future.is_empty() and not rewinding
 		press(buttons["reset"].get_center())  # nothing played: back to the level before
 		good = good and at == posmod(k - 1, ids.size())
 		print("SMOKE %s: %s" % [ids[k], "solved at par by drags" if good else "FAILED"])
