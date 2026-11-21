@@ -274,11 +274,15 @@ title = "Nonchaloir"
 palette = "contrast"
 
 [[pictures]]
-key = "modigliani_nude_on_a_divan"
-file = "assets/paintings/modigliani_nude_on_a_divan.jpg"
-artist = "Amedeo Modigliani"
-title = "Nude on a Divan"
-palette = "present"
+key = "mondrian_composition_ryb"
+file = "assets/paintings/mondrian_composition_ryb.jpg"
+artist = "Piet Mondrian"
+title = "Composition with Red, Yellow, and Blue"
+crop = [0.041, 0.039, 0.954, 0.939]   # the frame
+aspect = 1.0                         # square: kept whole, not cut to 4:3
+colours = ["#d7d6d2", "#222225", "#cf4e44", "#e0cd8c", "#28659f"]   # white, black, red, yellow, blue, sampled from the scan
+res = 256                            # the black lines are 1.4 % of the side
+thin_sites = true                    # cells along the black lines
 
 [[pictures]]
 key = "bellows_blue_morning"

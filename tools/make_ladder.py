@@ -158,7 +158,7 @@ def main() -> None:
     mond = [lv for lv in spec.get("mondrian", []) if wanted(lv)]
     paint = [lv for lv in spec.get("painting", []) if wanted(lv)]
 
-    rgb = [tuple(int(c[i : i + 2], 16) for i in (1, 3, 5)) for c in spec["palette"]]
+    rgb = [tuple(int(c[i : i + 2], 16) for i in (1, 3, 5)) for c in spec.get("palette", [])]
     for n in range(2, len(rgb) + 1):
         worst = min(palette_mod.min_delta_e(rgb[:n], view) for view in range(3))
         print(f"palette, first {n} colours: smallest Delta E {worst:.1f} (worst of 3 visions)")

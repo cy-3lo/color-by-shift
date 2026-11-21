@@ -1,54 +1,6 @@
 {
  "levels": [
   {
-   "id": "T1a",
-   "kind": "learning"
-  },
-  {
-   "id": "T1b",
-   "kind": "learning"
-  },
-  {
-   "id": "T1c",
-   "kind": "learning"
-  },
-  {
-   "id": "T2a",
-   "kind": "learning"
-  },
-  {
-   "id": "T2b",
-   "kind": "learning"
-  },
-  {
-   "id": "T2c",
-   "kind": "learning"
-  },
-  {
-   "id": "T3a",
-   "kind": "learning"
-  },
-  {
-   "id": "T3b",
-   "kind": "learning"
-  },
-  {
-   "id": "T3c",
-   "kind": "learning"
-  },
-  {
-   "id": "T4a",
-   "kind": "learning"
-  },
-  {
-   "id": "T4b",
-   "kind": "learning"
-  },
-  {
-   "id": "T4c",
-   "kind": "learning"
-  },
-  {
    "id": "P01",
    "kind": "painting"
   },

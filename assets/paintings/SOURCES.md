@@ -117,9 +117,9 @@
   National Gallery of Art, Washington, Open Access (CC0), object 35080, https://www.nga.gov/artworks/35080
   (small image). Downloaded 2026-11-20.
 
-- modigliani_nude_on_a_divan.jpg: Amedeo Modigliani, *Nude on a Divan*, 1918.
-  National Gallery of Art, Washington, Open Access (CC0), object 46552, https://www.nga.gov/artworks/46552
-  (small image). Downloaded 2026-11-20.
+- mondrian_composition_ryb.jpg: Piet Mondrian, *Composition with Red, Yellow, and Blue*, 1927.
+  The Cleveland Museum of Art, Open Access (CC0), accession 1967.215, https://www.clevelandart.org/art/1967.215
+  (print image 3352 x 3400 reduced to 1600 px; the frame is cropped by the entry in toy/toy.toml). Downloaded 2026-11-21.
 
 - bellows_blue_morning.jpg: George Bellows, *Blue Morning*, 1909.
   National Gallery of Art, Washington, Open Access (CC0), object 46557, https://www.nga.gov/artworks/46557

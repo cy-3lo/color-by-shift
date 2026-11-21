@@ -3,43 +3,58 @@
  "title": "",
  "foam": "grids/candidates/foam_P03.json",
  "colours": [
-  "#2b1911",
-  "#4f1614",
-  "#6f3a14",
-  "#cd724e",
-  "#eda780"
+  "#2c2e31",
+  "#44474a",
+  "#805c3d",
+  "#657273",
+  "#8c9694"
  ],
  "picture": {
   "regions": [
-   0,
-   2,
-   0,
-   1,
-   0,
    4,
    3,
    4,
+   1,
    2,
+   4,
+   3,
+   2,
+   3,
+   1,
+   3,
+   0,
+   0,
+   0,
+   1,
+   0,
+   2,
+   1,
+   1,
+   2,
+   3,
+   0,
+   0,
+   1,
+   1,
+   1,
    0,
    4,
+   1,
    0,
    0,
    2,
-   3,
-   2,
-   3,
-   2,
-   2,
    0,
    3,
+   4,
+   3,
+   3,
+   4,
    4,
    1,
    0,
    1,
    1,
-   2,
-   2,
-   2,
+   0,
    0
   ]
  },
@@ -48,32 +63,30 @@
    "group": 7,
    "pair": [
     0,
-    3
+    1
    ]
   },
   {
    "group": 4,
    "pair": [
-    0,
-    4
-   ]
-  },
-  {
-   "group": 6,
-   "pair": [
-    0,
-    3
+    1,
+    2
    ]
   }
  ],
  "reward": {
-  "image": "assets/paintings/modigliani_nude_on_a_divan.jpg",
-  "crop": null,
+  "image": "assets/paintings/card_players.jpg",
+  "crop": [
+   0.02,
+   0.03,
+   0.98,
+   0.97
+  ],
   "anchor": [
    0.5,
    0.5
   ],
-  "artist": "Amedeo Modigliani",
-  "title": "Nude on a Divan"
+  "artist": "Paul Cezanne",
+  "title": "The Card Players"
  }
 }

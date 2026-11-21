@@ -179,6 +179,27 @@ def reward_image(entry: dict, aspect: float) -> dict:
     return {"image": rel, "crop": None, "anchor": [0.5, 0.5]}
 
 
+def thin_sites(regions: np.ndarray, aspect: float, cells: int) -> dict[int, int]:
+    """Least number of sites for the thin blocks (lines): about one cell per cell width of
+    their length, otherwise random sites leave a line as a few very long cells with many
+    neighbours. Thickness = 2 area / perimeter; length = perimeter / 2; a block counts as
+    thin when it is thinner than half a cell width."""
+    regions = regions.astype(np.int64)
+    h, w = regions.shape
+    size = (aspect / cells) ** 0.5 * h  # cell width in pixels
+    area = np.bincount(regions.ravel())
+    per = np.bincount(regions[:, 1:][regions[:, 1:] != regions[:, :-1]], minlength=len(area))
+    per += np.bincount(regions[:, :-1][regions[:, 1:] != regions[:, :-1]], minlength=len(area))
+    per += np.bincount(regions[1:][regions[1:] != regions[:-1]], minlength=len(area))
+    per += np.bincount(regions[:-1][regions[1:] != regions[:-1]], minlength=len(area))
+    per = per + 1  # boundary pixels of each block (+1 avoids 0)
+    out = {}
+    for r in range(len(area)):
+        if area[r] and 2 * area[r] / per[r] < 0.5 * size:
+            out[r] = max(1, round(per[r] / 2 / size))
+    return out
+
+
 def build(
     cfg: dict,
     picture: str,
@@ -201,13 +222,20 @@ def build(
     the entry's own choice; the scan is opened as on the pick page (open_cut)."""
     entry = next(p for p in all_pictures(cfg) if p["key"] == picture)
     sc, cp = cfg["sim"], cfg["palettes"]
-    n, aspect = sc["colours"], sc["aspect"]
+    n, aspect = sc["colours"], entry.get("aspect", sc["aspect"])  # a picture may keep its own shape
     img = open_cut(entry, aspect)
+    res = entry.get("res", res)
     w0, h0 = res, round(res / aspect)
     small = img.filter(ImageFilter.GaussianBlur(0.5 * img.size[0] / w0)).resize((w0, h0))
     x = np.asarray(small, dtype=float).reshape(-1, 3)
     choice = palette or pictures.choice(entry, cp)
-    if choice == "present":
+    if entry.get("colours"):  # colours fixed by hand: each pixel takes the nearest one
+        choice = "fixed"
+        n = len(entry["colours"])
+        pal = np.array([[int(c[i : i + 2], 16) for i in (1, 3, 5)] for c in entry["colours"]])
+        lx, lp = pictures.to_lab(x), pictures.to_lab(pal.astype(float))  # nearest in Lab:
+        lab = ((lx[:, None, :] - lp[None, :, :]) ** 2).sum(-1).argmin(1)  # edges stay grey
+    elif choice == "present":
         pal, lab = pictures.kmeans(x, n, sc["seed"])
     else:
         if share is None:
@@ -219,8 +247,9 @@ def build(
     col = merge_small(col, int(min_area * col.size))
     regions, region_colour = smooth_blocks(components(col), col, smooth_width)
     foam = make_foam(
-        cells, aspect, seed, relax=5, width=640, regions=regions.astype(np.uint16), min_sites=1
-    )
+        cells, aspect, seed, relax=5, width=640, regions=regions.astype(np.uint16), min_sites=1,
+        region_sites=thin_sites(regions, aspect, cells) if entry.get("thin_sites") else None,
+    )  # fmt: skip
     target = region_colour[foam.site_region]
     scr = random_scramble(foam, target, n, moves, np.random.default_rng(seed + 1000))
     grid = grids / f"foam_{level_id}.json"

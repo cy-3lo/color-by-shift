@@ -1,137 +1,38 @@
-# Candidate levels for the ladder (tools/make_ladder.py): Chris picks 3-4 learning levels and
-# 6 paintings from the contact sheets in runs/ladder/.
+# Levels of the ladder (tools/make_ladder.py), in the order of the game.
 #
-# [[mondrian]]: a generated composition in the manner of Mondrian's grid paintings
-# (mosaic_model.mondrian.lined_composition, from `seed`): `rects` rectangles separated by
-# black lines, all white except one per colour beyond black and white, on a foam of `cells`
-# cells, scrambled by `moves` moves that cannot be undone in fewer.
 # [[painting]]: a picture of toy/toy.toml or assets/rawpixel/pictures.toml with its colour
-# choice (palette, share) and number of cells (tools/make_painting_level.py).
+# choice (palette, share), number of cells and number of scrambling moves (proven shortest;
+# tools/make_painting_level.py). Paintings picked by Chris on the pick page (2026-11-21);
+# a real Mondrian first (2026-11-21, Cleveland Museum of Art, CC0, square); moves 1, 1, 2,
+# 2, 3, 3, 3, then 4. The generated Mondrian-like compositions ([[mondrian]] entries,
+# mosaic_model.mondrian) are no longer in the ladder.
 
-aspect = 1.3333
-min_side = 0.16                     # shortest side of a rectangle (picture height = 1)
-bar = 0.03                          # width of the black lines
-palette = ["#f1ede2", "#1d1d21", "#d8402f", "#efc23a", "#2a56a5"]   # white, black, red, yellow, blue
-
-# rung 1: black and white
-[[mondrian]]
-id = "T1a"
-rects = 4
-colours = 2
-cells = 70
-moves = 1
-seed = 11
-[[mondrian]]
-id = "T1b"
-rects = 4
-colours = 2
-cells = 70
-moves = 1
-seed = 12
-[[mondrian]]
-id = "T1c"
-rects = 5
-colours = 2
-cells = 70
-moves = 1
-seed = 13
-
-# rung 2: red comes in
-[[mondrian]]
-id = "T2a"
-rects = 5
-colours = 3
-cells = 90
-moves = 2
-seed = 21
-[[mondrian]]
-id = "T2b"
-rects = 5
-colours = 3
-cells = 90
-moves = 2
-seed = 22
-[[mondrian]]
-id = "T2c"
-rects = 6
-colours = 3
-cells = 90
-moves = 2
-seed = 23
-
-# rung 3: yellow
-[[mondrian]]
-id = "T3a"
-rects = 6
-colours = 4
-cells = 110
-moves = 3
-seed = 31
-[[mondrian]]
-id = "T3b"
-rects = 6
-colours = 4
-cells = 110
-moves = 3
-seed = 32
-[[mondrian]]
-id = "T3c"
-rects = 7
-colours = 4
-cells = 110
-moves = 3
-seed = 33
-
-# rung 4: blue
-[[mondrian]]
-id = "T4a"
-rects = 8
-colours = 5
-cells = 130
-moves = 3
-seed = 41
-[[mondrian]]
-id = "T4b"
-rects = 8
-colours = 5
-cells = 130
-moves = 3
-seed = 42
-[[mondrian]]
-id = "T4c"
-rects = 9
-colours = 5
-cells = 130
-moves = 3
-seed = 43
-
-# paintings picked by Chris on the pick page (2026-11-21), with their colours and cells
 [[painting]]
 id = "P01"
+picture = "mondrian_composition_ryb"
+palette = "contrast"
+share = 0.02
+cells = 250
+moves = 1
+[[painting]]
+id = "P02"
 picture = "rp_matisse_dance"
 palette = "present"
 cells = 400
-moves = 3
+moves = 1
 [[painting]]
-id = "P02"
+id = "P03"
 picture = "card_players"
 palette = "present"
 cells = 400
-moves = 3
-[[painting]]
-id = "P03"
-picture = "modigliani_nude_on_a_divan"
-palette = "contrast"
-share = 0.004
-cells = 400
-moves = 3
+moves = 2
 [[painting]]
 id = "P04"
 picture = "great_wave"
 palette = "contrast"
 share = 0.004
 cells = 400
-moves = 3
+moves = 2
 [[painting]]
 id = "P05"
 picture = "blakelock_moonlight"
@@ -145,14 +46,14 @@ picture = "gris_fantomas"
 palette = "contrast"
 share = 0.02
 cells = 250
-moves = 4
+moves = 3
 [[painting]]
 id = "P07"
 picture = "gris_glass_and_checkerboard"
 palette = "contrast"
 share = 0.05
 cells = 400
-moves = 4
+moves = 3
 [[painting]]
 id = "P08"
 picture = "jawlensky_murnau"

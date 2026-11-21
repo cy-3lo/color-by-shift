@@ -75,6 +75,7 @@ Title "Color by Shift" (Chris, 2026-11-21; the repo and the Python package keep 
 - 2026-11-21: Chris: undo and redo lack curves in the media set; more sets wanted. 18 more fetched (28 from 13 libraries: also Ionicons, Fluent, Eva, Feather MIT; Carbon Apache-2.0; Font Awesome Free CC BY 4.0 for the icons; Boxicons CC BY 4.0 or MIT), with curved undo and redo variants (lucide-curve, phosphor-arc, phosphor-bend, tabler-curve, ionicons, fluent, fontawesome-reply); the set's name now stays under the level number until the level changes. Sheet: runs/web_shot/sets/all.png. Waiting for Chris's choice.
 - 2026-11-21: Chris: icon set ionicons (filled; Ionicons 8.1.1, MIT, copyright Ionic) is the default ("icons" in game/data/config.json); its LICENSE file read and copied to game/data/licences/ionicons_LICENSE.txt, credit to go on the credits screen (Step 4). The other 31 sets are still cycled with key I; to be removed before the freeze.
 
+- 2026-11-21: Chris: real paintings only, a Mondrian first, one move to start; Modigliani's nude removed. Mondrian's Composition with Red, Yellow, and Blue (1927) from the Cleveland Museum of Art open-access API (CC0, accession 1967.215; assets/paintings/mondrian_composition_ryb.jpg, frame cropped), kept square. make_painting_level: per-picture aspect, res, fixed colours (nearest in Lab, so anti-aliased line edges do not turn yellow) and thin_sites (cells along thin blocks: thickness 2 area / perimeter below half a cell width). P01 Mondrian 288 cells, 9 groups, at most 9 neighbours (it had 23 with one cell per black line), one move (blue/black, 6 cells). Ladder P01-P15 (generated T levels and their files removed), moves 1, 1, 2, 2, 3, 3, 3, then 4, par proven; the other foams are unchanged (same seeds), only their scrambles. 129 Python tests, 257 Godot checks and the drag test pass; web build checked at 1280 x 720, 390 x 844 and solved (scan undistorted).
 ## Deadline and jam
 
 - GitHub Game Off 2026, theme SHIFT. Submissions close 1 December 2026 at 21:37 UTC (13:37 PST). Target submission: Monday 30 November, evening (Paris time).
@@ -86,7 +87,7 @@ Title "Color by Shift" (Chris, 2026-11-21; the repo and the Python package keep 
 
 Pitch. A picture has been scrambled on a foam of coloured cells. You cannot repaint a cell. You drag a cell toward a neighbour: their two colours shift places, and so do the colours of every like pair of the same group, all over the picture. Undo the scrambling and the picture returns; if it is a painting, the scan fades in.
 
-The world. A foam: 80 to 600 cells in a 4:3 box, built so that no cell crosses an outline of the picture. Each cell has one colour from the level's 2 to 5.
+The world. A foam: 250 to 600 cells in a 4:3 box (the Mondrian is square), built so that no cell crosses an outline of the picture. Each cell has one colour from the level's 2 to 5.
 
 Groups. Every side shared by two cells (an edge) belongs to exactly one group, and two edges of a group never share a cell (7 to 21 groups per foam).
 
@@ -98,7 +99,7 @@ Start and goal. The level stores the picture (one colour per region) and a scram
 
 Reward. A message, the lines between cells fade and the flat shapes remain; for a painting the scan fades in with painter and title.
 
-Ladder. 4 generated compositions in the manner of Mondrian's grid paintings (black lines and white fields first, then red, yellow, blue added one per level), then 15 public-domain paintings picked by Chris (Matisse, Cezanne, Modigliani and Hokusai first), each with its own five colours and number of cells (250 to 600).
+Ladder. 15 public-domain paintings, no generated pictures: Mondrian's Composition with Red, Yellow, and Blue (1927, Cleveland Museum of Art, CC0, square) first, then Matisse, Cezanne, Hokusai and the others picked by Chris, each with its own five colours and number of cells (250 to 600). Moves 1, 1, 2, 2, 3, 3, 3, then 4.
 
 Why it is hard: a move acts on the whole picture, so repairing one place disturbs another; moves of different groups do not commute when they share cells; the order must be deduced.
 
@@ -222,7 +223,7 @@ mosaic/
 Dates are guesses. Phases 0 to 2 (benchmark, Python twin, design search) are done; see Status.
 
 Step 1, Godot core (Sat 21 Nov): done.
-Step 2, levels (Sat 21 Nov): 15 paintings picked and built; Chris still picks one training level per rung (T1 to T4).
+Step 2, levels (Sat 21 Nov): done; 15 paintings, a real Mondrian first, no generated training levels.
 Step 3, ergonomics (Sun 22 – Wed 25 Nov): drag gesture and motion tuned by Chris's play, gallery, progress, tutorial hint on level 1.
 Step 4, look and sound (Thu 26 – Fri 27 Nov): audio, title screen, palette pass, credits screen (painting sources and rights).
 Step 5, freeze and submit (Sat 28 – Mon 30 Nov; Tue 1 Dec buffer): feature freeze on Sunday 29; two or three outside players; README, itch page, web build, submission on Monday 30.
@@ -236,15 +237,14 @@ Cut list, in this order: audio beyond one sample; gallery thumbnails of scramble
 - The game is the foam colour-by-shift puzzle (2026-11-21): one gesture swaps two colours across every like pair of an edge group; every move is its own inverse.
 - Gesture (2026-11-21): press and drag toward a neighbour; preview below 60 % of the way, shift beyond; no hover preview. Mouse and touch.
 - Levels are generated offline in Python; Godot only loads data.
-- Ladder: 4 training levels in the manner of Mondrian (black and white, then red, yellow, blue), then the 15 paintings picked by Chris, all shipped (Matisse, Cezanne, Modigliani, Hokusai first; one Great Wave only).
-- Painting outlines are smooth curves; everything at 4:3.
+- Ladder (Chris, 2026-11-21, replaces the training levels): 15 public-domain paintings, a real Mondrian first (Cleveland Museum of Art, CC0), then Matisse, Cezanne, Hokusai; moves 1, 1, 2, 2, 3, 3, 3, then 4; Modigliani's Nude on a Divan removed; one Great Wave only; no generated training levels.
+- Painting outlines are smooth curves; everything at 4:3 except the Mondrian, kept square (Chris, 2026-11-21).
 - Par = shortest solution, proven by search from both ends.
 - No score, no timer, no failure; a message when a level is recovered.
 - Title: Color by Shift (Chris, 2026-11-21).
 
 ## Open questions (as tasks)
 
-- Training levels: one of a, b, c for each of T1 to T4.
 - Confirm the jam's rule on AI-assisted code before submitting.
 - Phones: cells of a 400-cell painting are about 15 px wide on a phone; zoom is not planned.
 - Size of the web build: paintings are stored lossless in the pack (about 1 MB each).

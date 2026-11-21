@@ -3,97 +3,58 @@
  "title": "",
  "foam": "grids/candidates/foam_P02.json",
  "colours": [
-  "#2c2e31",
-  "#44474a",
-  "#805c3d",
-  "#657273",
-  "#8c9694"
+  "#3a3f40",
+  "#215e98",
+  "#0b8370",
+  "#7f7e82",
+  "#dfa193"
  ],
  "picture": {
   "regions": [
-   4,
-   3,
+   1,
+   0,
+   1,
+   0,
+   1,
    4,
    1,
+   1,
+   1,
+   0,
+   1,
+   3,
+   1,
+   3,
+   3,
+   1,
+   0,
    2,
    4,
-   3,
+   2,
+   2,
    2,
    3,
    1,
-   3,
-   0,
-   0,
-   0,
-   1,
-   0,
-   2,
-   1,
-   1,
-   2,
-   3,
-   0,
-   0,
-   1,
-   1,
-   1,
-   0,
-   4,
-   1,
-   0,
-   0,
-   2,
-   0,
-   3,
-   4,
-   3,
-   3,
-   4,
-   4,
-   1,
-   0,
-   1,
-   1,
-   0,
-   0
+   2
   ]
  },
  "scramble": [
   {
-   "group": 7,
-   "pair": [
-    0,
-    1
-   ]
-  },
-  {
-   "group": 4,
-   "pair": [
-    1,
-    2
-   ]
-  },
-  {
    "group": 6,
    "pair": [
-    0,
+    2,
     4
    ]
   }
  ],
  "reward": {
-  "image": "assets/paintings/card_players.jpg",
-  "crop": [
-   0.02,
-   0.03,
-   0.98,
-   0.97
-  ],
+  "image": "assets/paintings/rp_matisse_dance.jpg",
+  "crop": null,
   "anchor": [
    0.5,
    0.5
   ],
-  "artist": "Paul Cezanne",
-  "title": "The Card Players"
+  "artist": "Henri Matisse",
+  "title": "Dance (I)"
  }
 }
