@@ -16,13 +16,14 @@
   },
   "credits": {
     "title": "Color by Shift",
-    "lines": ["Made for GitHub Game Off 2026, theme Shift."],
+    "lines": ["A game by Cy-3LO.", "Made for GitHub Game Off 2026, theme Shift."],
     "tail": [
       "Icons: Ionicons, MIT licence, copyright Ionic.",
       "Made with Godot Engine, MIT licence, copyright Juan Linietsky, Ariel Manzur and contributors.",
       "Sounds synthesised for the game."
     ]
   },
+  "hint": {"after_s": 10.0, "colour": "#ff8a1f", "width_px": 3.5, "pulse_s": 1.6},
   "icons": "ionicons",
   "start_level": ""
 }

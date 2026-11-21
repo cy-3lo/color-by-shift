@@ -10,6 +10,8 @@ extends Control
 ## settings open a panel over the picture (any press closes it, Escape too).
 ## Sounds: a pluck when a move tips over (pitch from its group, louder with more pairs), a
 ## chord when the picture is recovered (audio/, synthesised by tools/make_sounds.py).
+## Hints (a setting): after hint.after_s seconds without any action, a misplaced cell (the
+## largest one) gets an orange edge.
 ## Options after "--": --level=ID, --solved (shows the level recovered, to look at the
 ## reward), --smoke (headless: solve every level by drags). In a browser:
 ## index.html?level=ID&solved.
@@ -44,7 +46,10 @@ var room := Rect2()  ## the part of the window left to the picture
 var panel := ""  ## "", "credits" or "settings": the panel open over the picture
 var panel_rect := Rect2()
 var rows := {}  ## settings panel: "sound", "fullscreen" -> Rect2
-var settings := {"sound": true}  ## kept in user://settings.json
+var settings := {"sound": true, "hints": true}  ## kept in user://settings.json
+var last_action := 0.0  ## time of the last press or key
+var cell_area := PackedFloat32Array()  ## area of every cell (to pick the hint)
+var hint_shown := -1  ## the cell drawn with a hint edge, -1 for none
 var plucks: Array[AudioStreamPlayer] = []
 var next_pluck := 0
 var tada_player: AudioStreamPlayer
@@ -180,6 +185,16 @@ func _load(k: int) -> void:
 		return
 	session = Session.new(level)
 	var n := level.foam.n_cells
+	last_action = now
+	cell_area.resize(n)
+	for c in n:  # shoelace formula on the outline
+		var pts := level.shapes[c]
+		var a := 0.0
+		for j in pts.size():
+			var q0 := pts[j]
+			var q1 := pts[(j + 1) % pts.size()]
+			a += q0.x * q1.y - q1.x * q0.y
+		cell_area[c] = absf(a) * 0.5
 	var labels := Image.create_from_data(
 		level.label_w, level.label_h, false, Image.FORMAT_RG8, level.labels)
 	cell_image = Image.create(n, 3, false, Image.FORMAT_RGBA8)
@@ -285,8 +300,9 @@ func _layout() -> void:
 	var rh := 64.0 * unit
 	var c := panel_rect.get_center()
 	rows = {
-		"sound": Rect2(c.x - rw * 0.5, c.y - rh - pad, rw, rh),
-		"fullscreen": Rect2(c.x - rw * 0.5, c.y + pad, rw, rh),
+		"sound": Rect2(c.x - rw * 0.5, c.y - 1.5 * rh - 2.0 * pad, rw, rh),
+		"hints": Rect2(c.x - rw * 0.5, c.y - 0.5 * rh, rw, rh),
+		"fullscreen": Rect2(c.x - rw * 0.5, c.y + 0.5 * rh + 2.0 * pad, rw, rh),
 	}
 	overlay.queue_redraw()
 
@@ -388,6 +404,9 @@ func press(pos: Vector2) -> void:
 	if not panel.is_empty():  # a press on the panel: a setting, or closes it
 		if panel == "settings" and rows["sound"].has_point(pos):
 			settings["sound"] = not settings["sound"]
+			_save_settings()
+		elif panel == "settings" and rows["hints"].has_point(pos):
+			settings["hints"] = not settings["hints"]
 			_save_settings()
 		elif panel == "settings" and rows["fullscreen"].has_point(pos):
 			var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
@@ -511,6 +530,8 @@ func _press_button(name_: String) -> void:
 func _input(event: InputEvent) -> void:
 	if level == null or session == null:
 		return
+	if (event is InputEventMouseButton or event is InputEventKey) and event.pressed:
+		last_action = now  # the hint waits for a pause
 	# a finger arrives as a mouse (input_devices/pointing/emulate_mouse_from_touch)
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -574,6 +595,23 @@ func _process(delta: float) -> void:
 	material_.set_shader_parameter("painting_mix", _painting_alpha())
 	if t >= 0.0 and t < float(rw["lines_s"]) + float(rw["hold_s"]) + float(rw["fade_s"]) + 0.5:
 		overlay.queue_redraw()
+	var h := _hint_cell()
+	if h != hint_shown or h >= 0:  # appears, goes, or pulses
+		hint_shown = h
+		overlay.queue_redraw()
+
+
+## The misplaced cell to show after a pause (the largest one), or -1: no hint now.
+func _hint_cell() -> int:
+	if not settings["hints"] or solved_at >= 0.0 or phase != Phase.IDLE or not panel.is_empty():
+		return -1
+	if now - last_action < float(cfg["hint"]["after_s"]):
+		return -1
+	var best := -1
+	for c in level.foam.n_cells:
+		if session.col[c] != level.target[c] and (best < 0 or cell_area[c] > cell_area[best]):
+			best = c
+	return best
 
 
 
@@ -685,6 +723,15 @@ func _draw_overlay() -> void:
 	var solved := solved_at >= 0.0
 	if solved:
 		overlay.draw_rect(rect.grow(6.0), accent, false, 3.0)
+	if hint_shown >= 0:  # an orange edge, breathing slowly
+		var hc: Dictionary = cfg["hint"]
+		var col := Color.html(hc["colour"])
+		col.a = 0.65 + 0.35 * sin(TAU * (now - last_action) / float(hc["pulse_s"]))
+		var edge := PackedVector2Array()
+		for q in shape_px[hint_shown]:
+			edge.append(rect.position + q)
+		edge.append(edge[0])
+		overlay.draw_polyline(edge, col, float(hc["width_px"]) * unit, true)
 	overlay.draw_rect(strip, _c("panel"))
 	for name_ in boxes:
 		overlay.draw_style_box(_box(_c("button")), boxes[name_])
@@ -747,7 +794,11 @@ func _draw_panel() -> void:
 		_lines(panel_rect.grow(-12.0 * unit), lines)
 	else:
 		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-		var state := {"sound": ["Sound", settings["sound"]], "fullscreen": ["Full screen", full]}
+		var state := {
+			"sound": ["Sound", settings["sound"]],
+			"hints": ["Hints", settings["hints"]],
+			"fullscreen": ["Full screen", full],
+		}
 		for name_ in rows:
 			var on: bool = state[name_][1]
 			overlay.draw_style_box(_box(_c("button")), rows[name_])
