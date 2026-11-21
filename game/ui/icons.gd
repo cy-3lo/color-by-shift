@@ -1,6 +1,7 @@
 class_name Icons
 extends RefCounted
-## Interface icons in several sets, drawn from SVG strings (24 x 24) at the size asked for.
+## Interface icons in several sets, drawn from SVG strings (24 x 24) at the size asked for:
+## the game's own sets below, and sets fetched from free icon libraries (data/icons.json).
 ## Every set has the four icons of the bar: next (level), reset, undo, redo.
 
 const HEAD := "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='white' stroke='none'>"
@@ -43,21 +44,47 @@ const SETS := {
 }
 
 static var _cache := {}
+static var _fetched := {}  ## sets of game/data/icons.json (tools/fetch_icons.py): name -> {"icons": {...}}
+static var _loaded := false
+
+
+static func _load() -> void:
+	if _loaded:
+		return
+	_loaded = true
+	var d: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/icons.json"))
+	if typeof(d) == TYPE_DICTIONARY:
+		_fetched = d
+
+
+## Every set: the game's own, then the fetched libraries.
+static func names() -> Array[String]:
+	_load()
+	var out: Array[String] = ORDER.duplicate()
+	for k in _fetched:
+		out.append(k)
+	return out
 
 
 ## White icon `name` of the set `kind` as a texture `px` pixels wide; tint it when drawing.
 static func texture(kind: String, name: String, px: int) -> Texture2D:
+	_load()
 	var key := "%s/%s@%d" % [kind, name, px]
 	if not _cache.has(key):
-		var set_: Dictionary = SETS.get(kind, SETS[ORDER[0]])
+		var svg: String
+		if _fetched.has(kind):
+			svg = _fetched[kind]["icons"][name]
+		else:
+			var set_: Dictionary = SETS.get(kind, SETS[ORDER[0]])
+			svg = HEAD + String(set_[name]) + "</svg>"
 		var img := Image.new()
-		var err := img.load_svg_from_string(HEAD + String(set_[name]) + "</svg>", px / 24.0)
-		if err != OK:
+		if img.load_svg_from_string(svg, px / 24.0) != OK:
 			img = Image.create(px, px, false, Image.FORMAT_RGBA8)
 		_cache[key] = ImageTexture.create_from_image(img)
 	return _cache[key]
 
 
-## The set after `kind`, in ORDER.
+## The set after `kind`.
 static func after(kind: String) -> String:
-	return ORDER[(ORDER.find(kind) + 1) % ORDER.size()]
+	var all := names()
+	return all[(all.find(kind) + 1) % all.size()]
