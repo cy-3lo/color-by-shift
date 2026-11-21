@@ -72,7 +72,7 @@ def merge_small(col: np.ndarray, min_px: int) -> np.ndarray:
     """Recolour every block smaller than min_px with the colour of the neighbouring block it
     touches most, smallest blocks first, until none is left."""
     col = col.copy()
-    while True:
+    for _ in range(40):  # two small blocks can trade colours for ever: stop there
         lab = components(col)
         size = np.bincount(lab.ravel())
         small = np.nonzero(size < min_px)[0]
@@ -91,6 +91,7 @@ def merge_small(col: np.ndarray, min_px: int) -> np.ndarray:
             if nb.any():
                 new[k] = colour_of[uniq[nb, 1][cnt[nb].argmax()]]
         col = new[lab]
+    return col
 
 
 def smooth_regions(regions: np.ndarray, width: int, sigma: float = 3.0) -> np.ndarray:
