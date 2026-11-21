@@ -70,7 +70,7 @@ def build_painting(toy_cfg: dict, lv: dict) -> None:
     seed = lv.get("seed", 1)
     foam, level, _, target, _, _, _ = make_painting_level.build(
         toy_cfg, lv["picture"], lv["id"], lv.get("cells", 600), lv.get("moves", 6),
-        seed=seed, grids=GRIDS, levels=LEVELS,
+        seed=seed, grids=GRIDS, levels=LEVELS, palette=lv.get("palette"), share=lv.get("share"),
     )  # fmt: skip
     scr, _ = proven_scramble(foam, target, len(level["colours"]), lv.get("moves", 6), seed + 1000)
     level["scramble"] = [{"group": g, "pair": [a, b]} for g, a, b in scr]

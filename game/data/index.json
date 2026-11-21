@@ -1,67 +1,71 @@
 {
  "levels": [
   {
-   "id": "Q01",
+   "id": "P01",
    "kind": "painting"
   },
   {
-   "id": "Q01s",
+   "id": "P02",
    "kind": "painting"
   },
   {
-   "id": "Q02",
+   "id": "P03",
    "kind": "painting"
   },
   {
-   "id": "Q02s",
+   "id": "P04",
    "kind": "painting"
   },
   {
-   "id": "Q03",
+   "id": "P05",
    "kind": "painting"
   },
   {
-   "id": "Q04",
+   "id": "P06",
    "kind": "painting"
   },
   {
-   "id": "Q05",
+   "id": "P07",
    "kind": "painting"
   },
   {
-   "id": "Q06",
+   "id": "P08",
    "kind": "painting"
   },
   {
-   "id": "Q07",
+   "id": "P09",
    "kind": "painting"
   },
   {
-   "id": "Q08",
+   "id": "P10",
    "kind": "painting"
   },
   {
-   "id": "Q09",
+   "id": "P11",
    "kind": "painting"
   },
   {
-   "id": "Q10",
+   "id": "P12",
    "kind": "painting"
   },
   {
-   "id": "Q11",
+   "id": "P13",
    "kind": "painting"
   },
   {
-   "id": "Q12",
+   "id": "P14",
    "kind": "painting"
   },
   {
-   "id": "Q13",
+   "id": "P15",
    "kind": "painting"
   },
   {
-   "id": "Q14",
+   "id": "P16",
+   "kind": "painting"
+  },
+  {
+   "id": "P17",
    "kind": "painting"
   },
   {

@@ -1,0 +1,97 @@
+{
+ "id": "P07",
+ "title": "",
+ "foam": "grids/candidates/foam_P07.json",
+ "colours": [
+  "#91604c",
+  "#3d77bc",
+  "#df6513",
+  "#59a9a2",
+  "#c4ba50"
+ ],
+ "picture": {
+  "regions": [
+   1,
+   3,
+   0,
+   3,
+   0,
+   4,
+   2,
+   4,
+   2,
+   0,
+   0,
+   0,
+   3,
+   0,
+   4,
+   0,
+   3,
+   4,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   3,
+   0,
+   1
+  ]
+ },
+ "scramble": [
+  {
+   "group": 7,
+   "pair": [
+    0,
+    3
+   ]
+  },
+  {
+   "group": 5,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 6,
+   "pair": [
+    0,
+    4
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    0,
+    2
+   ]
+  },
+  {
+   "group": 4,
+   "pair": [
+    0,
+    2
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    0,
+    4
+   ]
+  }
+ ],
+ "reward": {
+  "image": "assets/paintings/kirchner_dance_hall_bellevue.jpg",
+  "crop": null,
+  "anchor": [
+   0.5,
+   0.5
+  ],
+  "artist": "Ernst Ludwig Kirchner",
+  "title": "Dance Hall Bellevue"
+ }
+}

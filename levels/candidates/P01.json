@@ -1,0 +1,87 @@
+{
+ "id": "P01",
+ "title": "",
+ "foam": "grids/candidates/foam_P01.json",
+ "colours": [
+  "#0d1b06",
+  "#25592b",
+  "#557c1c",
+  "#aaa814",
+  "#edb90a"
+ ],
+ "picture": {
+  "regions": [
+   1,
+   2,
+   3,
+   3,
+   1,
+   4,
+   1,
+   0,
+   2,
+   0,
+   1,
+   0,
+   0,
+   1,
+   2,
+   3,
+   1
+  ]
+ },
+ "scramble": [
+  {
+   "group": 7,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 4,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 5,
+   "pair": [
+    3,
+    4
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 3,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    0,
+    2
+   ]
+  }
+ ],
+ "reward": {
+  "image": "assets/paintings/blakelock_moonlight.jpg",
+  "crop": null,
+  "anchor": [
+   0.5,
+   0.5
+  ],
+  "artist": "Imitator of Ralph Albert Blakelock",
+  "title": "Moonlight"
+ }
+}

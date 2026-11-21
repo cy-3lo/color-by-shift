@@ -1,0 +1,96 @@
+{
+ "id": "P03",
+ "title": "",
+ "foam": "grids/candidates/foam_P03.json",
+ "colours": [
+  "#3a5a76",
+  "#83827e",
+  "#ceab93",
+  "#b6c0ba",
+  "#f8f5e2"
+ ],
+ "picture": {
+  "regions": [
+   2,
+   4,
+   3,
+   3,
+   0,
+   3,
+   3,
+   3,
+   4,
+   1,
+   3,
+   0,
+   4,
+   3,
+   3,
+   0,
+   1,
+   3,
+   4,
+   0,
+   0,
+   0,
+   2,
+   4,
+   0,
+   3
+  ]
+ },
+ "scramble": [
+  {
+   "group": 7,
+   "pair": [
+    0,
+    4
+   ]
+  },
+  {
+   "group": 4,
+   "pair": [
+    0,
+    4
+   ]
+  },
+  {
+   "group": 6,
+   "pair": [
+    0,
+    4
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    0,
+    2
+   ]
+  },
+  {
+   "group": 3,
+   "pair": [
+    0,
+    4
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    1,
+    4
+   ]
+  }
+ ],
+ "reward": {
+  "image": "assets/paintings/great_wave.jpg",
+  "crop": null,
+  "anchor": [
+   0.25,
+   0.5
+  ],
+  "artist": "Katsushika Hokusai",
+  "title": "Under the Wave off Kanagawa"
+ }
+}

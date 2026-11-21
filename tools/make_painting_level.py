@@ -23,7 +23,7 @@ from collections import deque
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageChops, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "toy"))
@@ -130,6 +130,55 @@ def smooth_blocks(coarse: np.ndarray, col: np.ndarray, width: int):
     return np.searchsorted(kept, smooth), colour_of[kept]
 
 
+def trim(img: Image.Image, tol: int = 28) -> Image.Image:
+    """Cuts a paper margin: the box of the pixels that differ from the corner colour."""
+    small = img.copy()
+    small.thumbnail((400, 400))
+    small = small.filter(ImageFilter.GaussianBlur(2))
+    bg = Image.new("RGB", small.size, small.getpixel((3, 3)))
+    box = ImageChops.difference(small, bg).convert("L").point(lambda v: 255 * (v > tol)).getbbox()
+    if box is None:
+        return img
+    s = img.size[0] / small.size[0]
+    return img.crop(tuple(round(v * s) for v in box))
+
+
+def open_cut(entry: dict, aspect: float) -> Image.Image:
+    img = Image.open(ROOT / entry["file"])
+    img.draft("RGB", (1600, 1600))  # large scans: decoded at a reduced size
+    img = img.convert("RGB")
+    img.thumbnail((1600, 1600))
+    if entry.get("crop"):
+        x0, y0, x1, y1 = entry["crop"]
+        W, H = img.size
+        img = img.crop((round(x0 * W), round(y0 * H), round(x1 * W), round(y1 * H)))
+    if entry.get("trim"):
+        img = trim(img)
+    return pictures.fit_aspect(img, aspect, tuple(entry.get("anchor", (0.5, 0.5))))
+
+
+def all_pictures(cfg: dict) -> list[dict]:
+    """The paintings of toy/toy.toml and of assets/rawpixel/pictures.toml."""
+    extra = ROOT / "assets" / "rawpixel" / "pictures.toml"
+    more = tomllib.loads(extra.read_text())["pictures"] if extra.exists() else []
+    return [p for p in cfg["pictures"] + more if "file" in p]
+
+
+def reward_image(entry: dict, aspect: float) -> dict:
+    """Where the game finds the scan. A scan that is trimmed or kept outside assets/paintings
+    (large originals, not in the repository) is saved once, cut, as assets/paintings/<key>.jpg."""
+    if not entry.get("trim") and entry["file"].startswith("assets/paintings/"):
+        return {
+            "image": entry["file"],
+            "crop": entry.get("crop"),
+            "anchor": list(entry.get("anchor", (0.5, 0.5))),
+        }
+    rel = f"assets/paintings/{entry['key']}.jpg"
+    if not (ROOT / rel).exists():
+        open_cut(entry, aspect).save(ROOT / rel, quality=90)
+    return {"image": rel, "crop": None, "anchor": [0.5, 0.5]}
+
+
 def build(
     cfg: dict,
     picture: str,
@@ -143,26 +192,26 @@ def build(
     grids: Path = ROOT / "grids",
     levels: Path = ROOT / "levels" / "foam",
     smooth_width: int = 1280,
+    palette: str | None = None,
+    share: float | None = None,
 ):
     """Builds and writes the foam, its raster of blocks and the level; returns
-    (foam, level dict, palette, target, scramble, entry, colour choice)."""
-    entry = next(p for p in cfg["pictures"] if p["key"] == picture)
+    (foam, level dict, palette, target, scramble, entry, colour choice). `palette`
+    ("present" or "contrast") and `share` (smallest share of a contrast colour) override
+    the entry's own choice; the scan is opened as on the pick page (open_cut)."""
+    entry = next(p for p in all_pictures(cfg) if p["key"] == picture)
     sc, cp = cfg["sim"], cfg["palettes"]
     n, aspect = sc["colours"], sc["aspect"]
-    img = Image.open(ROOT / entry["file"]).convert("RGB")
-    if entry.get("crop"):
-        x0, y0, x1, y1 = entry["crop"]
-        W, H = img.size
-        img = img.crop((round(x0 * W), round(y0 * H), round(x1 * W), round(y1 * H)))
-    img = pictures.fit_aspect(img, aspect, entry.get("anchor", (0.5, 0.5)))
+    img = open_cut(entry, aspect)
     w0, h0 = res, round(res / aspect)
     small = img.filter(ImageFilter.GaussianBlur(0.5 * img.size[0] / w0)).resize((w0, h0))
     x = np.asarray(small, dtype=float).reshape(-1, 3)
-    choice = pictures.choice(entry, cp)
+    choice = palette or pictures.choice(entry, cp)
     if choice == "present":
         pal, lab = pictures.kmeans(x, n, sc["seed"])
     else:
-        share = entry.get("share", cp[f"{choice}_share"])
+        if share is None:
+            share = entry.get("share", cp[f"{choice}_share"])
         pal, lab, _ = pictures.contrast_palette(x, n, sc["seed"], cp["clusters"], share)
     col = np.kron(lab.reshape(h0, w0), np.ones((up, up), dtype=np.int64))
     for _ in range(2):
@@ -189,13 +238,8 @@ def build(
         "colours": ["#" + bytes(int(v) for v in c).hex() for c in pal],
         "picture": {"regions": region_colour.tolist()},
         "scramble": [{"group": g, "pair": [p, q]} for g, p, q in scr],
-        "reward": {
-            "image": entry["file"],
-            "crop": entry.get("crop"),
-            "anchor": list(entry.get("anchor", (0.5, 0.5))),
-            "artist": entry.get("artist", ""),
-            "title": entry.get("title", ""),
-        },
+        "reward": reward_image(entry, aspect)
+        | {"artist": entry.get("artist", ""), "title": entry.get("title", "")},
     }
     (levels / f"{level_id}.json").write_text(json.dumps(level, indent=1) + "\n")
     return foam, level, pal, target, scr, entry, choice

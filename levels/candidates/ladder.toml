@@ -5,7 +5,8 @@
 # (mosaic_model.mondrian.lined_composition, from `seed`): `rects` rectangles separated by
 # black lines, all white except one per colour beyond black and white, on a foam of `cells`
 # cells, scrambled by `moves` moves that cannot be undone in fewer.
-# [[painting]]: a [[pictures]] entry of toy/toy.toml (tools/make_painting_level.py).
+# [[painting]]: a picture of toy/toy.toml or assets/rawpixel/pictures.toml with its colour
+# choice (palette, share) and number of cells (tools/make_painting_level.py).
 
 aspect = 1.3333
 min_side = 0.16                     # shortest side of a rectangle (picture height = 1)
@@ -104,54 +105,103 @@ cells = 130
 moves = 5
 seed = 43
 
-# paintings: 600 cells; the first two also at 350 cells for comparison
+# paintings picked by Chris on the pick page (2026-11-21), with their colours and cells
 [[painting]]
-id = "Q01"
+id = "P01"
+picture = "blakelock_moonlight"
+palette = "contrast"
+share = 0.004
+cells = 400
+[[painting]]
+id = "P02"
+picture = "card_players"
+palette = "present"
+cells = 400
+[[painting]]
+id = "P03"
 picture = "great_wave"
+palette = "contrast"
+share = 0.004
+cells = 400
 [[painting]]
-id = "Q01s"
-picture = "great_wave"
-cells = 350
-[[painting]]
-id = "Q02"
-picture = "jawlensky_murnau"
-[[painting]]
-id = "Q02s"
-picture = "jawlensky_murnau"
-cells = 350
-[[painting]]
-id = "Q03"
-picture = "vallotton_the_wind"
-[[painting]]
-id = "Q04"
-picture = "vallotton_the_church_of_souain"
-[[painting]]
-id = "Q05"
-picture = "canaletto_piazza_san_marco"
-[[painting]]
-id = "Q06"
-picture = "modersohnbecker_old_factory"
-[[painting]]
-id = "Q07"
+id = "P04"
 picture = "gris_fantomas"
+palette = "contrast"
+share = 0.02
+cells = 250
 [[painting]]
-id = "Q08"
+id = "P05"
 picture = "gris_glass_and_checkerboard"
+palette = "contrast"
+share = 0.05
+cells = 400
 [[painting]]
-id = "Q09"
-picture = "marc_siberian_dogs_in_the"
+id = "P06"
+picture = "jawlensky_murnau"
+palette = "contrast"
+share = 0.004
+cells = 400
 [[painting]]
-id = "Q10"
+id = "P07"
 picture = "kirchner_dance_hall_bellevue"
+palette = "contrast"
+share = 0.02
+cells = 400
 [[painting]]
-id = "Q11"
-picture = "rousseau_the_repast_of_the"
+id = "P08"
+picture = "modigliani_nude_on_a_divan"
+palette = "contrast"
+share = 0.004
+cells = 400
 [[painting]]
-id = "Q12"
-picture = "bruce_peinture_nature_morte"
+id = "P09"
+picture = "portinari"
+palette = "contrast"
+share = 0.004
+cells = 400
 [[painting]]
-id = "Q13"
-picture = "hiroshige_otomo_kihan"
+id = "P10"
+picture = "rp_fuji"
+palette = "contrast"
+share = 0.004
+cells = 250
 [[painting]]
-id = "Q14"
+id = "P11"
+picture = "rp_great_wave"
+palette = "contrast"
+share = 0.004
+cells = 400
+[[painting]]
+id = "P12"
+picture = "rp_matisse_dance"
+palette = "present"
+cells = 400
+[[painting]]
+id = "P13"
 picture = "seurat_the_gardener"
+palette = "present"
+cells = 400
+[[painting]]
+id = "P14"
+picture = "sisley_the_road_from_moret"
+palette = "contrast"
+share = 0.004
+cells = 400
+[[painting]]
+id = "P15"
+picture = "tanner_the_seine"
+palette = "contrast"
+share = 0.004
+cells = 400
+[[painting]]
+id = "P16"
+picture = "vallotton_the_church_of_souain"
+palette = "contrast"
+share = 0.02
+cells = 600
+[[painting]]
+id = "P17"
+picture = "vallotton_the_wind"
+palette = "contrast"
+share = 0.02
+cells = 400

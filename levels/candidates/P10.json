@@ -1,0 +1,78 @@
+{
+ "id": "P10",
+ "title": "",
+ "foam": "grids/candidates/foam_P10.json",
+ "colours": [
+  "#2f4264",
+  "#6c798b",
+  "#abacad",
+  "#c7b07a",
+  "#ebe6d5"
+ ],
+ "picture": {
+  "regions": [
+   3,
+   4,
+   1,
+   0,
+   0,
+   2,
+   1,
+   0
+  ]
+ },
+ "scramble": [
+  {
+   "group": 6,
+   "pair": [
+    3,
+    4
+   ]
+  },
+  {
+   "group": 3,
+   "pair": [
+    3,
+    4
+   ]
+  },
+  {
+   "group": 6,
+   "pair": [
+    0,
+    4
+   ]
+  },
+  {
+   "group": 0,
+   "pair": [
+    0,
+    2
+   ]
+  },
+  {
+   "group": 3,
+   "pair": [
+    1,
+    4
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    0,
+    4
+   ]
+  }
+ ],
+ "reward": {
+  "image": "assets/paintings/rp_fuji.jpg",
+  "crop": null,
+  "anchor": [
+   0.5,
+   0.5
+  ],
+  "artist": "Kamisaka Sekka (?)",
+  "title": "Mount Fuji"
+ }
+}

@@ -25,14 +25,20 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageChops, ImageFilter
+from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "toy"))
 sys.path.insert(0, str(ROOT / "tools"))
 
 import pictures  # noqa: E402
-from make_painting_level import components, majority, merge_small, smooth_blocks  # noqa: E402
+from make_painting_level import (  # noqa: E402
+    components,
+    majority,
+    merge_small,
+    open_cut,
+    smooth_blocks,
+)
 from mosaic_model.foam import make_foam  # noqa: E402
 
 LINE = (16, 16, 20)
@@ -45,33 +51,6 @@ def data_uri(img: Image.Image, fmt: str) -> str:
     img.save(buf, fmt, **({"quality": 80} if fmt == "JPEG" else {"optimize": True}))
     mime = "jpeg" if fmt == "JPEG" else "png"
     return f"data:image/{mime};base64,{base64.b64encode(buf.getvalue()).decode()}"
-
-
-def trim(img: Image.Image, tol: int = 28) -> Image.Image:
-    """Cuts a paper margin: the box of the pixels that differ from the corner colour."""
-    small = img.copy()
-    small.thumbnail((400, 400))
-    small = small.filter(ImageFilter.GaussianBlur(2))
-    bg = Image.new("RGB", small.size, small.getpixel((3, 3)))
-    box = ImageChops.difference(small, bg).convert("L").point(lambda v: 255 * (v > tol)).getbbox()
-    if box is None:
-        return img
-    s = img.size[0] / small.size[0]
-    return img.crop(tuple(round(v * s) for v in box))
-
-
-def open_cut(entry: dict, aspect: float) -> Image.Image:
-    img = Image.open(ROOT / entry["file"])
-    img.draft("RGB", (1600, 1600))  # large scans: decoded at a reduced size
-    img = img.convert("RGB")
-    img.thumbnail((1600, 1600))
-    if entry.get("crop"):
-        x0, y0, x1, y1 = entry["crop"]
-        W, H = img.size
-        img = img.crop((round(x0 * W), round(y0 * H), round(x1 * W), round(y1 * H)))
-    if entry.get("trim"):
-        img = trim(img)
-    return pictures.fit_aspect(img, aspect, tuple(entry.get("anchor", (0.5, 0.5))))
 
 
 def card(job: tuple) -> dict:
