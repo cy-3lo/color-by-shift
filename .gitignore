@@ -9,3 +9,4 @@ game/.godot/
 game/export/
 .DS_Store
 gifs/
+assets/rawpixel/*.jpg

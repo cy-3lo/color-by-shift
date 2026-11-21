@@ -85,3 +85,53 @@ def composition(n_rects: int, n_colours: int, aspect: float, seed: int, min_side
 def polygons(rects: list[Rect]) -> list[list[list[float]]]:
     """Corners of every rectangle but the first, for mosaic_model.foam.make_foam(shapes=...)."""
     return [[[x0, y0], [x1, y0], [x1, y1], [x0, y1]] for x0, y0, x1, y1 in rects[1:]]
+
+
+# ---- with black lines, as in Mondrian's grid paintings ---------------------------------------
+def lined_polygons(rects: list[Rect], aspect: float, bar: float) -> list[list[list[float]]]:
+    """Every rectangle drawn back by bar / 2 from its sides, except the sides on the border
+    of the box: what is left between them is a grid of lines of width `bar` (region 0)."""
+    out = []
+    for x0, y0, x1, y1 in rects:
+        a = x0 + (bar / 2 if x0 > 1e-9 else 0.0)
+        b = y0 + (bar / 2 if y0 > 1e-9 else 0.0)
+        c = x1 - (bar / 2 if x1 < aspect - 1e-9 else 0.0)
+        d = y1 - (bar / 2 if y1 < 1 - 1e-9 else 0.0)
+        out.append([[a, b], [c, b], [c, d], [a, d]])
+    return out
+
+
+def colour_lined(rects: list[Rect], n_colours: int, rng) -> list[int]:
+    """Colours of the regions of a lined composition: [lines, rectangle 0, rectangle 1, ...]
+    with 0 = white, 1 = black (the lines), 2, 3, ... = red, yellow, blue. Every rectangle is
+    white except one per colour from 2 on, drawn among the rectangles covering 4 % to 30 % of
+    the box that do not touch a coloured one (any rectangle if there is none)."""
+    if n_colours < 2 or n_colours - 2 > len(rects):
+        raise ValueError("2 colours at least, and no more colours than rectangles + 2")
+    area = np.array([(x1 - x0) * (y1 - y0) for x0, y0, x1, y1 in rects])
+    share = area / area.sum()
+    pairs = touching(rects)
+    cols = [0] * len(rects)
+    for c in range(2, n_colours):
+        free = [k for k in range(len(rects)) if cols[k] == 0]
+        apart = [
+            k for k in free if not any(cols[j if i == k else i] for i, j in pairs if k in (i, j))
+        ]
+        sized = [k for k in apart if 0.04 <= share[k] <= 0.30]
+        pool = sized or apart or free
+        cols[pool[int(rng.integers(len(pool)))]] = c
+    return [1] + cols
+
+
+def lined_composition(
+    n_rects: int,
+    n_colours: int,
+    aspect: float,
+    seed: int,
+    bar: float = 0.03,
+    min_side: float = 0.16,
+):
+    """Polygons (one per rectangle; region 0 = the lines) and the colour of every region."""
+    rng = np.random.default_rng(seed)
+    rects = cut_box(n_rects, aspect, rng, min_side)
+    return lined_polygons(rects, aspect, bar), colour_lined(rects, n_colours, rng)

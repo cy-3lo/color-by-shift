@@ -1,102 +1,6 @@
 {
  "levels": [
   {
-   "id": "M1a",
-   "kind": "learning"
-  },
-  {
-   "id": "M1b",
-   "kind": "learning"
-  },
-  {
-   "id": "M1c",
-   "kind": "learning"
-  },
-  {
-   "id": "M2a",
-   "kind": "learning"
-  },
-  {
-   "id": "M2b",
-   "kind": "learning"
-  },
-  {
-   "id": "M2c",
-   "kind": "learning"
-  },
-  {
-   "id": "M3a",
-   "kind": "learning"
-  },
-  {
-   "id": "M3b",
-   "kind": "learning"
-  },
-  {
-   "id": "M3c",
-   "kind": "learning"
-  },
-  {
-   "id": "M4a",
-   "kind": "learning"
-  },
-  {
-   "id": "M4b",
-   "kind": "learning"
-  },
-  {
-   "id": "M4c",
-   "kind": "learning"
-  },
-  {
-   "id": "M5a",
-   "kind": "learning"
-  },
-  {
-   "id": "M5b",
-   "kind": "learning"
-  },
-  {
-   "id": "M5c",
-   "kind": "learning"
-  },
-  {
-   "id": "M6a",
-   "kind": "learning"
-  },
-  {
-   "id": "M6b",
-   "kind": "learning"
-  },
-  {
-   "id": "M6c",
-   "kind": "learning"
-  },
-  {
-   "id": "M7a",
-   "kind": "learning"
-  },
-  {
-   "id": "M7b",
-   "kind": "learning"
-  },
-  {
-   "id": "M7c",
-   "kind": "learning"
-  },
-  {
-   "id": "M8a",
-   "kind": "learning"
-  },
-  {
-   "id": "M8b",
-   "kind": "learning"
-  },
-  {
-   "id": "M8c",
-   "kind": "learning"
-  },
-  {
    "id": "Q01",
    "kind": "painting"
   },
@@ -159,6 +63,54 @@
   {
    "id": "Q14",
    "kind": "painting"
+  },
+  {
+   "id": "T1a",
+   "kind": "learning"
+  },
+  {
+   "id": "T1b",
+   "kind": "learning"
+  },
+  {
+   "id": "T1c",
+   "kind": "learning"
+  },
+  {
+   "id": "T2a",
+   "kind": "learning"
+  },
+  {
+   "id": "T2b",
+   "kind": "learning"
+  },
+  {
+   "id": "T2c",
+   "kind": "learning"
+  },
+  {
+   "id": "T3a",
+   "kind": "learning"
+  },
+  {
+   "id": "T3b",
+   "kind": "learning"
+  },
+  {
+   "id": "T3c",
+   "kind": "learning"
+  },
+  {
+   "id": "T4a",
+   "kind": "learning"
+  },
+  {
+   "id": "T4b",
+   "kind": "learning"
+  },
+  {
+   "id": "T4c",
+   "kind": "learning"
   }
  ]
 }

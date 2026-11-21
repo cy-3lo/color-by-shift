@@ -86,3 +86,22 @@ def test_composition_tiles_the_box_and_follows_into_the_foam(n_rects, n_colours)
         assert len(s) >= 3
         assert (s[:, 0] >= x0).all() and (s[:, 0] <= x1).all()
         assert (s[:, 1] >= y0).all() and (s[:, 1] <= y1).all()
+
+
+@pytest.mark.parametrize("n_rects, n_colours", [(4, 2), (6, 4), (8, 5)])
+def test_lined_composition_has_black_lines_and_one_rectangle_per_colour(n_rects, n_colours):
+    from mosaic_model.mondrian import lined_composition
+
+    aspect = 4 / 3
+    polys, cols = lined_composition(n_rects, n_colours, aspect, seed=3, bar=0.03)
+    assert len(polys) == n_rects and len(cols) == n_rects + 1 and cols[0] == 1
+    assert sorted(set(cols)) == list(range(n_colours))
+    assert all(cols[1:].count(c) == 1 for c in range(2, n_colours))
+    area = sum((p[2][0] - p[0][0]) * (p[2][1] - p[0][1]) for p in polys)
+    assert 0.80 * aspect < area < 0.97 * aspect  # the rest is the lines
+    foam = make_foam(20 * n_rects, aspect, 1, relax=3, width=320, shapes=polys)
+    assert foam.n_regions == n_rects + 1
+    assert (foam.site_region == 0).sum() >= 3  # cells in the lines
+    for k, p in enumerate(polys, start=1):  # the sites of a rectangle lie inside it
+        s = foam.sites[foam.site_region == k]
+        assert len(s) and (s[:, 0] >= p[0][0]).all() and (s[:, 0] <= p[2][0]).all()

@@ -1,0 +1,62 @@
+{
+ "id": "T4a",
+ "title": "",
+ "foam": "grids/candidates/foam_T4a.json",
+ "colours": [
+  "#f1ede2",
+  "#1d1d21",
+  "#d8402f",
+  "#efc23a",
+  "#2a56a5"
+ ],
+ "picture": {
+  "regions": [
+   1,
+   0,
+   0,
+   0,
+   2,
+   3,
+   0,
+   0,
+   4
+  ]
+ },
+ "scramble": [
+  {
+   "group": 6,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 5,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    1,
+    3
+   ]
+  },
+  {
+   "group": 2,
+   "pair": [
+    1,
+    3
+   ]
+  },
+  {
+   "group": 1,
+   "pair": [
+    0,
+    1
+   ]
+  }
+ ]
+}

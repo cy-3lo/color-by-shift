@@ -7,7 +7,8 @@ to 4:3, reduced to --res pixels wide and quantised to the toy's 5 colours. The c
 enlarged --up times, its staircase rounded by a majority filter, and split into connected
 blocks of one colour; blocks smaller than --min-area of the picture are merged into the
 neighbour they touch most. The foam is generated inside these blocks (mosaic_model.foam), so
-their outlines are cell sides. Writes grids/foam_<id>.json, grids/foam_<id>_regions.npy,
+their outlines are cell sides; the outlines are smoothed on a raster 1280 pixels wide
+(smooth_regions). Writes grids/foam_<id>.json, grids/foam_<id>_regions.npz,
 levels/foam/<id>.json (with the painting as the reward) and a preview PNG in
 runs/painting_level/. Existing files are kept unless --force.
 """
@@ -92,6 +93,42 @@ def merge_small(col: np.ndarray, min_px: int) -> np.ndarray:
         col = new[lab]
 
 
+def smooth_regions(regions: np.ndarray, width: int, sigma: float = 3.0) -> np.ndarray:
+    """The raster of blocks enlarged to `width` pixels with smooth outlines: the indicator of
+    every block is blurred (Gaussian, `sigma` pixels of the given raster, in floating point
+    so that no two blocks tie), enlarged (bicubic), and each pixel goes to the block with the
+    largest value. A thin block may vanish: the numbers of the others are kept."""
+    h0, w0 = regions.shape
+    height = round(width * h0 / w0)
+    half = int(3 * sigma) + 1
+    kernel = np.exp(-0.5 * (np.arange(-half, half + 1) / sigma) ** 2)
+    kernel /= kernel.sum()
+    best = np.full((height, width), -1.0, dtype=np.float32)
+    out = np.zeros((height, width), dtype=np.int64)
+    for r in np.unique(regions):
+        ind = np.pad((regions == r).astype(np.float32), half, mode="edge")
+        ind = sum(w * ind[:, k : k + w0] for k, w in enumerate(kernel))
+        ind = sum(w * ind[k : k + h0, :] for k, w in enumerate(kernel))
+        big = Image.fromarray(ind.astype(np.float32), mode="F").resize(
+            (width, height), Image.BICUBIC
+        )
+        val = np.asarray(big)
+        win = val > best
+        best[win] = val[win]
+        out[win] = r
+    return out
+
+
+def smooth_blocks(coarse: np.ndarray, col: np.ndarray, width: int):
+    """Blocks with smooth outlines at `width` pixels and the colour of each (see
+    smooth_regions); `coarse` = blocks of the colour map `col` (function components)."""
+    colour_of = np.zeros(int(coarse.max()) + 1, dtype=np.int64)
+    colour_of[coarse.ravel()] = col.ravel()
+    smooth = smooth_regions(coarse, width)
+    kept = np.unique(smooth)
+    return np.searchsorted(kept, smooth), colour_of[kept]
+
+
 def build(
     cfg: dict,
     picture: str,
@@ -104,6 +141,7 @@ def build(
     seed: int = 1,
     grids: Path = ROOT / "grids",
     levels: Path = ROOT / "levels" / "foam",
+    smooth_width: int = 1280,
 ):
     """Builds and writes the foam, its raster of blocks and the level; returns
     (foam, level dict, palette, target, scramble, entry, colour choice)."""
@@ -129,10 +167,7 @@ def build(
     for _ in range(2):
         col = majority(col, n, up // 2 + 1)
     col = merge_small(col, int(min_area * col.size))
-    regions = components(col)
-    n_reg = int(regions.max()) + 1
-    region_colour = np.zeros(n_reg, dtype=np.int64)
-    region_colour[regions.ravel()] = col.ravel()
+    regions, region_colour = smooth_blocks(components(col), col, smooth_width)
     foam = make_foam(
         cells, aspect, seed, relax=5, width=640, regions=regions.astype(np.uint16), min_sites=1
     )
@@ -141,8 +176,10 @@ def build(
     grid = grids / f"foam_{level_id}.json"
     grids.mkdir(parents=True, exist_ok=True)
     levels.mkdir(parents=True, exist_ok=True)
-    np.save(grid.with_name(f"foam_{level_id}_regions.npy"), regions.astype(np.uint16))
-    data = foam.to_json() | {"seed": seed, "regions_file": f"foam_{level_id}_regions.npy"}
+    np.savez_compressed(
+        grid.with_name(f"foam_{level_id}_regions.npz"), regions=regions.astype(np.uint16)
+    )
+    data = foam.to_json() | {"seed": seed, "regions_file": f"foam_{level_id}_regions.npz"}
     grid.write_text(json.dumps(data, indent=1) + "\n")
     level = {
         "id": level_id,

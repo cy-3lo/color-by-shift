@@ -1,0 +1,53 @@
+{
+ "id": "T3c",
+ "title": "",
+ "foam": "grids/candidates/foam_T3c.json",
+ "colours": [
+  "#f1ede2",
+  "#1d1d21",
+  "#d8402f",
+  "#efc23a"
+ ],
+ "picture": {
+  "regions": [
+   1,
+   0,
+   0,
+   3,
+   0,
+   0,
+   2,
+   0
+  ]
+ },
+ "scramble": [
+  {
+   "group": 4,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 6,
+   "pair": [
+    0,
+    1
+   ]
+  },
+  {
+   "group": 2,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 5,
+   "pair": [
+    1,
+    2
+   ]
+  }
+ ]
+}

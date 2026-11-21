@@ -33,17 +33,23 @@ import make_painting_level  # noqa: E402
 import palette as palette_mod  # noqa: E402
 from mosaic_model.foam import FoamLevel, load_foam_level, make_foam  # noqa: E402
 from mosaic_model.foam_solver import all_moves, proven_scramble, shortest  # noqa: E402
-from mosaic_model.mondrian import composition, polygons  # noqa: E402
+from mosaic_model.mondrian import lined_composition  # noqa: E402
 
 GRIDS = ROOT / "grids" / "candidates"
 LEVELS = ROOT / "levels" / "candidates"
 
 
 def build_mondrian(spec: dict, lv: dict) -> None:
-    rects, cols = composition(
-        lv["rects"], lv["colours"], spec["aspect"], lv["seed"], spec["min_side"]
+    polys, cols = lined_composition(
+        lv["rects"], lv["colours"], spec["aspect"], lv["seed"], spec["bar"], spec["min_side"]
     )
-    foam = make_foam(lv["cells"], spec["aspect"], lv["seed"], relax=5, shapes=polygons(rects))
+    # enough cells in the lines for them to be about as long as the other cells are wide
+    lines = spec["aspect"] - sum((p[2][0] - p[0][0]) * (p[2][1] - p[0][1]) for p in polys)
+    in_lines = round(lines / spec["bar"] / (spec["aspect"] / lv["cells"]) ** 0.5)
+    foam = make_foam(
+        lv["cells"], spec["aspect"], lv["seed"], relax=8, shapes=polys,
+        region_sites={0: in_lines},
+    )  # fmt: skip
     target = np.array(cols)[foam.site_region]
     scr, _ = proven_scramble(foam, target, lv["colours"], lv["moves"], lv["seed"] + 1000)
     GRIDS.mkdir(parents=True, exist_ok=True)

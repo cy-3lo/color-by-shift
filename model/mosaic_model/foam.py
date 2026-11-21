@@ -220,11 +220,14 @@ def make_foam(
     shapes: list | None = None,
     min_sites: int = 3,
     regions: np.ndarray | None = None,
+    region_sites: dict[int, int] | None = None,
 ) -> Foam:
     """Foam of n cells (a few more if a region would hold fewer than min_sites): random
     sites, `relax` rounds of moving each site to the centre of its cell (rounder, more even
     cells), neighbours and groups from a raster `width` pixels wide. With shapes (polygons)
-    or a raster of regions (a quantised painting), the cells follow their outlines."""
+    or a raster of regions (a quantised painting), the cells follow their outlines.
+    region_sites = {region: least number of sites} overrides min_sites for thin regions that
+    random sites would leave with a few very long cells."""
     rng = np.random.default_rng(seed)
     shapes = [np.asarray(p, dtype=float).tolist() for p in (shapes or [])]
     height = round(width / aspect)
@@ -240,7 +243,7 @@ def make_foam(
 
     sites = rng.random((n, 2)) * (aspect, 1.0)
     for r in np.unique(reg):  # every region gets a few sites
-        lack = min_sites - int((region_at(sites) == r).sum())
+        lack = (region_sites or {}).get(int(r), min_sites) - int((region_at(sites) == r).sum())
         if lack > 0:
             ys, xs = np.nonzero(reg == r)
             k = rng.choice(len(xs), lack, replace=False)
@@ -266,10 +269,13 @@ def make_foam(
 
 
 def load_foam(path: str | Path) -> Foam:
-    """Foam JSON; "regions_file" names a .npy raster of regions in the same folder."""
+    """Foam JSON; "regions_file" names a raster of regions in the same folder (.npy, or .npz
+    with the array "regions")."""
     path = Path(path)
     d = json.loads(path.read_text())
     regions = np.load(path.parent / d["regions_file"]) if d.get("regions_file") else None
+    if regions is not None and not isinstance(regions, np.ndarray):  # .npz (compressed)
+        regions = regions["regions"]
     return Foam(
         float(d["aspect"]),
         np.array(d["sites"]),

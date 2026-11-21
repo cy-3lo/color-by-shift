@@ -1,198 +1,108 @@
-# Candidate levels for the ladder (tools/make_ladder.py): Chris picks 8 learning levels and
+# Candidate levels for the ladder (tools/make_ladder.py): Chris picks 3-4 learning levels and
 # 6 paintings from the contact sheets in runs/ladder/.
 #
-# [[mondrian]]: a generated composition of `rects` rectangles in `colours` colours
-# (mosaic_model.mondrian, from `seed`), on a foam of `cells` cells, scrambled by `moves`
-# moves that cannot be undone in fewer.
+# [[mondrian]]: a generated composition in the manner of Mondrian's grid paintings
+# (mosaic_model.mondrian.lined_composition, from `seed`): `rects` rectangles separated by
+# black lines, all white except one per colour beyond black and white, on a foam of `cells`
+# cells, scrambled by `moves` moves that cannot be undone in fewer.
 # [[painting]]: a [[pictures]] entry of toy/toy.toml (tools/make_painting_level.py).
 
 aspect = 1.3333
 min_side = 0.16                     # shortest side of a rectangle (picture height = 1)
-palette = ["#f1ede2", "#d8402f", "#2a56a5", "#efc23a", "#8d9399"]   # white, red, blue, yellow, grey
+bar = 0.03                          # width of the black lines
+palette = ["#f1ede2", "#1d1d21", "#d8402f", "#efc23a", "#2a56a5"]   # white, black, red, yellow, blue
 
-# rung 1: the click, the groups
+# rung 1: black and white
 [[mondrian]]
-id = "M1a"
-rects = 2
+id = "T1a"
+rects = 4
 colours = 2
-cells = 40
-moves = 1
+cells = 70
+moves = 2
 seed = 11
 [[mondrian]]
-id = "M1b"
-rects = 2
+id = "T1b"
+rects = 4
 colours = 2
-cells = 40
-moves = 1
+cells = 70
+moves = 2
 seed = 12
 [[mondrian]]
-id = "M1c"
-rects = 3
+id = "T1c"
+rects = 5
 colours = 2
-cells = 50
-moves = 1
+cells = 70
+moves = 2
 seed = 13
 
-# rung 2: two moves
+# rung 2: red comes in
 [[mondrian]]
-id = "M2a"
-rects = 3
-colours = 2
-cells = 50
-moves = 2
+id = "T2a"
+rects = 5
+colours = 3
+cells = 90
+moves = 3
 seed = 21
 [[mondrian]]
-id = "M2b"
-rects = 3
-colours = 2
-cells = 60
-moves = 2
+id = "T2b"
+rects = 5
+colours = 3
+cells = 90
+moves = 3
 seed = 22
 [[mondrian]]
-id = "M2c"
-rects = 4
-colours = 2
-cells = 60
-moves = 2
+id = "T2c"
+rects = 6
+colours = 3
+cells = 90
+moves = 3
 seed = 23
 
-# rung 3: three colours, a pair has two colours
+# rung 3: yellow
 [[mondrian]]
-id = "M3a"
-rects = 4
-colours = 3
-cells = 70
-moves = 2
+id = "T3a"
+rects = 6
+colours = 4
+cells = 110
+moves = 4
 seed = 31
 [[mondrian]]
-id = "M3b"
-rects = 4
-colours = 3
-cells = 70
-moves = 2
+id = "T3b"
+rects = 6
+colours = 4
+cells = 110
+moves = 4
 seed = 32
 [[mondrian]]
-id = "M3c"
-rects = 5
-colours = 3
-cells = 80
-moves = 2
+id = "T3c"
+rects = 7
+colours = 4
+cells = 110
+moves = 4
 seed = 33
 
-# rung 4: order matters
+# rung 4: blue
 [[mondrian]]
-id = "M4a"
-rects = 5
-colours = 3
-cells = 80
-moves = 3
+id = "T4a"
+rects = 8
+colours = 5
+cells = 130
+moves = 5
 seed = 41
 [[mondrian]]
-id = "M4b"
-rects = 5
-colours = 3
-cells = 90
-moves = 3
+id = "T4b"
+rects = 8
+colours = 5
+cells = 130
+moves = 5
 seed = 42
 [[mondrian]]
-id = "M4c"
-rects = 6
-colours = 3
-cells = 90
-moves = 3
-seed = 43
-
-# rung 5: four colours
-[[mondrian]]
-id = "M5a"
-rects = 6
-colours = 4
-cells = 100
-moves = 3
-seed = 51
-[[mondrian]]
-id = "M5b"
-rects = 6
-colours = 4
-cells = 100
-moves = 3
-seed = 52
-[[mondrian]]
-id = "M5c"
-rects = 7
-colours = 4
-cells = 110
-moves = 3
-seed = 53
-
-# rung 6
-[[mondrian]]
-id = "M6a"
-rects = 7
-colours = 4
-cells = 110
-moves = 4
-seed = 61
-[[mondrian]]
-id = "M6b"
-rects = 7
-colours = 4
-cells = 120
-moves = 4
-seed = 62
-[[mondrian]]
-id = "M6c"
-rects = 8
-colours = 4
-cells = 120
-moves = 4
-seed = 63
-
-# rung 7: five colours
-[[mondrian]]
-id = "M7a"
-rects = 8
-colours = 5
-cells = 130
-moves = 5
-seed = 71
-[[mondrian]]
-id = "M7b"
-rects = 8
-colours = 5
-cells = 130
-moves = 5
-seed = 72
-[[mondrian]]
-id = "M7c"
+id = "T4c"
 rects = 9
 colours = 5
-cells = 140
+cells = 130
 moves = 5
-seed = 73
-
-# rung 8: the size of a painting level
-[[mondrian]]
-id = "M8a"
-rects = 10
-colours = 5
-cells = 150
-moves = 6
-seed = 81
-[[mondrian]]
-id = "M8b"
-rects = 10
-colours = 5
-cells = 150
-moves = 6
-seed = 82
-[[mondrian]]
-id = "M8c"
-rects = 11
-colours = 5
-cells = 160
-moves = 6
-seed = 83
+seed = 43
 
 # paintings: 600 cells; the first two also at 350 cells for comparison
 [[painting]]

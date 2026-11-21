@@ -1,0 +1,43 @@
+{
+ "id": "T2a",
+ "title": "",
+ "foam": "grids/candidates/foam_T2a.json",
+ "colours": [
+  "#f1ede2",
+  "#1d1d21",
+  "#d8402f"
+ ],
+ "picture": {
+  "regions": [
+   1,
+   0,
+   0,
+   0,
+   0,
+   2
+  ]
+ },
+ "scramble": [
+  {
+   "group": 0,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 2,
+   "pair": [
+    1,
+    2
+   ]
+  },
+  {
+   "group": 3,
+   "pair": [
+    0,
+    1
+   ]
+  }
+ ]
+}

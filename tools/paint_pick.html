@@ -1,0 +1,248 @@
+<title>Foam painting picks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: a hanging wall, one painting per section. Each section is a small table: columns
+   are colour choices, rows are numbers of cells, every tile is the picture as the game
+   would show it. A sticky rail counts the picks and filters the wall.
+   Single dark look on purpose: the ground is the game's own background, so every colour
+   set is judged against what it will sit on. */
+:root {
+  color-scheme: dark;
+  --wall: #1c1c22;        /* the game's background */
+  --rail: #26262e;
+  --plate: #2f2f39;
+  --ink: #ece9e0;
+  --dim: #9a97a6;
+  --pick: #f0b45a;        /* picked tile */
+  --warn: #e58a6b;        /* rights or attribution to check */
+  --display: "Fraunces", Georgia, serif;
+  --body: "Inter", system-ui, sans-serif;
+}
+body { background: var(--wall); color: var(--ink); font: 14px/1.45 var(--body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 10; background: var(--rail); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--rail);
+  border-bottom: 1px solid var(--plate); }
+header .wrap { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding-block: 10px; }
+h1 { font: 600 20px/1.2 var(--display); margin: 0; }
+#count { font-variant-numeric: tabular-nums; color: var(--pick); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 500 13px var(--body); color: var(--ink); background: var(--plate); border: 1px solid transparent;
+  border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { border-color: var(--pick); color: var(--pick); }
+.chip:focus-visible, .tile:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+#status { color: var(--dim); font-size: 12px; margin-left: auto; }
+#list { width: 100%; }
+#list textarea { width: 100%; min-height: 9em; background: var(--wall); color: var(--ink);
+  border: 1px solid var(--plate); border-radius: 6px; font: 12px/1.4 ui-monospace, Menlo, monospace; padding: 8px; }
+main.wrap { padding-block: 8px 60px; }
+.intro { color: var(--dim); max-width: 65ch; margin: 14px 0 6px; }
+.card { padding: 22px 0 10px; border-bottom: 1px solid var(--plate); }
+.card h2 { font: 500 17px/1.25 var(--display); margin: 0 0 4px; text-wrap: balance; }
+.card h2 span { color: var(--dim); font: 400 13px var(--body); }
+.flags { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; margin: 0 0 10px; min-height: 1px; }
+.flags .new { color: var(--pick); }
+.flags .warn { color: var(--warn); }
+.scroll { overflow-x: auto; padding-bottom: 6px; }
+table { border-collapse: separate; border-spacing: 6px 4px; }
+th { font: 400 12px var(--body); color: var(--dim); text-align: center; vertical-align: bottom; padding: 0 0 2px; }
+th.row { text-align: right; vertical-align: middle; white-space: nowrap; padding-right: 4px;
+  font-variant-numeric: tabular-nums; }
+td { padding: 0; vertical-align: top; }
+td.orig img { display: block; border-radius: 3px; }
+td.orig div { color: var(--dim); font-size: 12px; text-align: center; margin-top: 3px; }
+.sw { display: flex; justify-content: center; gap: 3px; margin: 0 0 4px; }
+.sw i { width: 15px; height: 15px; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); }
+.tile { all: unset; display: block; cursor: pointer; padding: 4px; border-radius: 6px;
+  outline: 2px solid transparent; text-align: center; }
+.tile img { display: block; width: 260px; max-width: none; border-radius: 3px; }
+.tile:hover { background: var(--plate); }
+.tile[aria-pressed="true"] { background: var(--plate); outline-color: var(--pick); }
+.cap { color: var(--dim); font-size: 12px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.tile[aria-pressed="true"] .cap { color: var(--pick); }
+.empty { color: var(--dim); padding: 40px 0; }
+@media (max-width: 700px) { .tile img { width: 200px; } td.orig img { width: 160px; } }
+</style>
+
+<header><div class="wrap">
+  <h1>Foam painting picks</h1>
+  <div><span id="count">0</span> picked</div>
+  <div class="chips" id="filters"></div>
+  <button class="chip" id="showlist" aria-pressed="false">List of picks</button>
+  <span id="status">loading the paintings</span>
+  <div id="list" hidden><textarea id="listtext" readonly aria-label="Picked paintings"></textarea></div>
+</div></header>
+<main class="wrap">
+  <p class="intro">Each tile is a painting as the game would show it once recovered: five colours, flat blocks, a foam of cells that follows the outlines. Columns are colour choices, rows are numbers of cells. Click a tile to pick that painting with those colours and that many cells; click it again to drop it. &Delta;E is the smallest difference between two of the five colours (larger is easier to tell apart); groups is the number of edge groups of that foam.</p>
+  <div id="wall"><p class="empty">Loading the paintings.</p></div>
+</main>
+
+<script>
+(function () {
+  var PARTS = __PARTS__, COLL = "painting_picks", LS = "foam-painting-picks";
+  var cards = [], picks = {}, filter = "all", db = null;
+  var wall = document.getElementById("wall"), statusEl = document.getElementById("status");
+
+  function lsRead() { try { return JSON.parse(localStorage.getItem(LS) || "{}"); } catch (e) { return {}; } }
+  function lsWrite() { try { localStorage.setItem(LS, JSON.stringify(picks)); } catch (e) {} }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function isPicked(key, version, cells) {
+    var p = picks[key];
+    return !!p && p.palette === version && p.cells === cells;
+  }
+
+  function refresh() {
+    var keys = Object.keys(picks).sort();
+    document.getElementById("count").textContent = keys.length;
+    document.getElementById("listtext").value = keys.map(function (k) {
+      var p = picks[k];
+      return k + " | " + p.palette + " | " + p.cells + " cells | " + p.artist + ", " + p.title;
+    }).join("\n");
+    wall.querySelectorAll(".tile").forEach(function (b) {
+      b.setAttribute("aria-pressed", isPicked(b.dataset.key, b.dataset.version, +b.dataset.cells) ? "true" : "false");
+    });
+  }
+
+  function toggle(card, v, t) {
+    var on = !isPicked(card.key, v.name, t.asked);
+    var doc = { key: card.key, file: card.file, artist: card.artist, title: card.title,
+      palette: v.name, share: v.share, cells: t.asked, colours: v.colours };
+    if (on) picks[card.key] = doc; else delete picks[card.key];
+    lsWrite();
+    refresh();
+    if (filter === "picked") render();
+    if (db) {
+      var ref = db.collection(COLL).doc(card.key);
+      (on ? ref.set(doc) : ref.delete()).then(function () { statusEl.textContent = "saved"; },
+        function () { statusEl.textContent = "not saved online: open List of picks and paste it to Claude"; });
+    }
+  }
+
+  function matches(c) {
+    if (filter === "picked") return !!picks[c.key];
+    if (filter === "flat") return c.rank < 5;
+    if (filter === "new") return c.new;
+    return true;
+  }
+
+  function section(c) {
+    var card = el("section", "card");
+    var h = el("h2", "", c.artist + ", " + c.title + " ");
+    h.appendChild(el("span", "", c.date));
+    card.appendChild(h);
+    var flags = el("p", "flags");
+    if (c.new) flags.appendChild(el("span", "new", "new, from rawpixel"));
+    if (c.check) flags.appendChild(el("span", "warn", "painter and title to confirm"));
+    if (c.rights) flags.appendChild(el("span", "warn", "rights: " + c.rights));
+    card.appendChild(flags);
+    var scroll = el("div", "scroll"), table = el("table"), head = el("tr");
+    head.appendChild(el("th")); head.appendChild(el("th"));
+    c.versions.forEach(function (v) {
+      var th = el("th"), sw = el("div", "sw");
+      v.colours.forEach(function (col) { var i = el("i"); i.style.background = col; sw.appendChild(i); });
+      th.appendChild(sw);
+      th.appendChild(document.createTextNode(v.name + " · ΔE " + v.de + " · " + v.blocks + " blocks"));
+      head.appendChild(th);
+    });
+    table.appendChild(head);
+    c.versions[0].tiles.forEach(function (t0, r) {
+      var tr = el("tr");
+      tr.appendChild(el("th", "row", t0.asked + " cells"));
+      var o = el("td", "orig");
+      if (r === 0) {
+        var oi = el("img"); oi.src = c.orig; oi.alt = "Original: " + c.title; oi.loading = "lazy";
+        o.appendChild(oi); o.appendChild(el("div", "", "original, cut to 4:3"));
+      }
+      tr.appendChild(o);
+      c.versions.forEach(function (v) {
+        var t = v.tiles[r], td = el("td"), b = el("button", "tile");
+        b.type = "button"; b.dataset.key = c.key; b.dataset.version = v.name; b.dataset.cells = t.asked;
+        b.setAttribute("aria-pressed", isPicked(c.key, v.name, t.asked) ? "true" : "false");
+        var im = el("img"); im.src = t.img; im.loading = "lazy";
+        im.alt = c.title + ", " + v.name + ", " + t.asked + " cells";
+        b.appendChild(im);
+        b.appendChild(el("div", "cap", t.cells + " cells · " + t.groups + " groups"));
+        b.addEventListener("click", function () { toggle(c, v, t); });
+        td.appendChild(b); tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    scroll.appendChild(table); card.appendChild(scroll);
+    return card;
+  }
+
+  function render() {
+    var shown = cards.filter(matches);
+    wall.textContent = "";
+    if (!shown.length) {
+      wall.appendChild(el("p", "empty", filter === "picked" ?
+        "Nothing picked yet. Click a tile to pick that painting." : "No paintings here."));
+      return;
+    }
+    shown.forEach(function (c) { wall.appendChild(section(c)); });
+  }
+
+  function chips() {
+    var box = document.getElementById("filters");
+    var defs = [["all", "All"], ["flat", "Gris, Matisse, Klee"], ["new", "New"], ["picked", "Picked only"]];
+    box.textContent = "";
+    defs.forEach(function (d) {
+      var n = d[0] === "picked" ? "" : " (" + cards.filter(function (c) {
+        return d[0] === "all" || (d[0] === "flat" ? c.rank < 5 : c.new); }).length + ")";
+      var b = el("button", "chip", d[1] + n);
+      b.setAttribute("aria-pressed", d[0] === filter ? "true" : "false");
+      b.addEventListener("click", function () {
+        filter = d[0];
+        box.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+        b.setAttribute("aria-pressed", "true"); render(); window.scrollTo(0, 0);
+      });
+      box.appendChild(b);
+    });
+  }
+
+  document.getElementById("showlist").addEventListener("click", function () {
+    var l = document.getElementById("list");
+    l.hidden = !l.hidden;
+    this.setAttribute("aria-pressed", l.hidden ? "false" : "true");
+  });
+
+  function connect() {
+    if (!(window.claude && window.claude.use)) return;
+    window.claude.use("db").then(function (d) {
+      if (!d) return;
+      db = d;
+      var timer = setTimeout(function () { statusEl.textContent = "picks kept in this browser"; }, 10000);
+      db.collection(COLL).onSnapshot(function (snap) {
+        clearTimeout(timer);
+        var next = {};
+        snap.docs.forEach(function (doc) { next[doc.id] = doc.data(); });
+        picks = next; lsWrite(); refresh();
+        if (filter === "picked") render();
+        statusEl.textContent = "picks saved for Claude to read";
+      }, function () { clearTimeout(timer); statusEl.textContent = "picks kept in this browser"; });
+    });
+  }
+
+  picks = lsRead();
+  var loads = [];
+  for (var k = 0; k < PARTS; k++) loads.push(fetch("cards_" + k + ".json").then(function (r) { return r.json(); }));
+  Promise.all(loads).then(function (parts) {
+    cards = [].concat.apply([], parts);
+    chips(); render(); refresh();
+    statusEl.textContent = "picks kept in this browser";
+    connect();
+  }).catch(function () {
+    wall.textContent = "";
+    wall.appendChild(el("p", "empty", "The paintings could not be loaded. Reload the page."));
+    statusEl.textContent = "";
+  });
+})();
+</script>

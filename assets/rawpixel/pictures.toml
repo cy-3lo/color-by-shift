@@ -1,0 +1,85 @@
+# Images downloaded by Chris from rawpixel.com on 2026-11-21 (the file name holds the rawpixel
+# id: https://www.rawpixel.com/image/<id>). Artist and title were read from the picture by
+# Claude, not from rawpixel's page: entries marked check = true are to be confirmed, and so
+# is the public-domain status of every entry before it ships.
+# crop = [x0, y0, x1, y1] as fractions of the scan (paper margins); rights = known doubt.
+
+[[pictures]]
+key = "rp_matisse_dance"
+file = "assets/rawpixel/image-from-rawpixel-id-22769428-original.jpg"
+artist = "Henri Matisse"
+title = "Dance (I)"
+date = "1909"
+rights = "Matisse died in 1954: public domain in France since 2025; status elsewhere to check"
+
+[[pictures]]
+key = "rp_klee_harbinger"
+file = "assets/rawpixel/image-from-rawpixel-id-2988860-jpeg.jpg"
+artist = "Paul Klee"
+title = "The Harbinger of Autumn"
+date = "1922"
+check = true
+
+[[pictures]]
+key = "rp_fuji"
+file = "assets/rawpixel/image-from-rawpixel-id-2049919-jpeg.jpg"
+artist = "Kamisaka Sekka (?)"
+title = "Mount Fuji"
+date = ""
+check = true
+
+[[pictures]]
+key = "rp_hen"
+file = "assets/rawpixel/image-from-rawpixel-id-8627116-original.jpg"
+artist = "unknown"
+title = "Hen and chicks"
+date = ""
+check = true
+
+[[pictures]]
+key = "rp_rabbit"
+file = "assets/rawpixel/image-from-rawpixel-id-8945273-original.jpg"
+artist = "unknown (Japanese print)"
+title = "Rabbit"
+date = ""
+check = true
+
+[[pictures]]
+key = "rp_wave_print"
+file = "assets/rawpixel/image-from-rawpixel-id-13734499-original.jpg"
+artist = "unknown"
+title = "Waves breaking on a beach"
+date = ""
+check = true
+trim = true
+
+[[pictures]]
+key = "rp_great_wave"
+file = "assets/rawpixel/image-from-rawpixel-id-426278-jpeg.jpg"
+artist = "Katsushika Hokusai"
+title = "Under the Wave off Kanagawa (another impression)"
+date = "c. 1830-32"
+trim = true
+anchor = [0.15, 0.5]
+
+[[pictures]]
+key = "rp_hopper_nighthawks"
+file = "assets/rawpixel/image-from-rawpixel-id-9700542-original.jpg"
+artist = "Edward Hopper"
+title = "Nighthawks"
+date = "1942"
+rights = "Hopper died in 1967: under copyright in France and most countries until 2038"
+
+[[pictures]]
+key = "rp_vangogh_noon"
+file = "assets/rawpixel/image-from-rawpixel-id-3868351-jpeg.jpg"
+artist = "Vincent van Gogh"
+title = "Noon: Rest from Work (after Millet)"
+date = "1890"
+
+[[pictures]]
+key = "rp_rousseau_repast"
+file = "assets/rawpixel/image-from-rawpixel-id-1054551-jpeg.jpg"
+artist = "Henri Rousseau"
+title = "The Repast of the Lion (larger scan)"
+date = "c. 1907"
