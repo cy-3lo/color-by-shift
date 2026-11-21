@@ -1,6 +1,6 @@
-# Mosaic Shift: Game Off 2026 project brief
+# Colour by Shift: Game Off 2026 project brief
 
-Working title "Mosaic Shift" (not cleared, see Open questions). This file is the single brief for the whole jam, from the Python twin to the submitted Godot game. Claude Code reads it at the start of every session. It replaces all earlier briefs (sand frame, boat race).
+Working title "Colour by Shift" (see Open questions; the repo and the Python package keep the name mosaic). This file is the single brief for the whole jam, from the Python twin to the submitted Godot game. Claude Code reads it at the start of every session. It replaces all earlier briefs (sand frame, boat race).
 
 ## How to work with this file
 
@@ -13,7 +13,7 @@ Working title "Mosaic Shift" (not cleared, see Open questions). This file is the
 
 ## Status
 
-- CURRENT: Phase 2 (solver and levels; started 2026-11-19 with the mean-field census and grid checks, go from Chris)
+- CURRENT: Step 3 of the Plan, ergonomics (the brief was rewritten on 2026-11-21 at Chris's request: foam colour-by-shift puzzle in Godot)
 - 2026-11-18: brief written; nothing built yet.
 - 2026-11-18: Phase 0 done: repo celoy/mosaic (MIT), .venv + pytest, Godot 4.7.2 web benchmark ≈ 890 sweeps/s at 64 × 64 in headless Chrome (docs/phase0_benchmark.md); grid size 64 × 64 proposed. Waiting for go on Phase 1.
 - 2026-11-18: Phase 1 built (grid 64 × 64 confirmed by Chris): mosaic_model, tests 1–7 pass, science checks 1–4 run (docs/phase1_notes.md), pygame viewer, test levels T01–T03. Gate B pending: Chris plays the viewer.
@@ -66,6 +66,7 @@ Working title "Mosaic Shift" (not cleared, see Open questions). This file is the
 - 2026-11-21: Chris: move to Godot; plan approved (foam colour-by-shift puzzle as the jam game, levels generated offline in Python, 8 Mondrian-like learning levels + 6 paintings, 4:3, 1280 x 720, mouse only; working title "Colour by Shift": no game of that exact name in one web search, "Pentimento" and "All at Once" are taken). The sections game in one page, Godot game, Plan and Decisions of this brief still describe the reaction mosaic: rewrite proposed, not yet applied. Godot core (game/sim Foam, FoamLevel, Session; game/scenes main.gd + picture.gdshader; tools/export_godot.py -> game/data; game/tests/run_tests.gd 682 checks pass against Python golden states; headless click test solves every level at par; tools/web_shot.py = screenshots of the web build in headless Chrome, no console error). Pointing = cell under the pointer + the neighbour whose shared side is nearest (8 points per side exported from the raster); "nearest site" could not reach some pairs of cells clipped by an outline. Solver (mosaic_model/foam_solver.py, search from both ends, agrees with brute force): par proven for every level, paintings included (under 2 s); in all 40 candidates every shortest solution is a reordering of the same moves. Candidates (levels/candidates/ladder.toml, tools/make_ladder.py, runs/ladder/20261121-091755): 24 Mondrian-like (mosaic_model/mondrian.py, 40-160 cells, par 1-6) and 16 painting levels (14 paintings, 2 also at 350 cells), all exported to the game. 125 Python tests pass. Waiting for Chris: play the web build, pick 8 + 6.
 - 2026-11-21: Chris: training = 3-4 levels like real Mondrian paintings, black and white first, then red, yellow, blue; painting outlines smooth, not pixelated; a page to pick paintings with their colours and number of cells; 10 scans added by hand in assets/rawpixel (originals git-ignored, 170 MB; assets/rawpixel/pictures.toml: painter and title read from the picture, several to confirm; Hopper's Nighthawks is under copyright in France until 2038, Matisse public domain in France since 2025). Training candidates T1a-T4c (mosaic_model.mondrian.lined_composition: rectangles separated by black lines 0.03 wide, white except one rectangle per extra colour; 2, 3, 4, 5 colours, par 2-5; make_foam region_sites gives the lines enough cells, otherwise a line cell had up to 46 neighbours). Painting outlines: each block blurred in floating point (sigma 3 px at 512), enlarged to 1280 px, pixel to the largest block (make_painting_level.smooth_regions; region rasters now .npz); 16 painting candidates rebuilt, par 6 proven. merge_small could loop for ever (two small blocks trading colours): capped at 40 rounds. Pick page (tools/paint_pick.py + paint_pick.html): 55 paintings x up to 4 colour sets x 250/400/600 cells, picks in the artifact database, collection painting_picks: https://claude.ai/artifact/Bze2WXZEHjf8eSpoi7RL3k. The Met has no open-access Klee (0 of 100 results) and then answered 403; no Gris beyond the two present, no Picasso, no Mondrian found. Game data = 12 training + 16 painting candidates; 478 Godot checks and 128 Python tests pass. Waiting for Chris's picks on the page.
 - 2026-11-21: Chris picked 17 paintings on the page, each with its colours and cells (250, 400 or 600; 14 at 400): levels P01-P17 in levels/candidates (ladder.toml lists picture, palette, share, cells), par 6 proven for all, 9-21 groups. make_painting_level.build takes the picked palette and share and opens the scan as the pick page does (open_cut); the three rawpixel picks (Fuji, a second Great Wave, Matisse's Dance) are saved cut to 4:3 in assets/paintings/rp_*.jpg with sources and rights caveats in SOURCES.md. Game data = 12 training candidates + 17 paintings; 495 Godot checks, click test and 128 Python tests pass; web pack 23 MB (paintings stored lossless). Open: which of the 17 ship (plan said 6), one training level per rung, title, brief rewrite.
+- 2026-11-21: Chris: ship all the paintings but one Great Wave only (the Met scan kept, 16 paintings), Matisse, Cezanne, Modigliani, Hokusai first; brief rewritten at his request (game in one page, Godot game, Plan, Decisions, Open questions). Gesture changed to press and drag (mouse or finger): the pairs of the move follow the drag, preview below 60 % of the way, tip over beyond, back below 40 % before letting go ([drag] in game/data/config.json); the neighbour is the one whose shared side lies in the direction of the drag; no hover preview. Motion: the partner's colour enters each cell from the shared side (shader, per-cell partner and site in the cell texture); undo and redo use the same motion. Icons from SVG strings (game/ui/icons.gd), message 'Picture recovered' with the move count and a highlighted next arrow, portrait layout with a bottom bar for phones. Checked in headless Chrome: mid-drag, tipped, finish message, 390 px wide window; 478 Godot checks, drag test on the 28 levels and 128 Python tests pass. Not checked: a real finger on a real phone. Waiting for Chris to play: godot --path game
 
 ## Deadline and jam
 
@@ -76,38 +77,29 @@ Working title "Mosaic Shift" (not cleared, see Open questions). This file is the
 
 ## The game in one page
 
-Pitch. A living mosaic of coloured cells is held in balance by a few reactions. You cannot paint the cells. You can only shift colours between the reactions, live, and watch the mosaic tip toward a goal: wipe out a colour, hold a balance, reach a mixture.
+Pitch. A picture has been scrambled on a foam of coloured cells. You cannot repaint a cell. You drag a cell toward a neighbour: their two colours shift places, and so do the colours of every like pair of the same group, all over the picture. Undo the scrambling and the picture returns; if it is a painting, the scan fades in.
 
-The world. A large grid of cells (hexagonal first, foam later if time), with edges between neighbouring cells and vertices where three cells meet. Each cell has a colour from a palette of 3–4.
+The world. A foam: 80 to 600 cells in a 4:3 box, built so that no cell crosses an outline of the picture. Each cell has one colour from the level's 2 to 5.
 
-Reactions (given by the level: number, shape and rate are fixed):
-- Cell reaction: A → B.
-- Edge reaction: A|B → C|D, on any pair of neighbouring cells, either orientation.
-- Vertex reaction: (A, B, C) → (D, E, F) around a vertex, read clockwise. Chirality matters: the mirror arrangement does not match unless the level says the reaction is achiral.
+Groups. Every side shared by two cells (an edge) belongs to exactly one group, and two edges of a group never share a cell (7 to 21 groups per foam).
 
-The only verb. Every colour in every reaction equation is a block. The player swaps any two unlocked blocks, anywhere among the equations, at any time, while the mosaic runs. The multiset of blocks is conserved, so every move is a permutation: a shift of colours between reactions. This is the theme.
+The only verb. A move = (group, two colours a and b): every pair of that group holding a and b swaps them. The decision to swap depends only on the unordered colours of the pair, which the swap leaves unchanged, so every move is its own inverse, and a list of moves is undone by the same moves in reverse order. No random numbers at play time. This is the theme: one gesture shifts colours everywhere at once.
 
-The dynamics. Random sequential updating: pick a cell, edge or vertex at random, look up the reactions matching its colours, apply one according to the rates. Large grids make the large-scale behaviour nearly deterministic; the texture stays alive.
+The gesture. Press a cell and drag toward a neighbour (mouse or finger). All the pairs of the move follow the drag: below a threshold (60 % of the way) this is only a preview and letting go brings everything back; beyond it the picture tips into the shifted state. No hover preview.
 
-Start. Each level starts from a stationary state of its initial arrangement: fronts wandering, spirals turning, population fractions steady. The first switch perturbs a living system.
+Start and goal. The level stores the picture (one colour per region) and a scrambling list of 2 to 6 moves that cannot be undone in fewer (proven by search); the game starts from the scrambled picture. Solved = every cell has its target colour. The move count is shown over par. No score, no timer, no failure.
 
-Goals only, no score. Goal types: extinct (a colour disappears), hold (all fractions stay within bands for a duration), reach (fractions within a tolerance of a target, held for a few seconds). Some levels add a failure condition (for example, a colour going extinct during a hold).
+Reward. A message, the lines between cells fade and the flat shapes remain; for a painting the scan fades in with painter and title.
 
-Legibility. A lamp beside each equation glows with that reaction's recent firing rate. Optional overlay: a brief flash on the grid where reactions fire. A population chart shows the fractions over time with the goal bands drawn on it. The theme is named in the tutorial ("shift a colour between reactions").
+Ladder. 4 generated compositions in the manner of Mondrian's grid paintings (black lines and white fields first, then red, yellow, blue added one per level), then 16 public-domain paintings picked by Chris (Matisse, Cezanne, Modigliani and Hokusai first), each with its own five colours and number of cells (250 to 600).
 
-Why it is hard: effects are delayed and spread over the whole grid; spatial dynamics defeat well-mixed intuition (rock-paper-scissors spirals, voter-model coarsening); the blocks are conserved, so fixing one reaction changes another; timing matters, because the same switch made at a different moment meets a different landscape.
+Why it is hard: a move acts on the whole picture, so repairing one place disturbs another; moves of different groups do not commute when they share cells; the order must be deduced.
 
-Fun hypothesis (falsifiable in Phases 1–2):
-- In most levels a solution needs at least two switches with a wait between them, so timing matters.
-- In at least a third of levels the well-mixed (mean-field) prediction is wrong, so the grid is not decoration.
-- A correct solution fails in fewer than 10 % of random seeds on the full grid.
-- A dithering bot (switching back and forth quickly) does not solve most levels trivially. If it does, add a switch cooldown.
-
-Kill criterion, at Gate B (Sunday 22 November): if most test levels fall to a single switch, or the mean-field equations predict every outcome, the spatial game is decoration. Redesign the reaction sets before building levels.
-
-Out of scope for the jam: painting cells, editing reaction shapes or rates, scores and leaderboards, level editor, topological changes of the foam, touch controls, voice, 3D.
+Out of scope for the jam: level editor, scores and leaderboards, foams generated at play time, zoom, the reaction mosaic (sections Model, Python twin and Levels describe it and are kept for reference only).
 
 ## Model
+
+Reaction mosaic: not the jam game since 2026-11-21, kept for reference.
 
 Graph. Cells, edges and vertices with full adjacency: cell → neighbouring cells, edge → its two cells, vertex → its three cells in clockwise order. Hexagonal grid generated in code; foam grids loaded from JSON (generated offline in Python).
 
@@ -128,6 +120,8 @@ Shuffled control: a well-mixed mode in which every attempt draws the element's c
 Assumptions and regime: discrete-time random sequential updates approximate a continuous-time Markov chain when each sweep changes a small fraction of elements; mean-field is exact only for the shuffled control; extinction on a finite grid is always eventually possible, so "hold" goals have finite durations.
 
 ## Python twin (Phases 1 and 2)
+
+Reaction mosaic: not the jam game since 2026-11-21, kept for reference.
 
 Package `mosaic_model` (numpy; ask before adding numba if the loops are too slow). Holds the graph, reactions, lookup tables, update, shuffled control, mean-field generator, goals, and a JSON level loader shared with Godot.
 
@@ -153,6 +147,8 @@ Tests (pytest):
 7. Swapping blocks conserves the multiset of blocks and respects locks.
 
 ## Levels
+
+Reaction mosaic: not the jam game since 2026-11-21, kept for reference.
 
 Level file (levels/Lxx.json):
 
@@ -183,15 +179,14 @@ Campaign of 8–10 levels: learn the swap on a two-reaction level; voter-model c
 
 ## Godot game
 
-- Godot 4.3 or later (confirm the user's version), GDScript only, Compatibility renderer, web export with thread support off. Flag any Godot 3 idiom (yield, export without @, onready without @, PoolByteArray...).
-- Simulation in plain classes (RefCounted), no Nodes, testable headless: Graph, Reactions (with lookup tables), Sim, Goals, LevelLoader. Colours in a PackedByteArray. Scenes only display state and pass input.
-- Golden tests: `godot --headless --script res://tests/run_tests.gd` checks lookup tables, chirality, conservation, goal detection, and compares population curves of fixed-seed runs with the Python twin statistically (same mean-field limit in shuffled mode; same qualitative outcome in normal mode).
-- Rendering: one MultiMesh or a texture-based hex renderer; colours updated per frame from the byte array. Flat cells, thin dark borders.
-- UI: reaction panel with equations drawn as colour blocks (edge: two blocks and an arrow; vertex: a triangle of three blocks with a rotation arrow), a lamp beside each, click or drag to swap two blocks, locked blocks marked. Pause, speed (×1, ×4, ×16), restart, level select. Population chart with goal bands. Optional firing-flash overlay toggle.
-- Palette: no fixed limit on the number of colours (Chris, 2026-11-18: find out how many make the game interesting); colours distinguishable by colour-blind players (start from the Okabe–Ito palette, recalled; check), plus a distinct glyph on each block in the equations.
-- Audio: each reaction has its own soft pluck; firing rate sets the density of plucks, so the mosaic sounds like a chord that changes with the balance. AudioStreamGenerator if it behaves in the web export, otherwise CC0 samples, credited.
-- Progress: completed levels in user://progress.json.
-- Performance: benchmark in Phase 0. Target: at least 4 sweeps per second at ×1 on the chosen grid in Chrome on the user's laptop (guess). If not met, shrink the grid (48 × 48, then 40 × 40) before anything else.
+- Godot 4.7.2, GDScript only, Compatibility renderer, web export with thread support off, base viewport 1280 x 720 (landscape: strip on the right; portrait, as on a phone: bar at the bottom). Mouse and touch. Flag any Godot 3 idiom.
+- Levels are generated offline in Python (mosaic_model/foam.py, mondrian.py, foam_solver.py; tools/make_ladder.py from levels/candidates/ladder.toml, tools/make_painting_level.py) and exported by tools/export_godot.py to game/data/: one JSON per level (sites, edges, groups, points on every side, colours, target, start, par, artist, title), a gzip raster of cell indices (uint16, 1280 wide), the painting cut to the level's window, an ordered index, golden states for the tests. Godot never builds a foam, colours edges or scrambles.
+- Simulation in plain classes (RefCounted), no Nodes, testable headless: Foam, FoamLevel, Session, Progress. Scenes only display state and pass input.
+- Tests: `godot --headless --path game --script res://tests/run_tests.gd` (groups are matchings, moves undo themselves, the reversed scramble reproduces the Python colours exactly at every move, every edge with a side can be pointed at); `godot --headless --path game -- --smoke` solves every level by simulated drags; tools/web_shot.py takes screenshots of the web build in headless Chrome (no window).
+- Rendering: one shader on one rectangle; a texture of cell indices and a small texture of per-cell data (colour, target colour, partner in the move under way, site); the shift of a pair is drawn as the partner's colour entering each cell from the shared side; uniforms for the shift and the reward.
+- UI: icons drawn from SVG strings at the size needed; moves over par, undo, redo, restart, previous and next level; keys Z, Y, R, Up, Down. A gallery of levels and progress in user://progress.json are still to build.
+- Audio (to build): one soft pluck per move, a chord when solved; samples synthesised by tools/make_sounds.py.
+- Timings, sizes and interface colours in game/data/config.json.
 
 ## Repository layout
 
@@ -217,53 +212,37 @@ mosaic/
 
 ## Plan
 
-Dates and hours are guesses. If a phase runs more than a day late, apply the cut list.
+Dates are guesses. Phases 0 to 2 (benchmark, Python twin, design search) are done; see Status.
 
-Phase 0, setup and benchmark (Wed 18 – Thu 19 Nov, about 2 h)
-- Public GitHub repo, layout above, .venv, pytest running.
-- Godot benchmark: random sequential updates with one edge reaction on 64 × 64 hexes, web export, sweeps per second in Chrome. Report and choose the grid size.
+Step 1, Godot core (Sat 21 Nov): done.
+Step 2, levels (Sat 21 Nov): 16 paintings picked and built; Chris still picks one training level per rung (T1 to T4).
+Step 3, ergonomics (Sun 22 – Wed 25 Nov): drag gesture and motion tuned by Chris's play, gallery, progress, tutorial hint on level 1.
+Step 4, look and sound (Thu 26 – Fri 27 Nov): audio, title screen, palette pass, credits screen (painting sources and rights).
+Step 5, freeze and submit (Sat 28 – Mon 30 Nov; Tue 1 Dec buffer): feature freeze on Sunday 29; two or three outside players; README, itch page, web build, submission on Monday 30.
 
-Phase 1, Python twin and viewer (Thu 19 – Sat 21 Nov, about 5 h)
-- Model, tests 1–7, science checks 1–4, minimal pygame viewer, three test levels (voter, rock-paper-scissors with swaps, chiral).
-- Gate B on Sunday 22: Chris plays the viewer. Is switching live interesting? Are the lamps and chart enough to understand what happens? Record the decision in Status.
-
-Phase 2, solver and levels (Sun 22 – Tue 24 Nov, about 4 h)
-- Solver, bots, fun-hypothesis table, 12–15 candidate levels with stationary starts. Chris picks 8–10.
-
-Phase 3, Godot core (Tue 24 – Thu 26 Nov, about 6 h)
-- Graph, reactions, sim, rendering, reaction panel with lamps and swapping, pause and speed, goals, population chart, golden tests.
-- Acceptance: one level playable start to finish in a web export within the performance budget.
-
-Phase 4, game (Fri 27 – Sat 28 Nov, about 5 h)
-- Level select, all chosen levels, short tutorial on level 1, palette and glyphs, audio, progress save. Foam grids only if everything else is done.
-
-Phase 5, freeze and submit (Sun 29 – Mon 30 Nov, about 3 h; Tue 1 Dec buffer)
-- Feature freeze on Sunday 29; bug fixes only after that.
-- Two or three outside players try it without help; note where they get stuck.
-- README (how to play, the science in one paragraph, credits), itch page text and screenshots, web build, submission on Monday 30.
-
-Cut list, in this order: foam grids; firing-flash overlay; AudioStreamGenerator (use samples); levels beyond six; chiral reactions (keep cell and edge only).
+Cut list, in this order: audio beyond one sample; gallery thumbnails of scrambled foams (numbered frames instead); paintings whose rights are not confirmed.
 
 ## Decisions
 
 - Godot Wild Jam #99 dropped; entry for GitHub Game Off 2026, theme SHIFT.
-- Sand frame, phase-space archipelago and the one-button boat race (never started) dropped in favour of the reaction mosaic.
-- Reactions (number, shape, rate) are given by each level; the player can only switch colour blocks between reaction slots, live, at any time.
-- Large grid, random sequential updates, start from a stationary state of the level's initial arrangement.
-- A lamp beside each equation shows its firing rate.
-- Goals only, no score: extinct, hold, reach.
-- Hexagonal grid first; precomputed foam grids only if time remains.
-- The parallel with First Rain (ecology) is accepted.
+- Sand frame, phase-space archipelago, the one-button boat race and, on 2026-11-21, the reaction mosaic dropped; the Python code of the reaction mosaic stays in the repo.
+- The game is the foam colour-by-shift puzzle (2026-11-21): one gesture swaps two colours across every like pair of an edge group; every move is its own inverse.
+- Gesture (2026-11-21): press and drag toward a neighbour; preview below 60 % of the way, shift beyond; no hover preview. Mouse and touch.
+- Levels are generated offline in Python; Godot only loads data.
+- Ladder: 4 training levels in the manner of Mondrian (black and white, then red, yellow, blue), then the 16 paintings picked by Chris, all shipped (Matisse, Cezanne, Modigliani, Hokusai first; one Great Wave only).
+- Painting outlines are smooth curves; everything at 4:3.
+- Par = shortest solution, proven by search from both ends.
+- No score, no timer, no failure; a message when a level is recovered.
+- Working title: Colour by Shift (not confirmed by Chris).
 
 ## Open questions (as tasks)
 
-- Title: search Steam, itch.io and the web for clashes before adopting "Mosaic Shift" or any other title.
-- Licence for the public repo.
+- Title: Chris confirms "Colour by Shift" (and the spelling) or proposes another; same clash check on any new candidate.
+- Training levels: one of a, b, c for each of T1 to T4.
+- Rights before release: Matisse's Dance outside France; painter of the Mount Fuji print.
 - Confirm the jam's rule on AI-assisted code before submitting.
-- Godot version installed.
-- Grid size, from the Phase 0 benchmark.
-- Switch cooldown: none by default; add one if the dithering bot trivialises levels.
-- Palette and glyphs: final choice after the first playable build.
+- Phones: cells of a 400-cell painting are about 15 px wide on a phone; zoom is not planned.
+- Size of the web build: paintings are stored lossless in the pack (about 1 MB each).
 
 ## Sources
 

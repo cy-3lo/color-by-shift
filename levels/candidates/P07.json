@@ -3,62 +3,69 @@
  "title": "",
  "foam": "grids/candidates/foam_P07.json",
  "colours": [
-  "#91604c",
-  "#3d77bc",
-  "#df6513",
-  "#59a9a2",
-  "#c4ba50"
+  "#262521",
+  "#4f4837",
+  "#a75c32",
+  "#88704e",
+  "#d9b17d"
  ],
  "picture": {
   "regions": [
+   2,
+   3,
+   4,
+   0,
    1,
+   4,
+   2,
+   4,
+   1,
+   2,
    3,
-   0,
    3,
    0,
    4,
    2,
+   3,
+   1,
    4,
+   0,
+   3,
+   4,
+   0,
+   1,
+   0,
+   4,
+   1,
+   4,
+   4,
+   4,
+   1,
+   4,
+   0,
    2,
-   0,
-   0,
-   0,
-   3,
-   0,
-   4,
-   0,
-   3,
-   4,
-   3,
-   3,
-   3,
-   3,
-   3,
-   3,
-   3,
-   0,
-   1
+   4
   ]
  },
  "scramble": [
   {
-   "group": 7,
+   "group": 8,
    "pair": [
-    0,
-    3
+    3,
+    4
    ]
   },
   {
-   "group": 5,
+   "group": 4,
    "pair": [
-    0,
-    1
+    2,
+    4
    ]
   },
   {
    "group": 6,
    "pair": [
-    0,
+    2,
     4
    ]
   },
@@ -66,32 +73,32 @@
    "group": 0,
    "pair": [
     0,
-    2
+    1
    ]
   },
   {
    "group": 4,
    "pair": [
     0,
-    2
+    4
    ]
   },
   {
    "group": 1,
    "pair": [
-    0,
-    4
+    1,
+    3
    ]
   }
  ],
  "reward": {
-  "image": "assets/paintings/kirchner_dance_hall_bellevue.jpg",
+  "image": "assets/paintings/gris_glass_and_checkerboard.jpg",
   "crop": null,
   "anchor": [
    0.5,
    0.5
   ],
-  "artist": "Ernst Ludwig Kirchner",
-  "title": "Dance Hall Bellevue"
+  "artist": "Juan Gris",
+  "title": "Glass and Checkerboard"
  }
 }

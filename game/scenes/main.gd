@@ -1,10 +1,17 @@
 extends Control
-## Play screen: the foam picture, the pointer's group and pairs, and a strip of icons.
-## Options after "--": --level=ID, --smoke (headless: solve every level by clicks).
-## --solved shows the level recovered (to look at the reward). In a browser:
+## Play screen: the foam picture and a strip of icons (a bar at the bottom when the window
+## is taller than wide, as on a phone).
+## The gesture: press a cell and drag toward a neighbour, with the mouse or a finger. Every
+## pair of the move follows the drag; below drag.commit of the way it is a preview, beyond it
+## the picture tips into the shifted state (and comes back if the drag returns below
+## drag.release before letting go).
+## Options after "--": --level=ID, --solved (shows the level recovered, to look at the
+## reward), --smoke (headless: solve every level by drags). In a browser:
 ## index.html?level=ID&solved.
 
 const SHADER := preload("res://scenes/picture.gdshader")
+
+enum Phase { IDLE, DRAG, SNAP, BACK }
 
 var cfg: Dictionary
 var ids: Array[String] = []
@@ -13,7 +20,10 @@ var level: FoamLevel
 var session: Session
 
 var rect := Rect2()  ## the picture on screen
-var strip := Rect2()
+var strip := Rect2()  ## the strip (right) or the bar (bottom)
+var info := Rect2()  ## where the count and the messages go
+var unit := 1.0  ## scale of the interface (larger when the window is taller than wide)
+var portrait := false
 var site_px := PackedVector2Array()
 var buttons := {}  ## name -> Rect2
 
@@ -23,14 +33,15 @@ var material_: ShaderMaterial
 var cell_image: Image
 var cell_texture: ImageTexture
 
-var shown := PackedColorArray()  ## colour drawn for each cell
-var fade_from := PackedColorArray()
-var fade_t0 := PackedFloat32Array()  ## start of each cell's cross-fade, seconds
-var fading := false
-var links := PackedInt32Array()  ## cells of the pairs swapped by the latest move: u, v, u, v ...
-var links_t0 := -1e9
-var hover_u := -1
-var hover_v := -1
+var phase := Phase.IDLE
+var shift := 0.0  ## progress of the move under way, 0..1
+var pending := Vector3i(-1, 0, 0)  ## the move under way
+var action := ""  ## what to do with it once shifted: "play", "undo" or "redo"
+var press_pos := Vector2.ZERO
+var drag_u := -1
+var drag_v := -1
+var drag_frac := 0.0
+var committed := false
 var solved_at := -1.0
 var now := 0.0
 var preview := false  ## start from the recovered picture
@@ -94,33 +105,29 @@ func _load(k: int) -> void:
 	var n := level.foam.n_cells
 	var labels := Image.create_from_data(
 		level.label_w, level.label_h, false, Image.FORMAT_RG8, level.labels)
-	cell_image = Image.create(n, 2, false, Image.FORMAT_RGBA8)
-	shown.resize(n)
-	fade_from.resize(n)
-	fade_t0.resize(n)
+	cell_image = Image.create(n, 4, false, Image.FORMAT_RGBA8)
 	for i in n:
-		shown[i] = level.colours[session.col[i]]
-		fade_t0[i] = -1e9
 		var t := level.colours[level.target[i]]
 		cell_image.set_pixel(i, 1, Color(t.r, t.g, t.b, level.target[i] / 255.0))
+		var s := level.foam.sites[i] / Vector2(level.foam.aspect, 1.0)
+		var x := clampi(roundi(s.x * 65535.0), 0, 65535)
+		var y := clampi(roundi(s.y * 65535.0), 0, 65535)
+		cell_image.set_pixel(i, 3, Color8(x & 255, x >> 8, y & 255, y >> 8))
 	cell_texture = ImageTexture.create_from_image(cell_image)
 	material_.set_shader_parameter("labels", ImageTexture.create_from_image(labels))
 	material_.set_shader_parameter("cells", cell_texture)
 	material_.set_shader_parameter("label_size", Vector2(level.label_w, level.label_h))
 	var line := _c("line")
 	material_.set_shader_parameter("line_colour", Vector3(line.r, line.g, line.b))
-	material_.set_shader_parameter("line_px", float(cfg["picture"]["line_px"]))
-	material_.set_shader_parameter("outline_px", float(cfg["picture"]["outline_px"]))
+	material_.set_shader_parameter("front", float(cfg["drag"]["front"]))
 	if not level.painting.is_empty() and ResourceLoader.exists(level.painting):
 		material_.set_shader_parameter("painting", load(level.painting))
-	links = PackedInt32Array()
-	hover_u = -1
+	phase = Phase.IDLE
+	shift = 0.0
+	pending = Vector3i(-1, 0, 0)
 	solved_at = -1.0
-	fading = false
 	if preview:
 		session.col = level.target.duplicate()
-		for i in n:
-			shown[i] = level.colours[session.col[i]]
 		solved_at = now
 	_upload()
 	_layout()
@@ -130,145 +137,274 @@ func _layout() -> void:
 	if level == null or level.foam == null:
 		return
 	var size_ := get_viewport_rect().size
-	var sw := float(cfg["strip"]["width"])
+	portrait = size_.y > size_.x
+	# the base window is 1280 x 720; a tall window keeps 1280 across, so its icons grow
+	unit = clampf(1.4 * size_.y / size_.x, 1.0, 3.2) if portrait else 1.0
 	var m := float(cfg["picture"]["margin"])
-	var room := Vector2(size_.x - sw - 2.0 * m, size_.y - 2.0 * m)
-	var w := minf(room.x, room.y * level.foam.aspect)
+	var room: Rect2
+	if portrait:
+		var bh := float(cfg["strip"]["bar_height"]) * unit
+		strip = Rect2(0.0, size_.y - bh, size_.x, bh)
+		room = Rect2(0.0, 0.0, size_.x, size_.y - bh)
+	else:
+		var sw := float(cfg["strip"]["width"])
+		strip = Rect2(size_.x - sw, 0.0, sw, size_.y)
+		room = Rect2(0.0, 0.0, size_.x - sw, size_.y)
+	var w := minf(room.size.x - 2.0 * m, (room.size.y - 2.0 * m) * level.foam.aspect)
+	if portrait:  # leave room under the picture for the count and the messages
+		w = minf(w, (room.size.y - 2.0 * m - 150.0 * unit) * level.foam.aspect)
 	var h := w / level.foam.aspect
-	rect = Rect2((Vector2(size_.x - sw, size_.y) - Vector2(w, h)) * 0.5, Vector2(w, h)).abs()
-	rect.position = rect.position.round()
-	strip = Rect2(size_.x - sw, 0.0, sw, size_.y)
+	var top := m if portrait else (room.size.y - h) * 0.5
+	rect = Rect2(Vector2((room.size.x - w) * 0.5, top).round(), Vector2(w, h))
 	picture.position = rect.position
 	picture.size = rect.size
-	material_.set_shader_parameter("px_per_texel", w / level.label_w)
+	material_.set_shader_parameter("picture_px", rect.size)
+	material_.set_shader_parameter("line_px", float(cfg["picture"]["line_px"]) * unit)
+	material_.set_shader_parameter("outline_px", float(cfg["picture"]["outline_px"]) * unit)
 	site_px.resize(level.foam.n_cells)
 	for i in level.foam.n_cells:
 		site_px[i] = rect.position + level.foam.sites[i] / Vector2(level.foam.aspect, 1.0) * rect.size
-	var x := strip.position.x + 12.0
-	var bw := sw - 24.0
-	buttons = {
-		"prev": Rect2(x, 14.0, 30.0, 30.0),
-		"next": Rect2(x + bw - 30.0, 14.0, 30.0, 30.0),
-		"undo": Rect2(x, size_.y - 118.0, bw * 0.5 - 4.0, 48.0),
-		"redo": Rect2(x + bw * 0.5 + 4.0, size_.y - 118.0, bw * 0.5 - 4.0, 48.0),
-		"reset": Rect2(x, size_.y - 62.0, bw, 48.0),
-	}
+	var pad := 12.0 * unit
+	if portrait:
+		var names := ["prev", "undo", "redo", "reset", "next"]
+		var bw := (strip.size.x - pad * (names.size() + 1)) / names.size()
+		buttons = {}
+		for k in names.size():
+			buttons[names[k]] = Rect2(pad + k * (bw + pad), strip.position.y + pad, bw, strip.size.y - 2.0 * pad)
+		info = Rect2(pad, rect.end.y + pad, size_.x - 2.0 * pad, strip.position.y - rect.end.y - 2.0 * pad)
+	else:
+		var x := strip.position.x + pad
+		var bw := strip.size.x - 2.0 * pad
+		buttons = {
+			"prev": Rect2(x, 14.0, 34.0, 34.0),
+			"next": Rect2(x + bw - 34.0, 14.0, 34.0, 34.0),
+			"undo": Rect2(x, size_.y - 118.0, bw * 0.5 - 4.0, 48.0),
+			"redo": Rect2(x + bw * 0.5 + 4.0, size_.y - 118.0, bw * 0.5 - 4.0, 48.0),
+			"reset": Rect2(x, size_.y - 62.0, bw, 48.0),
+		}
+		info = Rect2(x, 64.0, bw, size_.y - 118.0 - 76.0)
 	overlay.queue_redraw()
 
 
+## Writes the colours of the cells (row 0) and the partners of the move under way (row 2).
 func _upload() -> void:
-	for i in shown.size():
-		cell_image.set_pixel(i, 0, shown[i])
+	var n := level.foam.n_cells
+	for i in n:
+		cell_image.set_pixel(i, 0, level.colours[session.col[i]])
+		cell_image.set_pixel(i, 2, Color(0, 0, 0, 1))
+	if pending.x >= 0:
+		var foam := level.foam
+		for k in foam.swapping(session.col, pending.x, pending.y, pending.z):
+			var u := foam.pairs_u[pending.x][k]
+			var v := foam.pairs_v[pending.x][k]
+			cell_image.set_pixel(u, 2, Color8(v & 255, v >> 8, 255, 255))
+			cell_image.set_pixel(v, 2, Color8(u & 255, u >> 8, 255, 255))
 	cell_texture.update(cell_image)
 
 
-# ---- pointing and moves -------------------------------------------------------------------
-## The cell under the pointer and the neighbour whose shared side is nearest to the pointer.
-func pair_at(pos: Vector2) -> Vector2i:
-	return level.pair_at((pos - rect.position) / rect.size * Vector2(level.foam.aspect, 1.0))
+# ---- the move under way -------------------------------------------------------------------
+func _set_pending(m: Vector3i, what: String) -> void:
+	pending = m
+	action = what
+	shift = 0.0
+	_upload()
 
 
-func _after(origin: Vector2) -> void:
-	# cross-fade of the changed cells, starting at the click and spreading outward
-	var ch := session.last_changed
-	var far := 1.0
-	for c in ch:
-		far = maxf(far, origin.distance_to(site_px[c]))
-	for c in ch:
-		fade_from[c] = shown[c]
-		fade_t0[c] = now + float(cfg["move"]["spread_s"]) * origin.distance_to(site_px[c]) / far
-	fading = not ch.is_empty()
-	links = ch
-	links_t0 = now
+## Ends the move under way at once: applied if it was tipping over, dropped otherwise.
+func _settle() -> void:
+	if phase == Phase.SNAP:
+		_apply()
+	elif phase != Phase.IDLE:
+		_drop()
+
+
+func _apply() -> void:
+	match action:
+		"play":
+			session.play(pending)
+		"undo":
+			session.undo()
+		"redo":
+			session.redo()
+	_drop()
 	solved_at = now if session.solved() else -1.0
+
+
+func _drop() -> void:
+	pending = Vector3i(-1, 0, 0)
+	phase = Phase.IDLE
+	shift = 0.0
+	drag_u = -1
+	drag_v = -1
+	committed = false
+	_upload()
 	overlay.queue_redraw()
 
 
-func click(pos: Vector2) -> void:
+## Shifts a whole move without a drag (undo, redo).
+func _run(m: Vector3i, what: String) -> void:
+	_settle()
+	_set_pending(m, what)
+	phase = Phase.SNAP
+
+
+# ---- pointer: press, drag, release --------------------------------------------------------
+func press(pos: Vector2) -> void:
 	for name_ in buttons:
 		if buttons[name_].has_point(pos):
-			_press(name_)
+			_press_button(name_)
 			return
 	if solved_at >= 0.0:
 		return
-	var p := pair_at(pos)
-	if p.x >= 0 and session.play(session.move_between(p.x, p.y)):
-		_after(pos)
+	_settle()
+	var u := level.cell_at((pos - rect.position) / rect.size)
+	if u < 0:
+		return
+	phase = Phase.DRAG
+	press_pos = pos
+	drag_u = u
+	drag_v = -1
+	drag_frac = 0.0
+	committed = false
 
 
-func _press(name_: String) -> void:
-	var centre := rect.get_center()
+## Middle of the side shared by cells u and w on screen (the site of w if the side is unknown).
+func _side_mid(u: int, w: int) -> Vector2:
+	var pts := level.sides[level.foam.edge_of(u, w)]
+	if pts.is_empty():
+		return site_px[w]
+	var mid := Vector2.ZERO
+	for q in pts:
+		mid += q
+	return rect.position + mid / pts.size() / Vector2(level.foam.aspect, 1.0) * rect.size
+
+
+## The neighbour of the pressed cell whose shared side lies most nearly in the direction of
+## the drag, seen from the point pressed.
+func _toward(dir: Vector2) -> int:
+	var best := -2.0
+	var v := -1
+	for w in level.foam.neighbours[drag_u]:
+		var c := dir.dot((_side_mid(drag_u, w) - press_pos).normalized())
+		if c > best:
+			best = c
+			v = w
+	return v
+
+
+func drag(pos: Vector2) -> void:
+	if phase != Phase.DRAG:
+		return
+	var d := pos - press_pos
+	var dc: Dictionary = cfg["drag"]
+	if d.length() < float(dc["dead_px"]) * unit:
+		drag_frac = 0.0
+		return
+	if drag_v < 0 or (not committed and drag_frac < float(dc["rechoose"])):
+		var v := _toward(d.normalized())
+		if v != drag_v:
+			drag_v = v
+			_set_pending(session.move_between(drag_u, v), "play")
+	if drag_v < 0:
+		return
+	var span := site_px[drag_v] - site_px[drag_u]
+	var travel := maxf(span.length(), float(dc["min_travel_px"]) * unit)
+	drag_frac = clampf(d.dot(span.normalized()) / travel, 0.0, 1.0)
+	if pending.x < 0:
+		return
+	if drag_frac >= float(dc["commit"]):
+		committed = true
+	elif drag_frac < float(dc["release"]):
+		committed = false
+
+
+func release() -> void:
+	if phase != Phase.DRAG:
+		return
+	if pending.x >= 0 and committed:
+		phase = Phase.SNAP
+	elif pending.x >= 0:
+		phase = Phase.BACK
+	else:
+		_drop()
+
+
+func _press_button(name_: String) -> void:
 	match name_:
 		"prev":
 			_load(at - 1)
 		"next":
 			_load(at + 1)
 		"undo":
-			if session.undo():
-				_after(centre)
+			_settle()
+			if not session.history.is_empty():
+				_run(session.history[-1], "undo")
 		"redo":
-			if session.redo():
-				_after(centre)
+			_settle()
+			if not session.future.is_empty():
+				_run(session.future[-1], "redo")
 		"reset":
+			_settle()
 			session.reset()
-			for i in shown.size():
-				fade_from[i] = shown[i]
-				fade_t0[i] = now
-			fading = true
-			links = PackedInt32Array()
 			solved_at = -1.0
+			_upload()
+	overlay.queue_redraw()
 
 
 func _input(event: InputEvent) -> void:
 	if level == null or session == null:
 		return
-	if event is InputEventMouseMotion:
-		var p := pair_at(event.position)
-		if p.x != hover_u or p.y != hover_v:
-			hover_u = p.x
-			hover_v = p.y
-			overlay.queue_redraw()
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		click(event.position)
+	# a finger arrives as a mouse (input_devices/pointing/emulate_mouse_from_touch)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			press(event.position)
+		else:
+			release()
+	elif event is InputEventMouseMotion:
+		drag(event.position)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_Z:
-				_press("undo")
+				_press_button("undo")
 			KEY_Y:
-				_press("redo")
+				_press_button("redo")
 			KEY_R:
-				_press("reset")
+				_press_button("reset")
 			KEY_UP:
-				_press("prev")
+				_press_button("prev")
 			KEY_DOWN:
-				_press("next")
+				_press_button("next")
 
 
 func _process(delta: float) -> void:
 	now += delta
 	if level == null or session == null:
 		return
-	if fading:
-		var dur := float(cfg["move"]["fade_s"])
-		var busy := false
-		for i in shown.size():
-			var goal := level.colours[session.col[i]]
-			var s := clampf((now - fade_t0[i]) / dur, 0.0, 1.0)
-			if fade_t0[i] > -1e8:
-				shown[i] = fade_from[i].lerp(goal, s)
-				if s >= 1.0:
-					fade_t0[i] = -1e9
-				else:
-					busy = true
-		fading = busy
-		_upload()
+	var dc: Dictionary = cfg["drag"]
+	match phase:
+		Phase.DRAG:
+			if pending.x >= 0:
+				if committed:
+					shift = minf(1.0, shift + delta / float(dc["snap_s"]))
+				else:  # follows the finger, a little behind
+					shift += (drag_frac - shift) * minf(1.0, delta / float(dc["follow_s"]))
+		Phase.SNAP:
+			shift = minf(1.0, shift + delta / float(dc["snap_s"]))
+			if shift >= 1.0:
+				_apply()
+		Phase.BACK:
+			shift = maxf(0.0, shift - delta / float(dc["back_s"]))
+			if shift <= 0.0:
+				_drop()
+	# eased, so that the colours start and stop gently
+	material_.set_shader_parameter("shift", smoothstep(0.0, 1.0, shift) if phase == Phase.SNAP else shift)
 	var rw: Dictionary = cfg["reward"]
 	var t := now - solved_at if solved_at >= 0.0 else -1.0
 	var flat := clampf(t / float(rw["lines_s"]), 0.0, 1.0) if t >= 0.0 else 0.0
 	material_.set_shader_parameter("line_alpha", 1.0 - flat)
 	material_.set_shader_parameter("outline_alpha", flat)
 	material_.set_shader_parameter("painting_mix", _painting_alpha())
-	if t >= 0.0 or now - links_t0 < float(cfg["move"]["link_s"]) + 0.1:
+	if t >= 0.0 and t < float(rw["lines_s"]) + float(rw["hold_s"]) + float(rw["fade_s"]) + 0.5:
 		overlay.queue_redraw()
 
 
@@ -281,10 +417,18 @@ func _painting_alpha() -> float:
 
 
 # ---- drawing ------------------------------------------------------------------------------
-func _link(a: Vector2, b: Vector2, colour: Color, width: float) -> void:
-	var dark := Color(0.08, 0.08, 0.1, colour.a)
-	overlay.draw_line(a, b, dark, width + 2.0, true)
-	overlay.draw_line(a, b, colour, width, true)
+func _icon(name_: String, r: Rect2, colour: Color, px: float) -> void:
+	var tex := Icons.texture(name_, roundi(px))
+	overlay.draw_texture(tex, (r.get_center() - tex.get_size() * 0.5).round(), colour)
+
+
+func _text(s: String, y: float, px: float, colour: Color) -> float:
+	var font := ThemeDB.fallback_font
+	var fs := roundi(px * unit)
+	var align := HORIZONTAL_ALIGNMENT_CENTER
+	overlay.draw_multiline_string(font, Vector2(info.position.x, y + font.get_ascent(fs)), s,
+		align, info.size.x, fs, -1, colour)
+	return y + font.get_multiline_string_size(s, align, info.size.x, fs).y + 6.0 * unit
 
 
 func _draw_overlay() -> void:
@@ -292,98 +436,72 @@ func _draw_overlay() -> void:
 		return
 	var fg := _c("text")
 	var mid := _c("mid")
-	var accent := _c("accent")
-	var foam := level.foam
-	# the pairs just swapped
-	var age := (now - links_t0) / float(cfg["move"]["link_s"])
-	if age < 1.0 and solved_at < 0.0:
-		var c := Color(fg, 1.0 - age)
-		for k in range(0, links.size(), 2):
-			_link(site_px[links[k]], site_px[links[k + 1]], c, 2.0)
-	# the pointed group, the pairs that would swap, the two pointed cells
-	if hover_u >= 0 and solved_at < 0.0:
-		var g := foam.group_of(hover_u, hover_v)
-		var m := session.move_between(hover_u, hover_v)
-		for k in foam.pairs_u[g].size():
-			_link(site_px[foam.pairs_u[g][k]], site_px[foam.pairs_v[g][k]], Color(mid, 0.8), 1.0)
-		if m.x >= 0:
-			var back := not session.history.is_empty() and session.history[-1] == m
-			for k in foam.swapping(session.col, m.x, m.y, m.z):
-				_link(site_px[foam.pairs_u[g][k]], site_px[foam.pairs_v[g][k]], accent if back else fg, 3.0)
-		for c2 in [hover_u, hover_v]:
-			overlay.draw_circle(site_px[c2], 6.0, Color(0.08, 0.08, 0.1))
-			overlay.draw_circle(site_px[c2], 4.5, fg)
-	if solved_at >= 0.0:
-		overlay.draw_rect(rect.grow(6.0), accent, false, 3.0)
-	_draw_strip(fg, mid, accent)
-
-
-func _draw_strip(fg: Color, mid: Color, accent: Color) -> void:
-	var font := ThemeDB.fallback_font
 	var dim := _c("dim")
+	var accent := _c("accent")
+	var solved := solved_at >= 0.0
+	if solved:
+		overlay.draw_rect(rect.grow(6.0), accent, false, 3.0)
 	overlay.draw_rect(strip, _c("panel"))
-	var x := strip.position.x + 12.0
-	var w := strip.size.x - 24.0
-	overlay.draw_string(font, Vector2(x, 36.0), level.id, HORIZONTAL_ALIGNMENT_CENTER, w, 20, fg)
 	for name_ in buttons:
 		var r: Rect2 = buttons[name_]
-		overlay.draw_rect(r, _c("button"))
-		var c := r.get_center()
 		var on := fg
 		if (name_ == "undo" and session.history.is_empty()) or (name_ == "redo" and session.future.is_empty()):
 			on = dim
-		match name_:
-			"prev":
-				overlay.draw_colored_polygon([c + Vector2(-6, 0), c + Vector2(5, -7), c + Vector2(5, 7)], on)
-			"next":
-				overlay.draw_colored_polygon([c + Vector2(6, 0), c + Vector2(-5, -7), c + Vector2(-5, 7)], on)
-			"undo", "redo":
-				var s := -1.0 if name_ == "undo" else 1.0
-				overlay.draw_arc(c + Vector2(0, 3), 10.0, PI, TAU, 16, on, 2.5, true)
-				var tip := c + Vector2(10.0 * s, 3)
-				overlay.draw_colored_polygon([tip + Vector2(-6, 0), tip + Vector2(6, 0), tip + Vector2(0, 8)], on)
-			"reset":
-				overlay.draw_arc(c, 10.0, -0.25 * PI, 1.5 * PI, 20, on, 2.5, true)
-				var tip2 := c + Vector2(0, -10)
-				overlay.draw_colored_polygon([tip2 + Vector2(-2, -6), tip2 + Vector2(-2, 6), tip2 + Vector2(7, 0)], on)
+		var hot: bool = solved and name_ == "next"
+		overlay.draw_style_box(_box(accent if hot else _c("button"), 8.0 * unit), r)
+		var icon: String = "forward" if hot else name_
+		_icon(icon, r, _c("background") if hot else on, minf(r.size.x, r.size.y) * 0.62)
+	# level, count, messages
+	var y := info.position.y
+	if not portrait:
+		var font := ThemeDB.fallback_font
+		overlay.draw_string(font, Vector2(info.position.x, 38.0), level.id,
+			HORIZONTAL_ALIGNMENT_CENTER, info.size.x, 20, mid)
+	var msg: Dictionary = cfg["messages"]
 	var count := "%d / %d" % [session.moves(), level.par]
-	var good := solved_at >= 0.0 and session.moves() <= level.par
-	overlay.draw_string(font, Vector2(x, get_viewport_rect().size.y - 136.0), count,
-		HORIZONTAL_ALIGNMENT_CENTER, w, 22, accent if good else fg)
-	var a := _painting_alpha()
-	if a > 0.0:
-		overlay.draw_multiline_string(font, Vector2(x, 90.0), level.artist,
-			HORIZONTAL_ALIGNMENT_LEFT, w, 16, -1, Color(fg, a))
-		var lines := font.get_multiline_string_size(level.artist, HORIZONTAL_ALIGNMENT_LEFT, w, 16).y
-		overlay.draw_multiline_string(font, Vector2(x, 100.0 + lines), level.title,
-			HORIZONTAL_ALIGNMENT_LEFT, w, 14, -1, Color(mid, a))
+	if solved:
+		y = _text(msg["solved"], y, 20.0, accent)
+		var n := session.moves()
+		y = _text((msg["one_move"] % level.par) if n == 1 else (msg["moves"] % [n, level.par]), y, 15.0, fg)
+		var a := _painting_alpha()
+		if a > 0.0:
+			y = _text(level.artist, y + 10.0 * unit, 16.0, Color(fg, a))
+			y = _text(level.title, y, 14.0, Color(mid, a))
+	else:
+		var label := count if not portrait else "%s    %s" % [level.id, count]
+		_text(label, y if portrait else info.end.y - 30.0, 22.0, fg)
 
 
-# ---- headless check: solve every level by clicks ---------------------------------------------
-func _point_for(m: Vector3i) -> Vector2:
+func _box(colour: Color, radius: float) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = colour
+	sb.set_corner_radius_all(roundi(radius))
+	return sb
+
+
+# ---- headless check: solve every level by drags ---------------------------------------------
+## Drags from a cell of a pair of the move to its partner; false if no pair lets itself be
+## chosen that way.
+func _drag_move(m: Vector3i) -> bool:
 	var foam := level.foam
 	for k in foam.swapping(session.col, m.x, m.y, m.z):
-		for q in level.sides[foam.edge_of(foam.pairs_u[m.x][k], foam.pairs_v[m.x][k])]:
-			var pos := rect.position + q / Vector2(foam.aspect, 1.0) * rect.size
-			var p := pair_at(pos)
-			if p.x >= 0 and session.move_between(p.x, p.y) == m:
-				return pos
-	return Vector2(-1, -1)
-
-
-## Share of the edges that can be pointed at from a grid of points 6 screen pixels apart.
-func _pointable() -> float:
-	var seen := {}
-	var y := rect.position.y + 2.0
-	while y < rect.end.y:
-		var x := rect.position.x + 2.0
-		while x < rect.end.x:
-			var p := pair_at(Vector2(x, y))
-			if p.x >= 0:
-				seen[mini(p.x, p.y) * level.foam.n_cells + maxi(p.x, p.y)] = true
-			x += 6.0
-		y += 6.0
-	return seen.size() / float(level.foam.edge_u.size())
+		for pair in [[foam.pairs_u[m.x][k], foam.pairs_v[m.x][k]], [foam.pairs_v[m.x][k], foam.pairs_u[m.x][k]]]:
+			var u: int = pair[0]
+			var v: int = pair[1]
+			if level.cell_at((site_px[u] - rect.position) / rect.size) != u:
+				continue
+			var aim := (_side_mid(u, v) - site_px[u]).normalized()
+			var far := site_px[u].distance_to(site_px[v]) + 3.0 * float(cfg["drag"]["min_travel_px"]) * unit
+			press(site_px[u])
+			drag(site_px[u] + aim * 1.5 * float(cfg["drag"]["dead_px"]) * unit)
+			if drag_v == v and pending == m:
+				drag(site_px[u] + aim * far)
+				if committed:
+					release()
+					_settle()
+					return true
+			_drop()
+	return false
 
 
 func _smoke() -> void:
@@ -392,28 +510,34 @@ func _smoke() -> void:
 		_load(k)
 		var path := "res://tests/golden/%s.json" % ids[k]
 		var gold: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
-		var first := true
+		var good := true
+		# a short drag is only a preview: nothing is played
+		var m0 := Vector3i(int(gold["moves"][0][0]), int(gold["moves"][0][1]), int(gold["moves"][0][2]))
+		for kk in level.foam.swapping(session.col, m0.x, m0.y, m0.z):
+			var u := level.foam.pairs_u[m0.x][kk]
+			var v := level.foam.pairs_v[m0.x][kk]
+			press(site_px[u])
+			drag(site_px[u] + (site_px[v] - site_px[u]) * 0.3)
+			release()
+			_settle()
+			good = good and session.moves() == 0 and session.col == level.start
+			break
 		for mv in gold["moves"]:
 			var m := Vector3i(int(mv[0]), int(mv[1]), int(mv[2]))
-			var pos := _point_for(m)
-			if pos.x < 0.0:
-				ok = false
-				print("SMOKE %s: no point gives move %s" % [ids[k], m])
+			if not _drag_move(m):
+				good = false
+				print("SMOKE %s: no drag gives move %s" % [ids[k], m])
 				break
-			click(pos)
-			if first and not session.solved():  # the same click again takes the move back
-				click(pos)
-				ok = ok and session.moves() == 0 and session.col == level.start
-				click(pos)
-				first = false
-		var solved := session.solved() and session.moves() == level.par and solved_at >= 0.0
-		click(buttons["undo"].get_center())
-		solved = solved and not session.solved()
-		click(buttons["redo"].get_center())
-		solved = solved and session.solved()
-		click(buttons["reset"].get_center())
-		solved = solved and session.col == level.start
-		print("SMOKE %s: %s, %.3f of the edges can be pointed at" % [ids[k], "solved at par by clicks" if solved else "FAILED", _pointable()])
-		ok = ok and solved
+		good = good and session.solved() and session.moves() == level.par and solved_at >= 0.0
+		press(buttons["undo"].get_center())
+		_settle()
+		good = good and not session.solved() and session.moves() == level.par - 1
+		press(buttons["redo"].get_center())
+		_settle()
+		good = good and session.solved()
+		press(buttons["reset"].get_center())
+		good = good and session.col == level.start and session.moves() == 0
+		print("SMOKE %s: %s" % [ids[k], "solved at par by drags" if good else "FAILED"])
+		ok = ok and good
 	print("SMOKE ", "PASS" if ok else "FAIL")
 	get_tree().quit(0 if ok else 1)

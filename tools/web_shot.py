@@ -1,7 +1,9 @@
 """Screenshots of the web build in headless Chrome (no window), with the browser console.
 
     python tools/web_shot.py --out runs/web_shot [--level P01] [--wait 25]
-        [--do move:640,360 click:640,360 wait:1.5 key:z shot:name ...]
+        [--size 390x844]
+        [--do move:640,360 click:640,360 press:x,y drag:x,y release:x,y wait:1.5 key:z
+         shot:name ...]
 
 Serves game/export/web on a local port, opens index.html?level=ID in Chrome started with
 --headless=new, waits for the game, then runs the actions in order (pointer positions in
@@ -122,7 +124,12 @@ def main() -> None:
     ap.add_argument("--level", default="")
     ap.add_argument("--wait", type=float, default=25.0, help="seconds before the first action")
     ap.add_argument("--size", default="1280x720")
-    ap.add_argument("--do", nargs="*", default=[], help="move:x,y click:x,y key:c wait:s shot:name")
+    ap.add_argument(
+        "--do",
+        nargs="*",
+        default=[],
+        help="move: click: press: drag: release: (x,y) key:c wait:s shot:name",
+    )
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -178,6 +185,16 @@ def main() -> None:
                     x, y = (float(v) for v in arg.split(","))
                     mouse("mouseMoved", x, y)
                     mouse("mousePressed", x, y, button="left", clickCount=1)
+                    mouse("mouseReleased", x, y, button="left", clickCount=1)
+                elif verb == "press":
+                    x, y = (float(v) for v in arg.split(","))
+                    mouse("mouseMoved", x, y)
+                    mouse("mousePressed", x, y, button="left", buttons=1, clickCount=1)
+                elif verb == "drag":
+                    x, y = (float(v) for v in arg.split(","))
+                    mouse("mouseMoved", x, y, button="left", buttons=1)
+                elif verb == "release":
+                    x, y = (float(v) for v in arg.split(","))
                     mouse("mouseReleased", x, y, button="left", clickCount=1)
                 elif verb == "key":
                     code = ord(arg.upper())

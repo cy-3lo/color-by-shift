@@ -3,52 +3,60 @@
  "title": "",
  "foam": "grids/candidates/foam_P01.json",
  "colours": [
-  "#0d1b06",
-  "#25592b",
-  "#557c1c",
-  "#aaa814",
-  "#edb90a"
+  "#3a3f40",
+  "#215e98",
+  "#0b8370",
+  "#7f7e82",
+  "#dfa193"
  ],
  "picture": {
   "regions": [
    1,
-   2,
-   3,
-   3,
+   0,
+   1,
+   0,
    1,
    4,
    1,
+   1,
+   1,
+   0,
+   1,
+   3,
+   1,
+   3,
+   3,
+   1,
    0,
    2,
-   0,
-   1,
-   0,
-   0,
-   1,
+   4,
+   2,
+   2,
    2,
    3,
-   1
+   1,
+   2
   ]
  },
  "scramble": [
   {
-   "group": 7,
+   "group": 6,
    "pair": [
-    0,
-    1
+    2,
+    4
    ]
   },
   {
    "group": 4,
    "pair": [
     1,
-    2
+    4
    ]
   },
   {
-   "group": 5,
+   "group": 6,
    "pair": [
-    3,
+    0,
     4
    ]
   },
@@ -62,26 +70,26 @@
   {
    "group": 3,
    "pair": [
-    1,
-    2
+    2,
+    3
    ]
   },
   {
    "group": 1,
    "pair": [
     0,
-    2
+    4
    ]
   }
  ],
  "reward": {
-  "image": "assets/paintings/blakelock_moonlight.jpg",
+  "image": "assets/paintings/rp_matisse_dance.jpg",
   "crop": null,
   "anchor": [
    0.5,
    0.5
   ],
-  "artist": "Imitator of Ralph Albert Blakelock",
-  "title": "Moonlight"
+  "artist": "Henri Matisse",
+  "title": "Dance (I)"
  }
 }

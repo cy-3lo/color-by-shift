@@ -108,9 +108,8 @@ seed = 43
 # paintings picked by Chris on the pick page (2026-11-21), with their colours and cells
 [[painting]]
 id = "P01"
-picture = "blakelock_moonlight"
-palette = "contrast"
-share = 0.004
+picture = "rp_matisse_dance"
+palette = "present"
 cells = 400
 [[painting]]
 id = "P02"
@@ -119,88 +118,83 @@ palette = "present"
 cells = 400
 [[painting]]
 id = "P03"
-picture = "great_wave"
-palette = "contrast"
-share = 0.004
-cells = 400
-[[painting]]
-id = "P04"
-picture = "gris_fantomas"
-palette = "contrast"
-share = 0.02
-cells = 250
-[[painting]]
-id = "P05"
-picture = "gris_glass_and_checkerboard"
-palette = "contrast"
-share = 0.05
-cells = 400
-[[painting]]
-id = "P06"
-picture = "jawlensky_murnau"
-palette = "contrast"
-share = 0.004
-cells = 400
-[[painting]]
-id = "P07"
-picture = "kirchner_dance_hall_bellevue"
-palette = "contrast"
-share = 0.02
-cells = 400
-[[painting]]
-id = "P08"
 picture = "modigliani_nude_on_a_divan"
 palette = "contrast"
 share = 0.004
 cells = 400
 [[painting]]
+id = "P04"
+picture = "great_wave"
+palette = "contrast"
+share = 0.004
+cells = 400
+[[painting]]
+id = "P05"
+picture = "blakelock_moonlight"
+palette = "contrast"
+share = 0.004
+cells = 400
+[[painting]]
+id = "P06"
+picture = "gris_fantomas"
+palette = "contrast"
+share = 0.02
+cells = 250
+[[painting]]
+id = "P07"
+picture = "gris_glass_and_checkerboard"
+palette = "contrast"
+share = 0.05
+cells = 400
+[[painting]]
+id = "P08"
+picture = "jawlensky_murnau"
+palette = "contrast"
+share = 0.004
+cells = 400
+[[painting]]
 id = "P09"
+picture = "kirchner_dance_hall_bellevue"
+palette = "contrast"
+share = 0.02
+cells = 400
+[[painting]]
+id = "P10"
 picture = "portinari"
 palette = "contrast"
 share = 0.004
 cells = 400
 [[painting]]
-id = "P10"
+id = "P11"
 picture = "rp_fuji"
 palette = "contrast"
 share = 0.004
 cells = 250
 [[painting]]
-id = "P11"
-picture = "rp_great_wave"
-palette = "contrast"
-share = 0.004
-cells = 400
-[[painting]]
 id = "P12"
-picture = "rp_matisse_dance"
-palette = "present"
-cells = 400
-[[painting]]
-id = "P13"
 picture = "seurat_the_gardener"
 palette = "present"
 cells = 400
 [[painting]]
-id = "P14"
+id = "P13"
 picture = "sisley_the_road_from_moret"
 palette = "contrast"
 share = 0.004
 cells = 400
 [[painting]]
-id = "P15"
+id = "P14"
 picture = "tanner_the_seine"
 palette = "contrast"
 share = 0.004
 cells = 400
 [[painting]]
-id = "P16"
+id = "P15"
 picture = "vallotton_the_church_of_souain"
 palette = "contrast"
 share = 0.02
 cells = 600
 [[painting]]
-id = "P17"
+id = "P16"
 picture = "vallotton_the_wind"
 palette = "contrast"
 share = 0.02

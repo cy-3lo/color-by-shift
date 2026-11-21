@@ -1,11 +1,15 @@
 {
   "picture": {"margin": 15, "line_px": 1.6, "outline_px": 3.0},
-  "strip": {"width": 150},
+  "strip": {"width": 150, "bar_height": 150},
   "colours": {
     "background": "#1c1c22", "panel": "#26262e", "line": "#101014", "text": "#ece9e0",
     "mid": "#9694a0", "dim": "#5c5a68", "button": "#3a3a46", "accent": "#f0b45a"
   },
-  "move": {"fade_s": 0.18, "spread_s": 0.35, "link_s": 0.6},
+  "drag": {
+    "commit": 0.6, "release": 0.4, "dead_px": 8, "min_travel_px": 40, "rechoose": 0.3,
+    "follow_s": 0.06, "snap_s": 0.22, "back_s": 0.16, "front": 2.4
+  },
   "reward": {"lines_s": 0.8, "hold_s": 1.0, "fade_s": 2.5},
+  "messages": {"solved": "Picture recovered", "moves": "%d moves · par %d", "one_move": "1 move · par %d"},
   "start_level": ""
 }

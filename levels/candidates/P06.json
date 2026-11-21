@@ -3,67 +3,60 @@
  "title": "",
  "foam": "grids/candidates/foam_P06.json",
  "colours": [
-  "#293957",
-  "#4e7860",
-  "#c27422",
-  "#af8086",
-  "#c5b481"
+  "#090908",
+  "#89582b",
+  "#339158",
+  "#e7da68",
+  "#deddd1"
  ],
  "picture": {
   "regions": [
    1,
-   3,
-   0,
-   3,
-   1,
-   1,
-   3,
-   1,
-   4,
-   1,
-   3,
-   4,
-   4,
-   4,
-   1,
    4,
    0,
    3,
    1,
-   4,
-   3,
    1,
+   1,
+   1,
+   4,
    2,
    0,
-   1,
+   4,
    3,
+   1,
+   1,
    4,
    2,
-   4,
    1,
    3,
-   0
+   0,
+   0,
+   4,
+   1,
+   1,
+   1
   ]
  },
  "scramble": [
   {
-   "group": 7,
+   "group": 6,
    "pair": [
-    0,
-    1
+    1,
+    2
    ]
   },
   {
    "group": 4,
    "pair": [
-    1,
+    0,
     3
    ]
   },
   {
    "group": 5,
    "pair": [
-    3,
+    0,
     4
    ]
   },
@@ -77,26 +70,26 @@
   {
    "group": 3,
    "pair": [
-    2,
-    4
+    1,
+    2
    ]
   },
   {
    "group": 1,
    "pair": [
     0,
-    3
+    2
    ]
   }
  ],
  "reward": {
-  "image": "assets/paintings/jawlensky_murnau.jpg",
+  "image": "assets/paintings/gris_fantomas.jpg",
   "crop": null,
   "anchor": [
    0.5,
    0.5
   ],
-  "artist": "Alexej von Jawlensky",
-  "title": "Murnau"
+  "artist": "Juan Gris",
+  "title": "Fantomas"
  }
 }

@@ -3,35 +3,21 @@
  "title": "",
  "foam": "grids/candidates/foam_P11.json",
  "colours": [
-  "#1b2143",
-  "#3c342b",
-  "#917c58",
-  "#6c9295",
-  "#d4cfbf"
+  "#2f4264",
+  "#6c798b",
+  "#abacad",
+  "#c7b07a",
+  "#ebe6d5"
  ],
  "picture": {
   "regions": [
-   4,
-   3,
-   0,
-   3,
    3,
    4,
-   2,
-   1,
-   3,
-   0,
-   2,
-   4,
-   2,
    1,
    0,
    0,
    2,
-   4,
-   4,
-   0,
-   0,
+   1,
    0
   ]
  },
@@ -39,21 +25,21 @@
   {
    "group": 6,
    "pair": [
-    2,
+    3,
     4
    ]
   },
   {
-   "group": 4,
+   "group": 3,
    "pair": [
-    0,
-    2
+    3,
+    4
    ]
   },
   {
-   "group": 5,
+   "group": 6,
    "pair": [
-    3,
+    0,
     4
    ]
   },
@@ -67,7 +53,7 @@
   {
    "group": 3,
    "pair": [
-    2,
+    1,
     4
    ]
   },
@@ -80,13 +66,13 @@
   }
  ],
  "reward": {
-  "image": "assets/paintings/rp_great_wave.jpg",
+  "image": "assets/paintings/rp_fuji.jpg",
   "crop": null,
   "anchor": [
    0.5,
    0.5
   ],
-  "artist": "Katsushika Hokusai",
-  "title": "Under the Wave off Kanagawa (another impression)"
+  "artist": "Kamisaka Sekka (?)",
+  "title": "Mount Fuji"
  }
 }

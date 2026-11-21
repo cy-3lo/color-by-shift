@@ -185,10 +185,6 @@
   Downloaded by Chris from rawpixel.com, image id 2049919, https://www.rawpixel.com/image/2049919
   Cut to 4:3 and reduced by tools/make_painting_level.py. Licence: to confirm before release. Downloaded 2026-11-21.
 
-- rp_great_wave.jpg: Katsushika Hokusai, *Under the Wave off Kanagawa*, c. 1830-32, woodblock print (another impression).
-  Downloaded by Chris from rawpixel.com, image id 426278, https://www.rawpixel.com/image/426278
-  Paper margin trimmed, cut to 4:3 and reduced. Licence: public domain (artist died 1849); scan licence to confirm. Downloaded 2026-11-21.
-
 - rp_matisse_dance.jpg: Henri Matisse, *Dance (I)*, 1909, oil on canvas (title read from the picture, to confirm).
   Downloaded by Chris from rawpixel.com, image id 22769428, https://www.rawpixel.com/image/22769428
   Cut to 4:3 and reduced. Licence: Matisse died in 1954, public domain in France since 2025; status elsewhere to confirm before release. Downloaded 2026-11-21.
