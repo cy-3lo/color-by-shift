@@ -10,7 +10,8 @@ can only drag a cell toward a neighbour, so that their two colors shift places. 
 is repeated at once on every pair of the same kind across the picture. Undo the scrambling
 and the painting comes back.
 
-**Play in the browser:** *(itch.io link to come)*
+**Play in the browser:** *(itch.io link to come)*  
+**Source:** <https://github.com/cy-3lo/color-by-shift>
 
 ## How to play
 
@@ -87,6 +88,9 @@ The game is made with [Godot](https://godotengine.org) 4.7.2 (GDScript, Compatib
 renderer). Its project is in [game/](game/).
 
 ```sh
+git clone https://github.com/cy-3lo/color-by-shift.git
+cd color-by-shift
+
 # run the game
 godot --path game
 
@@ -121,7 +125,8 @@ python -m venv .venv
 ```
 
 Other tools: `tools/make_sounds.py` synthesizes the two sounds, `tools/make_cover.py` draws
-the itch.io cover and banner, and `tools/fetch_icons.py` downloads the icons.
+the itch.io cover and banner, `tools/itch_shots.py` takes its screenshots, and
+`tools/fetch_icons.py` downloads the icons.
 
 ### Repository layout
 
@@ -131,12 +136,13 @@ model/         Python package mosaic_model (foam generator, solver) and its test
 tools/         level pipeline, export to Godot, sounds, cover and banner, web template options
 levels/ grids/ level and foam files
 assets/        painting scans and their sources, the font of the cover
-docs/itch/     cover and banner of the itch.io page
+docs/itch/     cover, banner, screenshots and page text of the itch.io page
 toy/           pygame prototypes from the design phase
 ```
 
-The repository also keeps the code of an earlier design, a reaction mosaic on a hexagonal
-grid (the `mosaic_model` reaction modules, `toy/viewer.py`). The game does not use it.
+The Python package keeps the project's first name, `mosaic_model`. The repository also keeps
+the code of an earlier design, a reaction mosaic on a hexagonal grid (the `mosaic_model`
+reaction modules, `toy/viewer.py`). The game does not use it.
 
 ## Credits
 
