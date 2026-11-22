@@ -193,7 +193,9 @@ def main() -> None:
         (gold / f"{lid}.json").write_text(json.dumps(golden, separators=(",", ":")))
         if data["painting"]:
             painting(level, args.width).save(out / "paintings" / data["painting"], quality=88)
-        index.append({"id": lid, "kind": "painting" if data["painting"] else "learning"})
+        index.append(
+            {"id": lid, "kind": "painting" if data["painting"] else "learning", "par": data["par"]}
+        )
         if data["painting"]:
             image = (level.reward or {})["image"]
             credits.append(

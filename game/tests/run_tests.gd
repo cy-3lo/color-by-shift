@@ -11,6 +11,7 @@ func _init() -> void:
 	for entry in index["levels"]:
 		_level(entry["id"])
 	_refusals()
+	_progress()
 	print("TESTS %d checks, %d failed: %s" % [_checks, _fails, "PASS" if _fails == 0 else "FAIL"])
 	quit(0 if _fails == 0 else 1)
 
@@ -131,6 +132,32 @@ func _follow(lv: FoamLevel, s: Session, area: PackedFloat32Array) -> int:
 		s.play(nm[0])
 		steps += 1
 	return steps
+
+
+## Levels open one by one until the last level of par 2 or less is solved, then all open;
+## progress survives a save and a load.
+func _progress() -> void:
+	var ids: Array[String] = ["A", "B", "C", "D", "E", "F"]
+	var pars := [1, 1, 2, 2, 3, 4]
+	var path := "user://test_progress.json"
+	var pr := Progress.new(ids, pars, 2, path)
+	pr.solved.clear()
+	_ok(pr.open_all_after == 3, "progress: level that opens all")
+	_ok(pr.is_open(0) and not pr.is_open(1) and pr.start() == 0, "progress: only the first open")
+	pr.mark_solved(0)
+	_ok(pr.is_open(1) and not pr.is_open(2) and pr.start() == 1, "progress: solving opens the next")
+	pr.mark_solved(1)
+	pr.mark_solved(2)
+	_ok(pr.is_open(3) and not pr.is_open(4) and not pr.is_open(5), "progress: still one by one")
+	pr.mark_solved(3)
+	_ok(pr.is_open(4) and pr.is_open(5), "progress: all open after the last par-2 level")
+	pr.set_current(5)
+	var back := Progress.new(ids, pars, 2, path)
+	_ok(back.solved.size() == 4 and back.start() == 5 and back.is_open(5), "progress: saved and loaded")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var fresh := Progress.new(ids, pars, 2, "")
+	fresh.current = "F"
+	_ok(fresh.start() == 0, "progress: a closed current level is not a start")
 
 
 func _refusals() -> void:

@@ -3,8 +3,8 @@
     python tools/fetch_icons.py
 
 For every library below: reads the latest version and the licence from its package.json,
-downloads the SVG files of that exact version (next, reset, undo, redo; credits and
-settings for the Ionicons sets, which the game also uses for the other sets), normalises
+downloads the SVG files of that exact version (next, reset, undo, redo; credits,
+settings and lock for the Ionicons sets, which the game also uses for the other sets), normalises
 them (24 x 24, white instead of currentColor) and writes game/data/icons.json ({set:
 {package, version, licence, icons: {name: svg}}}) and game/data/ICONS.md (credits). A set
 with a missing file is left out and reported. The game draws them with game/ui/icons.gd.
@@ -178,6 +178,7 @@ SETS = {
             "redo": "dist/svg/arrow-redo.svg",
             "credits": "dist/svg/information-circle.svg",
             "settings": "dist/svg/settings.svg",
+            "lock": "dist/svg/lock-closed.svg",
         },
     ),
     "ionicons-outline": (
@@ -189,6 +190,7 @@ SETS = {
             "redo": "dist/svg/arrow-redo-outline.svg",
             "credits": "dist/svg/information-circle-outline.svg",
             "settings": "dist/svg/settings-outline.svg",
+            "lock": "dist/svg/lock-closed-outline.svg",
         },
     ),
     "fluent": (

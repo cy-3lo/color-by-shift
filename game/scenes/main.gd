@@ -13,6 +13,9 @@ extends Control
 ## Hints (a setting): after hint.after_s seconds without any action, a cell of the next move
 ## gets an orange edge (sim/hint.gd: the largest misplaced cell that the next move swaps; the
 ## next move is the undo when the player has strayed).
+## Levels: a press on the level number shows every level on a grid (grey solved, white with a
+## lock still closed, orange current); levels open one by one (sim/progress.gd), kept in
+## user://progress.json.
 ## Options after "--": --level=ID, --solved (shows the level recovered, to look at the
 ## reward), --smoke (headless: solve every level by drags). In a browser:
 ## index.html?level=ID&solved.
@@ -44,7 +47,9 @@ var eased := 0.0  ## progress of the move as drawn
 var buttons := {}  ## name -> Rect2
 const BUTTONS: Array[String] = ["reset", "next", "undo", "redo", "credits", "settings"]
 var room := Rect2()  ## the part of the window left to the picture
-var panel := ""  ## "", "credits" or "settings": the panel open over the picture
+var panel := ""  ## "", "credits", "settings" or "levels": the panel open over the picture
+var progress: Progress
+var level_tiles: Array[Rect2] = []  ## levels panel: one square per level
 var panel_rect := Rect2()
 var rows := {}  ## settings panel: "sound", "fullscreen" -> Rect2
 var settings := {"sound": true, "hints": true}  ## kept in user://settings.json
@@ -84,8 +89,10 @@ var preview := false  ## start from the recovered picture
 func _ready() -> void:
 	cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/config.json"))
 	var index: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/index.json"))
+	var pars := []
 	for e in index["levels"]:
 		ids.append(e["id"])
+		pars.append(int(e.get("par", 0)))
 	var want: String = cfg.get("start_level", "")
 	icon_set = cfg.get("icons", "solid")
 	var smoke := false
@@ -100,7 +107,11 @@ func _ready() -> void:
 			if part.begins_with("level="):
 				want = part.get_slice("=", 1)
 			preview = preview or part == "solved"
-	at = maxi(ids.find(want), 0)
+	# no progress written by the headless drag test or the reward preview
+	var keep := "" if smoke or preview else "user://progress.json"
+	progress = Progress.new(ids, pars, int(cfg["levels"]["open_all_par"]), keep)
+	progress.all_open = smoke
+	at = ids.find(want) if ids.has(want) else progress.start()
 
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var bg := ColorRect.new()
@@ -183,6 +194,7 @@ func _tada() -> void:
 # ---- level --------------------------------------------------------------------------------
 func _load(k: int) -> void:
 	at = posmod(k, ids.size())
+	progress.set_current(at)
 	level = FoamLevel.load_level(ids[at])
 	if not level.error.is_empty():
 		push_error("%s: %s" % [ids[at], level.error])
@@ -296,6 +308,14 @@ func _layout() -> void:
 	var rw := minf(panel_rect.size.x * 0.6, 420.0 * unit)
 	var rh := 64.0 * unit
 	var c := panel_rect.get_center()
+	var cols := 3 if portrait else 5
+	var nrows := ceili(ids.size() / float(cols))
+	var side_t := minf((panel_rect.size.x - pad * (cols + 1)) / cols, (panel_rect.size.y - pad * (nrows + 1)) / nrows)
+	side_t = minf(side_t, 150.0 * unit)
+	var o := c - Vector2(cols * side_t + (cols - 1) * pad, nrows * side_t + (nrows - 1) * pad) * 0.5
+	level_tiles.clear()
+	for i in ids.size():
+		level_tiles.append(Rect2(o + Vector2(i % cols, i / cols) * (side_t + pad), Vector2(side_t, side_t)))
 	rows = {
 		"sound": Rect2(c.x - rw * 0.5, c.y - 1.5 * rh - 2.0 * pad, rw, rh),
 		"hints": Rect2(c.x - rw * 0.5, c.y - 0.5 * rh, rw, rh),
@@ -360,6 +380,7 @@ func _apply() -> void:
 	solved_at = now if session.solved() else -1.0
 	if solved_at >= 0.0 and not was:
 		_tada()
+		progress.mark_solved(at)
 	if rewinding:
 		if session.history.is_empty():
 			rewinding = false
@@ -398,6 +419,21 @@ func press(pos: Vector2) -> void:
 		if buttons[name_].has_point(pos):
 			_press_button(name_)
 			return
+	if boxes["number"].has_point(pos):  # the level number: the grid of levels
+		panel = "" if panel == "levels" else "levels"
+		_settle()
+		overlay.queue_redraw()
+		return
+	if panel == "levels":  # an open level: go there; a closed one: nothing; elsewhere: close
+		for i in level_tiles.size():
+			if level_tiles[i].has_point(pos):
+				if progress.is_open(i):
+					panel = ""
+					_load(i)
+				return
+		panel = ""
+		overlay.queue_redraw()
+		return
 	if not panel.is_empty():  # a press on the panel: a setting, or closes it
 		if panel == "settings" and rows["sound"].has_point(pos):
 			settings["sound"] = not settings["sound"]
@@ -499,9 +535,9 @@ func _press_button(name_: String) -> void:
 	panel = ""
 	match name_:
 		"prev":
-			_load(at - 1)
+			_go(at - 1)
 		"next":
-			_load(at + 1)
+			_go(at + 1)
 		"undo":
 			_settle()
 			if not session.history.is_empty():
@@ -513,7 +549,7 @@ func _press_button(name_: String) -> void:
 		"reset":  # back: to the start of the level, or to the level before if nothing was played
 			_settle()
 			if session.moves() == 0 and session.future.is_empty():
-				_load(at - 1)
+				_go(at - 1)
 			elif session.history.is_empty():
 				session.reset()
 				_upload()
@@ -522,6 +558,12 @@ func _press_button(name_: String) -> void:
 				solved_at = -1.0
 				_start(session.history[-1], "undo")
 	overlay.queue_redraw()
+
+
+## Goes to level k (wrapping round) if it is open.
+func _go(k: int) -> void:
+	if progress.is_open(posmod(k, ids.size())):
+		_load(k)
 
 
 func _input(event: InputEvent) -> void:
@@ -731,10 +773,15 @@ func _draw_overlay() -> void:
 		overlay.draw_polyline(edge, col, float(hc["width_px"]) * unit, true)
 	overlay.draw_rect(strip, _c("panel"))
 	for name_ in boxes:
-		overlay.draw_style_box(_box(_c("button")), boxes[name_])
+		var lit: bool = name_ == "number" and panel == "levels"
+		overlay.draw_style_box(_box(accent if lit else _c("button")), boxes[name_])
 	# level number, "LEVEL" above it (and the icon set just chosen with key I under it)
 	var st: Dictionary = cfg["strip"]
-	var number: Array = [["LEVEL", float(st["label_size"]), mid], ["%02d" % (at + 1), float(st["number_size"]), fg]]
+	var lit_n := panel == "levels"
+	var number: Array = [
+		["LEVEL", float(st["label_size"]), _c("background") if lit_n else mid],
+		["%02d" % (at + 1), float(st["number_size"]), _c("background") if lit_n else fg],
+	]
 	if note_until >= 0.0:
 		number.append([note, 12.0, accent])
 	_lines(boxes["number"], number)
@@ -754,6 +801,8 @@ func _draw_overlay() -> void:
 		var on := fg
 		if (name_ == "undo" and session.history.is_empty()) or (name_ == "redo" and session.future.is_empty()):
 			on = dim
+		if name_ == "next" and not progress.is_open(posmod(at + 1, ids.size())):
+			on = dim
 		var hot: bool = (solved and name_ == "next") or name_ == panel
 		overlay.draw_style_box(_box(accent if hot else _c("button")), r)
 		var tex := Icons.texture(icon_set, name_, roundi(r.size.x * float(cfg["strip"]["icon"])))
@@ -770,7 +819,20 @@ func _draw_panel() -> void:
 	var back := _c("panel")
 	back.a = 0.97
 	overlay.draw_style_box(_box(back), panel_rect)
-	if panel == "credits":
+	if panel == "levels":
+		var lc: Dictionary = cfg["levels"]
+		var ink := Color.html(lc["ink"])
+		for i in level_tiles.size():
+			var r := level_tiles[i]
+			var open := progress.is_open(i)
+			var key := "current" if i == at else ("done" if progress.is_solved(i) else "open")
+			overlay.draw_style_box(_box(Color.html(lc[key])), r)
+			if open:
+				_lines(r, [["%02d" % (i + 1), r.size.x * 0.34 / unit, ink]])
+			else:
+				var tex := Icons.texture(icon_set, "lock", roundi(r.size.x * 0.42))
+				overlay.draw_texture(tex, (r.get_center() - tex.get_size() * 0.5).round(), ink)
+	elif panel == "credits":
 		var cc: Dictionary = cfg["credits"]
 		var lines: Array = [[cc["title"], 30.0, fg]]
 		for l in cc["lines"]:
