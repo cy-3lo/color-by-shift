@@ -121,6 +121,10 @@
   The Cleveland Museum of Art, Open Access (CC0), accession 1967.215, https://www.clevelandart.org/art/1967.215
   (print image 3352 x 3400 reduced to 1600 px; the frame is cropped by the entry in toy/toy.toml). Downloaded 2026-11-21.
 
+- degas_frieze_of_dancers.jpg: Edgar Degas, *Frieze of Dancers*, c. 1895 (oil on fabric, 70 x 200.5 cm).
+  The Cleveland Museum of Art, Open Access (CC0), accession 1946.83, https://www.clevelandart.org/art/1946.83
+  (print image 3400 x 1187 reduced to 2400 px). Used for the itch.io banner, not a level. Downloaded 2026-11-22.
+
 - bellows_blue_morning.jpg: George Bellows, *Blue Morning*, 1909.
   National Gallery of Art, Washington, Open Access (CC0), object 46557, https://www.nga.gov/artworks/46557
   (small image). Downloaded 2026-11-20.

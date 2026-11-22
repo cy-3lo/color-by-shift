@@ -1,0 +1,12 @@
+# The painting of the itch.io banner (tools/make_cover.py --banner): not a level of the game.
+# Same keys as a [[pictures]] entry of toy/toy.toml, read by tools/make_painting_level.build.
+[[pictures]]
+key = "degas_frieze_of_dancers"
+file = "assets/paintings/degas_frieze_of_dancers.jpg"
+artist = "Edgar Degas"
+title = "Frieze of Dancers"
+aspect = 2.864        # the painting's own shape (2400 x 838)
+res = 192             # width of the quantised picture
+# colours fixed by hand from the scan (each pixel takes the nearest in Lab): ochre ground,
+# floor, grey tutu, pale highlight, orange hair, green
+colours = ["#6a5236", "#6c604c", "#58564f", "#8c8779", "#7f461b", "#2e4832"]
