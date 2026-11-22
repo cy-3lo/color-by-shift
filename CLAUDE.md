@@ -13,7 +13,7 @@ Title "Color by Shift" (Chris, 2026-11-21; the repo and the Python package keep 
 
 ## Status
 
-- CURRENT: Step 3 of the Plan, ergonomics (the brief was rewritten on 2026-11-21 at Chris's request: foam colour-by-shift puzzle in Godot)
+- CURRENT: submitted on 2026-11-22 (tag v1.0-gameoff); before that, Step 3 of the Plan, ergonomics (the brief was rewritten on 2026-11-21 at Chris's request: foam colour-by-shift puzzle in Godot)
 - 2026-11-18: brief written; nothing built yet.
 - 2026-11-18: Phase 0 done: repo celoy/mosaic (MIT), .venv + pytest, Godot 4.7.2 web benchmark ≈ 890 sweeps/s at 64 × 64 in headless Chrome (docs/phase0_benchmark.md); grid size 64 × 64 proposed. Waiting for go on Phase 1.
 - 2026-11-18: Phase 1 built (grid 64 × 64 confirmed by Chris): mosaic_model, tests 1–7 pass, science checks 1–4 run (docs/phase1_notes.md), pygame viewer, test levels T01–T03. Gate B pending: Chris plays the viewer.
@@ -99,6 +99,7 @@ Title "Color by Shift" (Chris, 2026-11-21; the repo and the Python package keep 
 - 2026-11-22: Chris: repository transferred from celoy/mosaic to the organization cy-3lo (https://github.com/cy-3lo/mosaic, public; GitHub redirects the old address); origin updated, the 70 unpushed commits pushed; source link filled in docs/itch/page.md.
 - 2026-11-22: Chris: repository renamed cy-3lo/color-by-shift (https://github.com/cy-3lo/color-by-shift; old addresses redirect); origin and the itch page link updated. The local folder and the Python package keep the name mosaic.
 - 2026-11-22: itch page public: https://cy-3lo.itch.io/color-by-shift (theme in the Degas banner colours); link in README.md. Chris and an outside player tested the build: good. Next: submission to the jam (Mon 30 Nov).
+- 2026-11-22: Chris submitted Color by Shift to GitHub Game Off 2026; the submitted state is tagged v1.0-gameoff (the game is unchanged since c018d49, later commits are docs and tools only).
 ## Deadline and jam
 
 - GitHub Game Off 2026, theme SHIFT. Submissions close 1 December 2026 at 21:37 UTC (13:37 PST). Target submission: Monday 30 November, evening (Paris time).
