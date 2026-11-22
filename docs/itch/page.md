@@ -8,7 +8,7 @@ Solve the puzzle and the painting comes back.
 ---
 
 Made for GitHub Game Off 2026 (theme: Shift). A game by Cy-3LO.
-Source: https://github.com/cy-3lo/mosaic
+Source: https://github.com/cy-3lo/color-by-shift
 
 Paintings: 15 public-domain works from The Cleveland Museum of Art, The Metropolitan Museum
 of Art, the National Gallery of Art (Washington) and rawpixel (CC0). Icons: Ionicons (MIT).
