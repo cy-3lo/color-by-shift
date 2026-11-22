@@ -10,7 +10,7 @@ can only drag a cell toward a neighbour, so that their two colors shift places. 
 is repeated at once on every pair of the same kind across the picture. Undo the scrambling
 and the painting comes back.
 
-**Play in the browser:** *(itch.io link to come)*  
+**Play in the browser:** <https://cy-3lo.itch.io/color-by-shift>  
 **Source:** <https://github.com/cy-3lo/color-by-shift>
 
 ## How to play

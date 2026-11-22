@@ -98,6 +98,7 @@ Title "Color by Shift" (Chris, 2026-11-21; the repo and the Python package keep 
 - 2026-11-22: itch page: screenshots by tools/itch_shots.py (drags computed from the level data the way main.gd reads them; web_shot.py now sets the page to exactly --size and takes arrow keys) in docs/itch/screenshots (Great Wave mid-drag, Gris with the hint, Matisse lines fading and scan with the name box, level grid after three levels); page text in docs/itch/page.md, kept to two lines of instructions at Chris's request, plus jam, credits and AI-use lines.
 - 2026-11-22: Chris: repository transferred from celoy/mosaic to the organization cy-3lo (https://github.com/cy-3lo/mosaic, public; GitHub redirects the old address); origin updated, the 70 unpushed commits pushed; source link filled in docs/itch/page.md.
 - 2026-11-22: Chris: repository renamed cy-3lo/color-by-shift (https://github.com/cy-3lo/color-by-shift; old addresses redirect); origin and the itch page link updated. The local folder and the Python package keep the name mosaic.
+- 2026-11-22: itch page public: https://cy-3lo.itch.io/color-by-shift (theme in the Degas banner colours); link in README.md. Chris and an outside player tested the build: good. Next: submission to the jam (Mon 30 Nov).
 ## Deadline and jam
 
 - GitHub Game Off 2026, theme SHIFT. Submissions close 1 December 2026 at 21:37 UTC (13:37 PST). Target submission: Monday 30 November, evening (Paris time).
