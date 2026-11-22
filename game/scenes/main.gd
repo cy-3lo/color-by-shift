@@ -72,6 +72,7 @@ var plucks: Array[AudioStreamPlayer] = []
 var next_pluck := 0
 var tada_player: AudioStreamPlayer
 var credits := {}
+var fullscreen_ok := true  ## the browser lets the page go full screen (not on an iPhone)
 
 var picture: ColorRect
 var view: Control  ## clips the zoomed picture to base
@@ -157,6 +158,9 @@ func _ready() -> void:
 	_audio_setup()
 	var c: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/credits.json"))
 	credits = c if typeof(c) == TYPE_DICTIONARY else {}
+	if OS.has_feature("web"):  # Safari on iPhone has no full screen for pages, nor an iframe without it
+		fullscreen_ok = str(JavaScriptBridge.eval(
+			"!!(document.fullscreenEnabled || document.webkitFullscreenEnabled)", true)) == "true"
 	_load(at)
 	if smoke:
 		_smoke()
@@ -356,11 +360,12 @@ func _layout() -> void:
 	level_tiles.clear()
 	for i in ids.size():
 		level_tiles.append(Rect2(o + Vector2(i % cols, i / cols) * (side_t + pad), Vector2(side_t, side_t)))
-	rows = {
-		"sound": Rect2(c.x - rw * 0.5, c.y - 1.5 * rh - 2.0 * pad, rw, rh),
-		"hints": Rect2(c.x - rw * 0.5, c.y - 0.5 * rh, rw, rh),
-		"fullscreen": Rect2(c.x - rw * 0.5, c.y + 0.5 * rh + 2.0 * pad, rw, rh),
-	}
+	var names_r := ["sound", "hints", "fullscreen"] if fullscreen_ok else ["sound", "hints"]
+	rows = {}
+	var y_r := c.y - (names_r.size() * rh + (names_r.size() - 1) * 2.0 * pad) * 0.5
+	for name_ in names_r:  # centred, one under the other
+		rows[name_] = Rect2(c.x - rw * 0.5, y_r, rw, rh)
+		y_r += rh + 2.0 * pad
 	overlay.queue_redraw()
 
 
@@ -542,7 +547,7 @@ func press(pos: Vector2) -> void:
 		elif panel == "settings" and rows["hints"].has_point(pos):
 			settings["hints"] = not settings["hints"]
 			_save_settings()
-		elif panel == "settings" and rows["fullscreen"].has_point(pos):
+		elif panel == "settings" and rows.has("fullscreen") and rows["fullscreen"].has_point(pos):
 			var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 			DisplayServer.window_set_mode(
 				DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
@@ -780,7 +785,7 @@ func _process(delta: float) -> void:
 	material_.set_shader_parameter("line_alpha", 1.0 - flat)
 	material_.set_shader_parameter("outline_alpha", flat)
 	material_.set_shader_parameter("painting_mix", _painting_alpha())
-	if t >= 0.0 and t < float(rw["lines_s"]) + float(rw["hold_s"]) + float(rw["fade_s"]) + 0.5:
+	if t >= 0.0 and t < _reveal_end() + float(cfg["popup"]["out_s"]) + 0.5:
 		overlay.queue_redraw()
 	var h := _hint_cell()
 	if h != hint_shown or h >= 0:  # appears, goes, or pulses
@@ -800,6 +805,24 @@ func _hint_cell() -> int:
 		hint_cached = Hint.cell(level, session.col, session.history, cell_area)
 	return hint_cached
 
+
+
+## Seconds from the recovery to the painting fully shown.
+func _reveal_end() -> float:
+	var rw: Dictionary = cfg["reward"]
+	return float(rw["lines_s"]) + float(rw["hold_s"]) + float(rw["fade_s"])
+
+
+## Opacity of the box with the painter and the title: in when the picture is recovered, out
+## once the painting is fully shown.
+func _popup_alpha() -> float:
+	if solved_at < 0.0 or level.artist.is_empty():
+		return 0.0
+	var pc: Dictionary = cfg["popup"]
+	var t := now - solved_at
+	var a_in := clampf(t / float(pc["in_s"]), 0.0, 1.0)
+	var a_out := 1.0 - clampf((t - _reveal_end()) / float(pc["out_s"]), 0.0, 1.0)
+	return minf(a_in, a_out)
 
 
 func _painting_alpha() -> float:
@@ -911,6 +934,20 @@ func _draw_overlay() -> void:
 	if solved:
 		overlay.draw_rect(base.grow(6.0), accent, false, 3.0)
 	marks.queue_redraw()
+	var pa := _popup_alpha()
+	if pa > 0.0:  # painter, title and date at the bottom middle of the painting
+		var pc: Dictionary = cfg["popup"]
+		var w := minf(base.size.x * float(pc["width"]), 460.0 * unit)
+		var h := 84.0 * unit
+		var box := Rect2(base.get_center().x - w * 0.5, base.end.y - h - 14.0 * unit, w, h)
+		var back := _c("panel")
+		back.a = 0.92 * pa
+		overlay.draw_style_box(_box(back), box)
+		var tx := [fg, mid]
+		for k in 2:
+			tx[k] = Color(tx[k], tx[k].a * pa)
+		var what := level.title + (", " + level.date if not level.date.is_empty() else "")
+		_lines(box, [[level.artist, 18.0, tx[0]], [what, 15.0, tx[1]]])
 	overlay.draw_rect(strip, _c("panel"))
 	for name_ in boxes:
 		var lit: bool = name_ == "number" and panel == "levels"
@@ -980,8 +1017,12 @@ func _draw_panel() -> void:
 			var open := progress.is_open(i)
 			var key := "current" if i == at else ("done" if progress.is_solved(i) else "open")
 			overlay.draw_style_box(_box(Color.html(lc[key])), r)
-			if open or i == at:  # the current level shows its number (opened by --level too)
-				_lines(r, [["%02d" % (i + 1), r.size.x * 0.34 / unit, ink]])
+			if open or i == at:  # the number and the painter's last name (the current level, too)
+				var who := ""
+				var ps: Array = credits.get("paintings", [])
+				if i < ps.size():
+					who = String(ps[i]["artist"]).split(" ")[-1]
+				_lines(r, [["%02d" % (i + 1), r.size.x * 0.3 / unit, ink], [who, r.size.x * 0.11 / unit, ink]])
 			else:
 				var tex := Icons.texture("lock", roundi(r.size.x * 0.42))
 				overlay.draw_texture(tex, (r.get_center() - tex.get_size() * 0.5).round(), ink)

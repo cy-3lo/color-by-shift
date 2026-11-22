@@ -10,6 +10,7 @@
     "follow_s": 0.06, "snap_s": 0.3, "rewind_s": 0.14, "back_s": 0.18, "lift": 0.08
   },
   "reward": {"lines_s": 0.8, "hold_s": 1.0, "fade_s": 2.5},
+  "popup": {"in_s": 0.4, "out_s": 0.8, "width": 0.7},
   "audio": {
     "pluck_db": -10.0, "pairs_db": 2.0, "rewind_db": -8.0, "tada_db": -4.0,
     "scale": [1.0, 1.125, 1.25, 1.5, 1.6667, 2.0, 2.25, 2.5]
