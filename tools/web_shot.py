@@ -2,7 +2,7 @@
 
     python tools/web_shot.py --out runs/web_shot [--level P01] [--wait 25]
         [--size 390x844]
-        [--do move:640,360 click:640,360 press:x,y drag:x,y release:x,y wait:1.5 key:z
+        [--do move:640,360 click:640,360 press:x,y drag:x,y release:x,y wait:1.5 key:z key:ArrowDown
          shot:name ...]
 
 Serves game/export/web on a local port, opens index.html?level=ID in Chrome started with
@@ -31,6 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+ARROWS = {"ArrowLeft": 37, "ArrowUp": 38, "ArrowRight": 39, "ArrowDown": 40}
 
 
 class DevTools:
@@ -165,6 +166,11 @@ def main() -> None:
             dev = DevTools(page["webSocketDebuggerUrl"])
             dev.call("Runtime.enable")
             dev.call("Page.enable")
+            # the page exactly --size (the window alone leaves room for browser bars)
+            dev.call(
+                "Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1,
+                mobile=False,
+            )  # fmt: skip
             dev.call("Page.navigate", url=url)
             dev.wait(args.wait)
 
@@ -197,11 +203,14 @@ def main() -> None:
                     x, y = (float(v) for v in arg.split(","))
                     mouse("mouseReleased", x, y, button="left", clickCount=1)
                 elif verb == "key":
-                    code = ord(arg.upper())
+                    if arg in ARROWS:  # key:ArrowDown ...
+                        name, code, vk = arg, arg, ARROWS[arg]
+                    else:
+                        name, code, vk = arg, f"Key{arg.upper()}", ord(arg.upper())
                     for kind in ("keyDown", "keyUp"):
                         dev.call(
-                            "Input.dispatchKeyEvent", type=kind, key=arg,
-                            code=f"Key{arg.upper()}", windowsVirtualKeyCode=code,
+                            "Input.dispatchKeyEvent", type=kind, key=name, code=code,
+                            windowsVirtualKeyCode=vk,
                         )  # fmt: skip
                 elif verb == "wait":
                     dev.wait(float(arg))
