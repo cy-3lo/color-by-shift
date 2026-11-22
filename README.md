@@ -90,7 +90,8 @@ renderer). Its project is in [game/](game/).
 # run the game
 godot --path game
 
-# web build (the export preset "Web" writes game/export/web/index.html)
+# web build (the export preset "Web" writes game/export/web/index.html; it needs the
+# size-reduced template, see below)
 godot --headless --path game --export-release "Web" export/web/index.html
 
 # tests: the foam, the moves, the hints and the progress, checked against the Python twin
@@ -98,6 +99,15 @@ godot --headless --path game --script res://tests/run_tests.gd
 # every level solved at par by simulated drags
 godot --headless --path game -- --smoke
 ```
+
+The "Web" preset uses a size-reduced export template: Godot 4.7.2 rebuilt without 3D,
+physics, navigation, XR, advanced GUI nodes, complex text shaping and unused modules (engine
+20 MB instead of 40 MB, 5 MB gzipped instead of 10 MB). The options are in
+[tools/godot_template/custom.py](tools/godot_template/custom.py) and
+[tools/godot_template/build.sh](tools/godot_template/build.sh) builds it into `build/`
+(Godot source, Emscripten 4.0.20 and SCons, set up as described at the top of the script; the
+build takes a few minutes). To export with the stock template instead, clear
+`custom_template/release` in `game/export_presets.cfg`.
 
 The levels are not built by the game. They are generated offline in Python and exported to
 `game/data/`: foams, groups, scrambles with proven par, rasters of cells and cell outlines.
@@ -118,7 +128,7 @@ the itch.io cover and banner, and `tools/fetch_icons.py` downloads the icons.
 ```
 game/          Godot project: sim/ (foam, level, session, hints, progress), scenes/, ui/, audio/, data/, tests/
 model/         Python package mosaic_model (foam generator, solver) and its tests
-tools/         level pipeline, export to Godot, sounds, cover and banner
+tools/         level pipeline, export to Godot, sounds, cover and banner, web template options
 levels/ grids/ level and foam files
 assets/        painting scans and their sources, the font of the cover
 docs/itch/     cover and banner of the itch.io page

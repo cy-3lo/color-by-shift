@@ -27,6 +27,6 @@ static func texture(name: String, px: int) -> Texture2D:
 	if not _cache.has(key):
 		var img := Image.new()
 		if img.load_svg_from_string(String(_icons.get(name, "")), px / 24.0) != OK:
-			img = Image.create(px, px, false, Image.FORMAT_RGBA8)
+			img = Image.create_empty(px, px, false, Image.FORMAT_RGBA8)
 		_cache[key] = ImageTexture.create_from_image(img)
 	return _cache[key]

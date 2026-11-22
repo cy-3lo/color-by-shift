@@ -91,6 +91,7 @@ Title "Color by Shift" (Chris, 2026-11-21; the repo and the Python package keep 
 - 2026-11-22: README.md written (for jam players and judges first, then builders): pitch, how to play and controls, the rules behind it, the 15 paintings with sources and licences, building and tests, repository layout, credits, licence. Left open: the itch.io link, any AI-use statement the jam may ask for.
 - 2026-11-22: Chris: the jam allows AI-assisted code if disclosed: section 'Use of AI' in README.md (Claude in Claude Code wrote most of the code, directed, played and reviewed by Cy-3LO; no AI-generated image or sound). American spelling for player-facing text (README, credits lines in config.json). Matisse title: La danse (first version), 1909, CC0 on rawpixel verified by Chris (pictures.toml, SOURCES.md, P02, credits.json).
 - 2026-11-22: freeze cleanup: only the Ionicons set ships (tools/fetch_icons.py fetches it alone; game/ui/icons.gd reduced to it; key I, the icon note and the config key removed). Web pack 21.4 MB -> 6.6 MB: the 15 paintings were imported lossless (19.3 MB of the pack), now lossy WebP at quality 0.85 (their .import files and [importer_defaults] in project.godot for future ones); 18 stale .import files of deleted candidate levels removed. Solved Great Wave checked in the web build: no visible artefacts. The engine (index.wasm 39.5 MB, 10 MB gzipped) is now most of the download. 309 Godot checks and the drag test pass.
+- 2026-11-22: Chris: size-reduced web template. Godot 4.7.2-stable rebuilt (commit ed1daf0bf, Emscripten 4.0.20, SCons in build/venv; all in git-ignored build/): template_release, no threads, optimize size_extra, LTO full, deprecated off, no 3D, 2D/3D physics, navigation, XR, advanced GUI, text_server_adv (text_server_fb instead), 46 modules off (kept gdscript, svg, webp, freetype; brotli kept for the WOFF2 default font). index.wasm 39.5 -> 20.3 MB (gzip 10.1 -> 5.0 MB); download now ~10 MB gzipped with the pack. Found in the web build and fixed: Image.create is deprecated (-> Image.create_empty); without brotli all text was tofu. Checked in headless Chrome: 15 levels scrambled and recovered with no console error, drag with moving pairs, grid, credits, settings. Preset custom_template/release = ../build/web_template/... (resolved from the project). Current level's tile shows its number even if opened by --level. 309 Godot checks, drag test pass.
 ## Deadline and jam
 
 - GitHub Game Off 2026, theme SHIFT. Submissions close 1 December 2026 at 21:37 UTC (13:37 PST). Target submission: Monday 30 November, evening (Paris time).
@@ -202,7 +203,7 @@ Campaign of 8–10 levels: learn the swap on a two-reaction level; voter-model c
 
 ## Godot game
 
-- Godot 4.7.2, GDScript only, Compatibility renderer, web export with thread support off, base viewport 1280 x 720 (landscape: strip on the right; portrait, as on a phone: bar at the bottom). Mouse and touch. Flag any Godot 3 idiom.
+- Godot 4.7.2, GDScript only, Compatibility renderer, web export with thread support off and a size-reduced custom template (tools/godot_template: custom.py options, build.sh into git-ignored build/; no deprecated APIs in it, so use current names such as Image.create_empty), base viewport 1280 x 720 (landscape: strip on the right; portrait, as on a phone: bar at the bottom). Mouse and touch. Flag any Godot 3 idiom.
 - Levels are generated offline in Python (mosaic_model/foam.py, mondrian.py, foam_solver.py; tools/make_ladder.py from levels/candidates/ladder.toml, tools/make_painting_level.py) and exported by tools/export_godot.py to game/data/: one JSON per level (sites, edges, groups, points on every side, colours, target, start, par, artist, title), a gzip raster of cell indices (uint16, 1280 wide), the painting cut to the level's window, an ordered index, golden states for the tests. Godot never builds a foam, colours edges or scrambles.
 - Simulation in plain classes (RefCounted), no Nodes, testable headless: Foam, FoamLevel, Session, Progress. Scenes only display state and pass input.
 - Tests: `godot --headless --path game --script res://tests/run_tests.gd` (groups are matchings, moves undo themselves, the reversed scramble reproduces the Python colours exactly at every move, every edge with a side can be pointed at); `godot --headless --path game -- --smoke` solves every level by simulated drags; tools/web_shot.py takes screenshots of the web build in headless Chrome (no window).
@@ -262,7 +263,6 @@ Cut list, in this order: audio beyond one sample; gallery thumbnails of scramble
 ## Open questions (as tasks)
 
 - Phones: cells of a 400-cell painting are about 15 px wide on a phone; zoom is not planned.
-- Size of the web build: pack 6.6 MB (paintings as lossy WebP 0.85), engine index.wasm 39.5 MB (10 MB gzipped); a smaller engine needs custom export templates (not planned).
 
 ## Sources
 

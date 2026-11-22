@@ -202,7 +202,7 @@ func _load(k: int) -> void:
 	hint_for = PackedByteArray()
 	var labels := Image.create_from_data(
 		level.label_w, level.label_h, false, Image.FORMAT_RG8, level.labels)
-	cell_image = Image.create(n, 3, false, Image.FORMAT_RGBA8)
+	cell_image = Image.create_empty(n, 3, false, Image.FORMAT_RGBA8)
 	for i in n:
 		var t := level.colours[level.target[i]]
 		cell_image.set_pixel(i, 1, Color(t.r, t.g, t.b, level.target[i] / 255.0))
@@ -815,7 +815,7 @@ func _draw_panel() -> void:
 			var open := progress.is_open(i)
 			var key := "current" if i == at else ("done" if progress.is_solved(i) else "open")
 			overlay.draw_style_box(_box(Color.html(lc[key])), r)
-			if open:
+			if open or i == at:  # the current level shows its number (opened by --level too)
 				_lines(r, [["%02d" % (i + 1), r.size.x * 0.34 / unit, ink]])
 			else:
 				var tex := Icons.texture("lock", roundi(r.size.x * 0.42))
