@@ -6,7 +6,8 @@ One design for both: the painting as the game draws it (cells in their picture c
 thin dark lines between cells) at the top right, turning into the scan toward the bottom
 left. The title "Color by Shift" and a tagline are written flush right in one big cell at
 the top right: the cells under the text merged into one, in the palette's lightest colour,
-the text in its darkest colour (--ink to choose another).
+the text in its darkest colour (--ink, or ink in banner.toml, to choose another). On the
+cover the scan shows on --share of the picture.
 
 Cover: a level of the game, from the exported data (game/data/levels/<id>.json,
 <id>.labels.gz, game/data/paintings/<id>.jpg), 630 x 500 (itch.io's recommended cover).
@@ -89,8 +90,14 @@ def banner_picture(width: int, cells: int, seed: int):
     height = round(width / entry["aspect"])
     labels = foam.raster(width, height).astype(np.int64)
     scan = mpl.open_cut(entry, entry["aspect"]).resize((width, height), Image.LANCZOS)
-    colours = [tuple(int(v) for v in c) for c in pal]
-    return colours, np.asarray(target), labels, np.asarray(scan), entry["key"]
+    g = float(entry.get("lighten", 1.0))  # a gamma below 1 lightens the scan and the colours
+
+    def light(x):
+        return np.clip(255.0 * (np.asarray(x, float) / 255.0) ** g, 0, 255).round().astype(np.uint8)
+
+    colours = [tuple(int(v) for v in light(c)) for c in pal]
+    ink = hex_rgb(entry["ink"]) if entry.get("ink") else None
+    return colours, np.asarray(target), labels, light(scan), entry["key"], ink
 
 
 def compose(
@@ -103,10 +110,13 @@ def compose(
     margin: int,
     ink: tuple[int, int, int] | None,
     anchor: float = 0.5,
-    mid: float = 0.55,
+    share: float = 0.35,
     soft: float = 0.35,
 ) -> Image.Image:
-    """The picture cut to `size`, cells at the top right, the title in one big cell."""
+    """The picture cut to `size`, cells at the top right, the title in one big cell. The
+    scan shows on about `share` of the picture (share <= 0.5), at the bottom left; `soft`
+    is the width of the passage from cells to scan."""
+    mid = 1.0 - (share / 2.0) ** 0.5  # s = mean of two uniforms: area(s > mid) = 2 (1 - mid)^2
     out_w, out_h = size
     h, w = labels.shape
     aspect = out_w / out_h
@@ -132,18 +142,6 @@ def compose(
     edge[1:, :] |= lab[1:, :] != lab[:-1, :]
     edge[:, :-1] |= edge[:, 1:].copy()  # lines about 2 px wide on the raster
     img[edge] = LINE
-    rim = np.zeros(lab.shape, bool)  # the big cell's outline, thicker than the others
-    rim[:, 1:] |= big[:, 1:] != big[:, :-1]
-    rim[1:, :] |= big[1:, :] != big[:-1, :]
-    for _ in range(round(2.5 * k)):
-        rim = (
-            rim
-            | np.roll(rim, 1, 0)
-            | np.roll(rim, -1, 0)
-            | np.roll(rim, 1, 1)
-            | np.roll(rim, -1, 1)
-        )
-    img[rim] = LINE
     # cells at the top right, scan at the bottom left
     yy, xx = np.mgrid[0:ch, 0:cw]
     s = 0.5 * ((1 - xx / cw) + yy / ch)
@@ -167,7 +165,7 @@ def main() -> None:
     ap.add_argument("--level", default="P04", help="the level of the cover")
     ap.add_argument("--out", default=str(ROOT / "docs" / "itch"))
     ap.add_argument("--anchor", type=float, default=0.5, help="horizontal place of the cover crop")
-    ap.add_argument("--mid", type=float, default=0.55, help="where the cells turn into the scan")
+    ap.add_argument("--share", type=float, default=0.2, help="share of the cover showing the scan")
     ap.add_argument("--ink", default="", help="colour of the text (default: darkest colour)")
     ap.add_argument("--cells", type=int, default=450, help="cells of the banner's foam")
     ap.add_argument("--seed", type=int, default=1, help="seed of the banner's foam")
@@ -176,11 +174,11 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     ink = hex_rgb(a.ink) if a.ink else None
 
-    cover = compose(*level_picture(a.level), (630, 500), 52, 26, ink, a.anchor, a.mid)
+    cover = compose(*level_picture(a.level), (630, 500), 52, 26, ink, a.anchor, a.share, 0.2)
     cover.save(out / f"cover_{a.level}.png")
 
-    *pic, key = banner_picture(1920, a.cells, a.seed)
-    banner = compose(*pic, (1920, pic[2].shape[0]), 92, 44, ink, 0.5, a.mid)
+    *pic, key, banner_ink = banner_picture(1920, a.cells, a.seed)
+    banner = compose(*pic, (1920, pic[2].shape[0]), 92, 44, ink or banner_ink)
     banner.save(out / f"banner_{key}.png")
     print("wrote", out / f"cover_{a.level}.png", out / f"banner_{key}.png")
 

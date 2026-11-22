@@ -10,3 +10,5 @@ res = 192             # width of the quantised picture
 # colours fixed by hand from the scan (each pixel takes the nearest in Lab): ochre ground,
 # floor, grey tutu, pale highlight, orange hair, green
 colours = ["#6a5236", "#6c604c", "#58564f", "#8c8779", "#7f461b", "#2e4832"]
+lighten = 0.8         # gamma applied to the scan and the colours (below 1: lighter)
+ink = "#6a5236"       # title and tagline: the dark brown of the ground
