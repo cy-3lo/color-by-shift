@@ -72,7 +72,7 @@ var plucks: Array[AudioStreamPlayer] = []
 var next_pluck := 0
 var tada_player: AudioStreamPlayer
 var credits := {}
-var fullscreen_ok := true  ## the browser lets the page go full screen (not on an iPhone)
+var fullscreen_ok := true  ## the browser lets the page go full screen (not Safari on iPhone)
 
 var picture: ColorRect
 var view: Control  ## clips the zoomed picture to base
@@ -159,8 +159,9 @@ func _ready() -> void:
 	var c: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/credits.json"))
 	credits = c if typeof(c) == TYPE_DICTIONARY else {}
 	if OS.has_feature("web"):  # Safari on iPhone has no full screen for pages, nor an iframe without it
-		fullscreen_ok = str(JavaScriptBridge.eval(
-			"!!(document.fullscreenEnabled || document.webkitFullscreenEnabled)", true)) == "true"
+		# a JavaScript boolean comes back as an integer: ask for 1 or 0
+		fullscreen_ok = int(JavaScriptBridge.eval(
+			"(document.fullscreenEnabled || document.webkitFullscreenEnabled) ? 1 : 0", true)) == 1
 	_load(at)
 	if smoke:
 		_smoke()
@@ -360,7 +361,7 @@ func _layout() -> void:
 	level_tiles.clear()
 	for i in ids.size():
 		level_tiles.append(Rect2(o + Vector2(i % cols, i / cols) * (side_t + pad), Vector2(side_t, side_t)))
-	var names_r := ["sound", "hints", "fullscreen"] if fullscreen_ok else ["sound", "hints"]
+	var names_r := ["sound", "hints", "fullscreen"]
 	rows = {}
 	var y_r := c.y - (names_r.size() * rh + (names_r.size() - 1) * 2.0 * pad) * 0.5
 	for name_ in names_r:  # centred, one under the other
@@ -547,7 +548,7 @@ func press(pos: Vector2) -> void:
 		elif panel == "settings" and rows["hints"].has_point(pos):
 			settings["hints"] = not settings["hints"]
 			_save_settings()
-		elif panel == "settings" and rows.has("fullscreen") and rows["fullscreen"].has_point(pos):
+		elif panel == "settings" and fullscreen_ok and rows["fullscreen"].has_point(pos):
 			var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 			DisplayServer.window_set_mode(
 				DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
@@ -1055,6 +1056,9 @@ func _draw_panel() -> void:
 		for name_ in rows:
 			var on: bool = state[name_][1]
 			overlay.draw_style_box(_box(_c("button")), rows[name_])
+			if name_ == "fullscreen" and not fullscreen_ok:  # e.g. Safari on iPhone
+				_lines(rows[name_], [["Full screen   not available here", 18.0, _c("dim")]])
+				continue
 			_lines(rows[name_], [["%s   %s" % [state[name_][0], "on" if on else "off"], 20.0, accent if on else fg]])
 
 
