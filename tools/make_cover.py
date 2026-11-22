@@ -1,15 +1,17 @@
 """Cover and banner for the itch.io page, drawn from a level of the game.
 
-    python tools/make_cover.py [--level P04] [--out docs/itch] [--anchor 0.5] [--band 0.5]
+    python tools/make_cover.py [--level P04] [--out docs/itch] [--banner P02,P04]
 
 The picture is the level's foam (cells in their picture colours, thin dark lines between
 cells) on the left, turning into the painting's scan on the right along a soft diagonal: the
-reward of the game. The title "Color by Shift" sits on a dark gradient, the level's five
-colours as small squares under it. Reads the exported game data (game/data/levels/<id>.json,
-<id>.labels.gz, game/data/paintings/<id>.jpg) and the font assets/fonts/OpenSans.ttf (SIL
-OFL). Writes <out>/cover_<id>.png (630 x 500, itch.io's recommended cover) and
-<out>/banner_<ids>.png (1920 x 480, twice the 960 px width of an itch page banner: the
-title on the left, then the paintings of --banner, each from cells to scan).
+reward of the game. The title "Color by Shift" and a tagline sit on a dark gradient, in
+the orange of the game (--ink; --palette adds the level's colours as small squares).
+
+Reads the exported game data (game/data/levels/<id>.json, <id>.labels.gz,
+game/data/paintings/<id>.jpg) and the font assets/fonts/OpenSans.ttf (SIL OFL). Writes
+<out>/cover_<id>.png (630 x 500, itch.io's recommended cover) and <out>/banner_<ids>.png
+(1920 x 480, twice the 960 px width of an itch page banner: the title on the left, then
+the paintings of --banner, each from cells to scan).
 """
 
 from __future__ import annotations
@@ -106,16 +108,22 @@ def fit(size: int, width: int) -> int:
 
 
 def draw_title(
-    img: Image.Image, level: dict | None, x: int, y: int, size: int, tagline: bool
+    img: Image.Image,
+    level: dict | None,
+    x: int,
+    y: int,
+    size: int,
+    tagline: bool,
+    ink: tuple[int, int, int] = TEXT,
 ) -> None:
     """Title, tagline under it, and the level's colours as small squares (if a level)."""
     d = ImageDraw.Draw(img)
     big = font(size, 800)
-    d.text((x, y), TITLE, font=big, fill=TEXT)
+    d.text((x, y), TITLE, font=big, fill=ink)
     small = font(round(size * 0.3), 600)
     ty = y + round(size * 1.22)
     if tagline:
-        d.text((x + 3, ty), TAGLINE, font=small, fill=(214, 211, 202))
+        d.text((x + 3, ty), TAGLINE, font=small, fill=ink)
     if level is None:
         return
     side = round(size * 0.22)
@@ -133,6 +141,8 @@ def main() -> None:
     ap.add_argument("--anchor", type=float, default=0.5, help="horizontal place of the cover crop")
     ap.add_argument("--banner", default="P02,P04", help="paintings beside the banner's title")
     ap.add_argument("--mid", type=float, default=0.5, help="where foam turns into the scan")
+    ap.add_argument("--ink", default="#ff8a1f", help="colour of the title and tagline")
+    ap.add_argument("--palette", action="store_true", help="the level's colours under the title")
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -141,7 +151,9 @@ def main() -> None:
 
     cover = crop(pic, 630 / 500, a.anchor, 0.5).resize((630, 500), Image.LANCZOS)
     cover = shade(cover, "bottom", 0.5, 0.9)
-    draw_title(cover, level, 30, 500 - 34 - round(60 * 2.05), 60, tagline=True)
+    squares = level if a.palette else None
+    y = 500 - 34 - round(60 * (2.05 if a.palette else 1.62))
+    draw_title(cover, squares, 30, y, 60, tagline=True, ink=hex_rgb(a.ink))
     cover.save(out / f"cover_{a.level}.png")
 
     # banner: the title on the left, then whole paintings, each from cells to scan
@@ -157,7 +169,8 @@ def main() -> None:
         x -= 640
         banner.paste(tile, (x, 0))
     size = fit(110, x - 2 * 64)
-    draw_title(banner, None, 64, 480 // 2 - round(size * 0.95), size, tagline=True)
+    y = 480 // 2 - round(size * 0.95)
+    draw_title(banner, None, 64, y, size, tagline=True, ink=hex_rgb(a.ink))
     name = f"banner_{a.banner.replace(',', '_')}.png"
     banner.save(out / name)
     print("wrote", out / f"cover_{a.level}.png", out / name)
