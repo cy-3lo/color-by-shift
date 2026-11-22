@@ -1,33 +1,6 @@
-# Icon sets fetched by tools/fetch_icons.py
+# Icons fetched by tools/fetch_icons.py
 
-Licence as stated in each package's package.json; check the package's LICENSE file
-before release and keep the credit for the set that ships.
+Licence as stated in the package's package.json; its LICENSE file was read and copied
+to licences/ionicons_LICENSE.txt, and the credit is on the game's credits panel.
 
-- lucide: npm package lucide-static 1.77.0, licence ISC (icons/skip-forward.svg, icons/skip-back.svg, icons/undo-2.svg, icons/redo-2.svg)
-- tabler: npm package @tabler/icons 3.52.0, licence MIT (icons/outline/player-skip-forward.svg, icons/outline/player-skip-back.svg, icons/outline/arrow-back-up.svg, icons/outline/arrow-forward-up.svg)
-- tabler-filled: npm package @tabler/icons 3.52.0, licence MIT (icons/filled/player-skip-forward.svg, icons/filled/player-skip-back.svg, icons/outline/arrow-back-up.svg, icons/outline/arrow-forward-up.svg)
-- phosphor-bold: npm package @phosphor-icons/core 2.1.1, licence MIT (assets/bold/skip-forward-bold.svg, assets/bold/skip-back-bold.svg, assets/bold/arrow-u-up-left-bold.svg, assets/bold/arrow-u-up-right-bold.svg)
-- phosphor-fill: npm package @phosphor-icons/core 2.1.1, licence MIT (assets/fill/skip-forward-fill.svg, assets/fill/skip-back-fill.svg, assets/fill/arrow-u-up-left-fill.svg, assets/fill/arrow-u-up-right-fill.svg)
-- heroicons: npm package heroicons 2.2.0, licence MIT (24/solid/forward.svg, 24/solid/backward.svg, 24/solid/arrow-uturn-left.svg, 24/solid/arrow-uturn-right.svg)
-- bootstrap: npm package bootstrap-icons 1.13.2, licence MIT (icons/skip-end-fill.svg, icons/skip-start-fill.svg, icons/arrow-counterclockwise.svg, icons/arrow-clockwise.svg)
-- remix: npm package remixicon 4.9.1, licence Apache-2.0 (icons/Media/skip-forward-fill.svg, icons/Media/skip-back-fill.svg, icons/Arrows/arrow-go-back-fill.svg, icons/Arrows/arrow-go-forward-fill.svg)
-- material: npm package @material-symbols/svg-600 0.49.0, licence Apache-2.0 (rounded/skip_next-fill.svg, rounded/skip_previous-fill.svg, rounded/undo.svg, rounded/redo.svg)
-- iconoir: npm package iconoir 7.12.2, licence MIT (icons/regular/skip-next.svg, icons/regular/skip-prev.svg, icons/regular/undo.svg, icons/regular/redo.svg)
-- lucide-curve: npm package lucide-static 1.77.0, licence ISC (icons/skip-forward.svg, icons/skip-back.svg, icons/undo.svg, icons/redo.svg)
-- lucide-rotate: npm package lucide-static 1.77.0, licence ISC (icons/skip-forward.svg, icons/skip-back.svg, icons/rotate-ccw.svg, icons/rotate-cw.svg)
-- tabler-curve: npm package @tabler/icons 3.52.0, licence MIT (icons/filled/player-skip-forward.svg, icons/filled/player-skip-back.svg, icons/outline/arrow-back.svg, icons/outline/arrow-forward.svg)
-- phosphor-arc: npm package @phosphor-icons/core 2.1.1, licence MIT (assets/fill/skip-forward-fill.svg, assets/fill/skip-back-fill.svg, assets/bold/arrow-arc-left-bold.svg, assets/bold/arrow-arc-right-bold.svg)
-- phosphor-turn: npm package @phosphor-icons/core 2.1.1, licence MIT (assets/fill/skip-forward-fill.svg, assets/fill/skip-back-fill.svg, assets/bold/arrow-counter-clockwise-bold.svg, assets/bold/arrow-clockwise-bold.svg)
-- phosphor-bend: npm package @phosphor-icons/core 2.1.1, licence MIT (assets/fill/skip-forward-fill.svg, assets/fill/skip-back-fill.svg, assets/fill/arrow-bend-up-left-fill.svg, assets/fill/arrow-bend-up-right-fill.svg)
 - ionicons: npm package ionicons 8.1.1, licence MIT (dist/svg/play-skip-forward.svg, dist/svg/play-skip-back.svg, dist/svg/arrow-undo.svg, dist/svg/arrow-redo.svg, dist/svg/information-circle.svg, dist/svg/settings.svg, dist/svg/lock-closed.svg)
-- ionicons-outline: npm package ionicons 8.1.1, licence MIT (dist/svg/play-skip-forward-outline.svg, dist/svg/play-skip-back-outline.svg, dist/svg/arrow-undo-outline.svg, dist/svg/arrow-redo-outline.svg, dist/svg/information-circle-outline.svg, dist/svg/settings-outline.svg, dist/svg/lock-closed-outline.svg)
-- fluent: npm package @fluentui/svg-icons 1.1.347, licence MIT (icons/next_24_filled.svg, icons/previous_24_filled.svg, icons/arrow_undo_24_filled.svg, icons/arrow_redo_24_filled.svg)
-- fluent-regular: npm package @fluentui/svg-icons 1.1.347, licence MIT (icons/next_24_regular.svg, icons/previous_24_regular.svg, icons/arrow_undo_24_regular.svg, icons/arrow_redo_24_regular.svg)
-- fontawesome: npm package @fortawesome/fontawesome-free 7.3.1, licence (CC-BY-4.0 AND OFL-1.1 AND MIT) (svgs/solid/forward-step.svg, svgs/solid/backward-step.svg, svgs/solid/rotate-left.svg, svgs/solid/rotate-right.svg)
-- fontawesome-reply: npm package @fortawesome/fontawesome-free 7.3.1, licence (CC-BY-4.0 AND OFL-1.1 AND MIT) (svgs/solid/forward-step.svg, svgs/solid/backward-step.svg, svgs/solid/reply.svg, svgs/solid/share.svg)
-- carbon: npm package @carbon/icons 11.92.0, licence Apache-2.0 (svg/32/skip--forward--filled.svg, svg/32/skip--back--filled.svg, svg/32/undo.svg, svg/32/redo.svg)
-- boxicons: npm package boxicons 2.1.4, licence (CC-BY-4.0 OR OFL-1.1 OR MIT) (svg/regular/bx-skip-next.svg, svg/regular/bx-skip-previous.svg, svg/regular/bx-undo.svg, svg/regular/bx-redo.svg)
-- eva: npm package eva-icons 1.1.3, licence MIT (fill/svg/skip-forward.svg, fill/svg/skip-back.svg, fill/svg/undo.svg, outline/svg/corner-up-right-outline.svg)
-- feather: npm package feather-icons 4.29.2, licence MIT (dist/icons/skip-forward.svg, dist/icons/skip-back.svg, dist/icons/rotate-ccw.svg, dist/icons/rotate-cw.svg)
-- material-sharp: npm package @material-symbols/svg-600 0.49.0, licence Apache-2.0 (sharp/skip_next-fill.svg, sharp/skip_previous-fill.svg, sharp/undo.svg, sharp/redo.svg)
-- remix-line: npm package remixicon 4.9.1, licence Apache-2.0 (icons/Media/skip-forward-line.svg, icons/Media/skip-back-line.svg, icons/Arrows/arrow-go-back-line.svg, icons/Arrows/arrow-go-forward-line.svg)

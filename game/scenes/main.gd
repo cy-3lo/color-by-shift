@@ -33,9 +33,6 @@ var session: Session
 var rect := Rect2()  ## the picture on screen
 var strip := Rect2()  ## the strip (right) or the bar (bottom)
 var boxes := {}  ## "number", "par", "info" -> Rect2: the boxes of the bar above the buttons
-var icon_set := "solid"
-var note := ""  ## a word shown for a moment (the icon set just chosen)
-var note_until := -1.0
 var unit := 1.0  ## scale of the interface (larger when the window is taller than wide)
 var portrait := false
 var site_px := PackedVector2Array()
@@ -94,7 +91,6 @@ func _ready() -> void:
 		ids.append(e["id"])
 		pars.append(int(e.get("par", 0)))
 	var want: String = cfg.get("start_level", "")
-	icon_set = cfg.get("icons", "solid")
 	var smoke := false
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--level="):
@@ -221,7 +217,6 @@ func _load(k: int) -> void:
 	if not level.painting.is_empty() and ResourceLoader.exists(level.painting):
 		material_.set_shader_parameter("painting", load(level.painting))
 	phase = Phase.IDLE
-	note_until = -1.0
 	rewinding = false
 	shift = 0.0
 	pending = Vector3i(-1, 0, 0)
@@ -594,11 +589,6 @@ func _input(event: InputEvent) -> void:
 				_press_button("prev")
 			KEY_DOWN:
 				_press_button("next")
-			KEY_I:  # try the next set of icons
-				icon_set = Icons.after(icon_set)
-				note = icon_set  # stays on show until the level changes
-				note_until = INF
-				overlay.queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -775,15 +765,13 @@ func _draw_overlay() -> void:
 	for name_ in boxes:
 		var lit: bool = name_ == "number" and panel == "levels"
 		overlay.draw_style_box(_box(accent if lit else _c("button")), boxes[name_])
-	# level number, "LEVEL" above it (and the icon set just chosen with key I under it)
+	# level number, "LEVEL" above it
 	var st: Dictionary = cfg["strip"]
 	var lit_n := panel == "levels"
 	var number: Array = [
 		["LEVEL", float(st["label_size"]), _c("background") if lit_n else mid],
 		["%02d" % (at + 1), float(st["number_size"]), _c("background") if lit_n else fg],
 	]
-	if note_until >= 0.0:
-		number.append([note, 12.0, accent])
 	_lines(boxes["number"], number)
 	# moves over par
 	_lines(boxes["par"], [["%d / %d" % [session.moves(), level.par], 20.0, accent if solved else fg]])
@@ -805,7 +793,7 @@ func _draw_overlay() -> void:
 			on = dim
 		var hot: bool = (solved and name_ == "next") or name_ == panel
 		overlay.draw_style_box(_box(accent if hot else _c("button")), r)
-		var tex := Icons.texture(icon_set, name_, roundi(r.size.x * float(cfg["strip"]["icon"])))
+		var tex := Icons.texture(name_, roundi(r.size.x * float(cfg["strip"]["icon"])))
 		overlay.draw_texture(tex, (r.get_center() - tex.get_size() * 0.5).round(), _c("background") if hot else on)
 	if not panel.is_empty():
 		_draw_panel()
@@ -830,7 +818,7 @@ func _draw_panel() -> void:
 			if open:
 				_lines(r, [["%02d" % (i + 1), r.size.x * 0.34 / unit, ink]])
 			else:
-				var tex := Icons.texture(icon_set, "lock", roundi(r.size.x * 0.42))
+				var tex := Icons.texture("lock", roundi(r.size.x * 0.42))
 				overlay.draw_texture(tex, (r.get_center() - tex.get_size() * 0.5).round(), ink)
 	elif panel == "credits":
 		var cc: Dictionary = cfg["credits"]

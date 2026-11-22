@@ -1,13 +1,12 @@
-"""Fetch the icons of the bar from free icon libraries (npm packages, via jsDelivr).
+"""Fetch the icons of the game from Ionicons (npm package, via jsDelivr).
 
     python tools/fetch_icons.py
 
-For every library below: reads the latest version and the licence from its package.json,
-downloads the SVG files of that exact version (next, reset, undo, redo; credits,
-settings and lock for the Ionicons sets, which the game also uses for the other sets), normalises
-them (24 x 24, white instead of currentColor) and writes game/data/icons.json ({set:
-{package, version, licence, icons: {name: svg}}}) and game/data/ICONS.md (credits). A set
-with a missing file is left out and reported. The game draws them with game/ui/icons.gd.
+Reads the latest version and the licence from the package.json, downloads the SVG files of
+that exact version (next, reset, undo, redo, credits, settings, lock), normalises them
+(24 x 24, white instead of currentColor) and writes game/data/icons.json ({set: {package,
+version, licence, icons: {name: svg}}}) and game/data/ICONS.md (credit). The game draws them
+with game/ui/icons.gd; the licence text is in game/data/licences/ionicons_LICENSE.txt.
 """
 
 from __future__ import annotations
@@ -22,153 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CDN = "https://cdn.jsdelivr.net/npm"
 AGENT = "icon-fetch/0.1 (script)"
 
-# set name -> (npm package, {icon of the bar: path of the file in the package})
+# set name -> (npm package, {icon of the game: path of the file in the package}); only the
+# set that ships (31 others were compared on 2026-11-21 and dropped before the freeze)
 SETS = {
-    "lucide": (
-        "lucide-static",
-        {
-            "next": "icons/skip-forward.svg",
-            "reset": "icons/skip-back.svg",
-            "undo": "icons/undo-2.svg",
-            "redo": "icons/redo-2.svg",
-        },
-    ),
-    "tabler": (
-        "@tabler/icons",
-        {
-            "next": "icons/outline/player-skip-forward.svg",
-            "reset": "icons/outline/player-skip-back.svg",
-            "undo": "icons/outline/arrow-back-up.svg",
-            "redo": "icons/outline/arrow-forward-up.svg",
-        },
-    ),
-    "tabler-filled": (
-        "@tabler/icons",
-        {
-            "next": "icons/filled/player-skip-forward.svg",
-            "reset": "icons/filled/player-skip-back.svg",
-            "undo": "icons/outline/arrow-back-up.svg",
-            "redo": "icons/outline/arrow-forward-up.svg",
-        },
-    ),
-    "phosphor-bold": (
-        "@phosphor-icons/core",
-        {
-            "next": "assets/bold/skip-forward-bold.svg",
-            "reset": "assets/bold/skip-back-bold.svg",
-            "undo": "assets/bold/arrow-u-up-left-bold.svg",
-            "redo": "assets/bold/arrow-u-up-right-bold.svg",
-        },
-    ),
-    "phosphor-fill": (
-        "@phosphor-icons/core",
-        {
-            "next": "assets/fill/skip-forward-fill.svg",
-            "reset": "assets/fill/skip-back-fill.svg",
-            "undo": "assets/fill/arrow-u-up-left-fill.svg",
-            "redo": "assets/fill/arrow-u-up-right-fill.svg",
-        },
-    ),
-    "heroicons": (
-        "heroicons",
-        {
-            "next": "24/solid/forward.svg",
-            "reset": "24/solid/backward.svg",
-            "undo": "24/solid/arrow-uturn-left.svg",
-            "redo": "24/solid/arrow-uturn-right.svg",
-        },
-    ),
-    "bootstrap": (
-        "bootstrap-icons",
-        {
-            "next": "icons/skip-end-fill.svg",
-            "reset": "icons/skip-start-fill.svg",
-            "undo": "icons/arrow-counterclockwise.svg",
-            "redo": "icons/arrow-clockwise.svg",
-        },
-    ),
-    "remix": (
-        "remixicon",
-        {
-            "next": "icons/Media/skip-forward-fill.svg",
-            "reset": "icons/Media/skip-back-fill.svg",
-            "undo": "icons/Arrows/arrow-go-back-fill.svg",
-            "redo": "icons/Arrows/arrow-go-forward-fill.svg",
-        },
-    ),
-    "material": (
-        "@material-symbols/svg-600",
-        {
-            "next": "rounded/skip_next-fill.svg",
-            "reset": "rounded/skip_previous-fill.svg",
-            "undo": "rounded/undo.svg",
-            "redo": "rounded/redo.svg",
-        },
-    ),
-    "iconoir": (
-        "iconoir",
-        {
-            "next": "icons/regular/skip-next.svg",
-            "reset": "icons/regular/skip-prev.svg",
-            "undo": "icons/regular/undo.svg",
-            "redo": "icons/regular/redo.svg",
-        },
-    ),
-    # curvier undo and redo, with filled skip triangles
-    "lucide-curve": (
-        "lucide-static",
-        {
-            "next": "icons/skip-forward.svg",
-            "reset": "icons/skip-back.svg",
-            "undo": "icons/undo.svg",
-            "redo": "icons/redo.svg",
-        },
-    ),
-    "lucide-rotate": (
-        "lucide-static",
-        {
-            "next": "icons/skip-forward.svg",
-            "reset": "icons/skip-back.svg",
-            "undo": "icons/rotate-ccw.svg",
-            "redo": "icons/rotate-cw.svg",
-        },
-    ),
-    "tabler-curve": (
-        "@tabler/icons",
-        {
-            "next": "icons/filled/player-skip-forward.svg",
-            "reset": "icons/filled/player-skip-back.svg",
-            "undo": "icons/outline/arrow-back.svg",
-            "redo": "icons/outline/arrow-forward.svg",
-        },
-    ),
-    "phosphor-arc": (
-        "@phosphor-icons/core",
-        {
-            "next": "assets/fill/skip-forward-fill.svg",
-            "reset": "assets/fill/skip-back-fill.svg",
-            "undo": "assets/bold/arrow-arc-left-bold.svg",
-            "redo": "assets/bold/arrow-arc-right-bold.svg",
-        },
-    ),
-    "phosphor-turn": (
-        "@phosphor-icons/core",
-        {
-            "next": "assets/fill/skip-forward-fill.svg",
-            "reset": "assets/fill/skip-back-fill.svg",
-            "undo": "assets/bold/arrow-counter-clockwise-bold.svg",
-            "redo": "assets/bold/arrow-clockwise-bold.svg",
-        },
-    ),
-    "phosphor-bend": (
-        "@phosphor-icons/core",
-        {
-            "next": "assets/fill/skip-forward-fill.svg",
-            "reset": "assets/fill/skip-back-fill.svg",
-            "undo": "assets/fill/arrow-bend-up-left-fill.svg",
-            "redo": "assets/fill/arrow-bend-up-right-fill.svg",
-        },
-    ),
     "ionicons": (
         "ionicons",
         {
@@ -179,108 +34,6 @@ SETS = {
             "credits": "dist/svg/information-circle.svg",
             "settings": "dist/svg/settings.svg",
             "lock": "dist/svg/lock-closed.svg",
-        },
-    ),
-    "ionicons-outline": (
-        "ionicons",
-        {
-            "next": "dist/svg/play-skip-forward-outline.svg",
-            "reset": "dist/svg/play-skip-back-outline.svg",
-            "undo": "dist/svg/arrow-undo-outline.svg",
-            "redo": "dist/svg/arrow-redo-outline.svg",
-            "credits": "dist/svg/information-circle-outline.svg",
-            "settings": "dist/svg/settings-outline.svg",
-            "lock": "dist/svg/lock-closed-outline.svg",
-        },
-    ),
-    "fluent": (
-        "@fluentui/svg-icons",
-        {
-            "next": "icons/next_24_filled.svg",
-            "reset": "icons/previous_24_filled.svg",
-            "undo": "icons/arrow_undo_24_filled.svg",
-            "redo": "icons/arrow_redo_24_filled.svg",
-        },
-    ),
-    "fluent-regular": (
-        "@fluentui/svg-icons",
-        {
-            "next": "icons/next_24_regular.svg",
-            "reset": "icons/previous_24_regular.svg",
-            "undo": "icons/arrow_undo_24_regular.svg",
-            "redo": "icons/arrow_redo_24_regular.svg",
-        },
-    ),
-    "fontawesome": (
-        "@fortawesome/fontawesome-free",
-        {
-            "next": "svgs/solid/forward-step.svg",
-            "reset": "svgs/solid/backward-step.svg",
-            "undo": "svgs/solid/rotate-left.svg",
-            "redo": "svgs/solid/rotate-right.svg",
-        },
-    ),
-    "fontawesome-reply": (
-        "@fortawesome/fontawesome-free",
-        {
-            "next": "svgs/solid/forward-step.svg",
-            "reset": "svgs/solid/backward-step.svg",
-            "undo": "svgs/solid/reply.svg",
-            "redo": "svgs/solid/share.svg",
-        },
-    ),
-    "carbon": (
-        "@carbon/icons",
-        {
-            "next": "svg/32/skip--forward--filled.svg",
-            "reset": "svg/32/skip--back--filled.svg",
-            "undo": "svg/32/undo.svg",
-            "redo": "svg/32/redo.svg",
-        },
-    ),
-    "boxicons": (
-        "boxicons",
-        {
-            "next": "svg/regular/bx-skip-next.svg",
-            "reset": "svg/regular/bx-skip-previous.svg",
-            "undo": "svg/regular/bx-undo.svg",
-            "redo": "svg/regular/bx-redo.svg",
-        },
-    ),
-    "eva": (
-        "eva-icons",
-        {
-            "next": "fill/svg/skip-forward.svg",
-            "reset": "fill/svg/skip-back.svg",
-            "undo": "fill/svg/undo.svg",
-            "redo": "outline/svg/corner-up-right-outline.svg",
-        },
-    ),
-    "feather": (
-        "feather-icons",
-        {
-            "next": "dist/icons/skip-forward.svg",
-            "reset": "dist/icons/skip-back.svg",
-            "undo": "dist/icons/rotate-ccw.svg",
-            "redo": "dist/icons/rotate-cw.svg",
-        },
-    ),
-    "material-sharp": (
-        "@material-symbols/svg-600",
-        {
-            "next": "sharp/skip_next-fill.svg",
-            "reset": "sharp/skip_previous-fill.svg",
-            "undo": "sharp/undo.svg",
-            "redo": "sharp/redo.svg",
-        },
-    ),
-    "remix-line": (
-        "remixicon",
-        {
-            "next": "icons/Media/skip-forward-line.svg",
-            "reset": "icons/Media/skip-back-line.svg",
-            "undo": "icons/Arrows/arrow-go-back-line.svg",
-            "redo": "icons/Arrows/arrow-go-forward-line.svg",
         },
     ),
 }
@@ -324,9 +77,11 @@ def main() -> None:
     data = ROOT / "game" / "data"
     (data / "icons.json").write_text(json.dumps(out, indent=1) + "\n")
     (data / "ICONS.md").write_text(
-        "# Icon sets fetched by tools/fetch_icons.py\n\n"
-        "Licence as stated in each package's package.json; check the package's LICENSE file\n"
-        "before release and keep the credit for the set that ships.\n\n" + "\n".join(credits) + "\n"
+        "# Icons fetched by tools/fetch_icons.py\n\n"
+        "Licence as stated in the package's package.json; its LICENSE file was read and copied\n"
+        "to licences/ionicons_LICENSE.txt, and the credit is on the game's credits panel.\n\n"
+        + "\n".join(credits)
+        + "\n"
     )
 
 

@@ -25,6 +25,5 @@
   },
   "levels": {"open_all_par": 2, "done": "#7c7a86", "open": "#ece9e0", "current": "#ff8a1f", "ink": "#1c1c22"},
   "hint": {"after_s": 6.0, "colour": "#ff8a1f", "width_px": 3.5, "pulse_s": 1.6},
-  "icons": "ionicons",
   "start_level": ""
 }
