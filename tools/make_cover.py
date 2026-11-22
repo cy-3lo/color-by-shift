@@ -96,6 +96,9 @@ def banner_picture(width: int, cells: int, seed: int):
         return np.clip(255.0 * (np.asarray(x, float) / 255.0) ** g, 0, 255).round().astype(np.uint8)
 
     colours = [tuple(int(v) for v in light(c)) for c in pal]
+    if entry.get("white"):  # the lightest colour shown whiter (cells and the title's cell)
+        i = max(range(len(colours)), key=lambda k: luminance(colours[k]))
+        colours[i] = hex_rgb(entry["white"])
     ink = hex_rgb(entry["ink"]) if entry.get("ink") else None
     return colours, np.asarray(target), labels, light(scan), entry["key"], ink
 
