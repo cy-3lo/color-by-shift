@@ -89,6 +89,7 @@ Title "Color by Shift" (Chris, 2026-11-21; the repo and the Python package keep 
 - 2026-11-22: Chris: Degas banner whites whiter: the lightest colour shown as #e9e5da (white in docs/itch/banner.toml; the title's cell and the pale cells), the scan unchanged.
 - 2026-11-22: Chris: the Degas scan's highlights brightened too: grey and white pixels above the 60th percentile of luminance drawn toward the white (up to 0.7, highlights in banner.toml), fading out with chroma so the tan floor keeps its colour (a first try without the chroma limit whitened the floor).
 - 2026-11-22: README.md written (for jam players and judges first, then builders): pitch, how to play and controls, the rules behind it, the 15 paintings with sources and licences, building and tests, repository layout, credits, licence. Left open: the itch.io link, any AI-use statement the jam may ask for.
+- 2026-11-22: Chris: the jam allows AI-assisted code if disclosed: section 'Use of AI' in README.md (Claude in Claude Code wrote most of the code, directed, played and reviewed by Cy-3LO; no AI-generated image or sound). American spelling for player-facing text (README, credits lines in config.json). Matisse title: La danse (first version), 1909, CC0 on rawpixel verified by Chris (pictures.toml, SOURCES.md, P02, credits.json).
 ## Deadline and jam
 
 - GitHub Game Off 2026, theme SHIFT. Submissions close 1 December 2026 at 21:37 UTC (13:37 PST). Target submission: Monday 30 November, evening (Paris time).
@@ -229,6 +230,7 @@ mosaic/
 
 - Python 3.11+, one virtual environment at the repo root (.venv). Dependencies: numpy, pygame-ce, pytest. Ask before adding anything (numba, matplotlib, scipy for the foam generator).
 - Parameters and content in JSON or TOML, never hard-coded. One seed per run.
+- Player-facing text (game, README, itch page) in American English (Chris, 2026-11-22).
 - Commit at the end of each task with a message naming the phase and task.
 
 ## Plan
@@ -258,7 +260,6 @@ Cut list, in this order: audio beyond one sample; gallery thumbnails of scramble
 
 ## Open questions (as tasks)
 
-- Confirm the jam's rule on AI-assisted code before submitting.
 - Phones: cells of a 400-cell painting are about 15 px wide on a phone; zoom is not planned.
 - Size of the web build: paintings are stored lossless in the pack (about 1 MB each).
 

@@ -18,9 +18,9 @@
     "title": "Color by Shift",
     "lines": ["A game by Cy-3LO.", "Made for GitHub Game Off 2026, theme Shift."],
     "tail": [
-      "Icons: Ionicons, MIT licence, copyright Ionic.",
-      "Made with Godot Engine, MIT licence, copyright Juan Linietsky, Ariel Manzur and contributors.",
-      "Sounds synthesised for the game."
+      "Icons: Ionicons, MIT license, copyright Ionic.",
+      "Made with Godot Engine, MIT license, copyright Juan Linietsky, Ariel Manzur and contributors.",
+      "Sounds synthesized for the game."
     ]
   },
   "levels": {"open_all_par": 2, "done": "#7c7a86", "open": "#ece9e0", "current": "#ff8a1f", "ink": "#1c1c22"},

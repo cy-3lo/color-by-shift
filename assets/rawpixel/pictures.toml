@@ -8,9 +8,9 @@
 key = "rp_matisse_dance"
 file = "assets/rawpixel/image-from-rawpixel-id-22769428-original.jpg"
 artist = "Henri Matisse"
-title = "Dance (I)"
+title = "La danse (first version)"
 date = "1909"
-licence = "CC0 on rawpixel (stated by Chris, 2026-11-21)"
+licence = "CC0 on rawpixel (verified by Chris, 2026-11-22)"
 
 [[pictures]]
 key = "rp_klee_harbinger"

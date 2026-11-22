@@ -185,6 +185,7 @@
   National Gallery of Art, Washington, Open Access (CC0), object 73835, https://www.nga.gov/artworks/73835
   (small image). Downloaded 2026-11-20.
 
-- rp_matisse_dance.jpg: Henri Matisse, *Dance (I)*, 1909, oil on canvas (title read from the picture, to confirm).
-  Downloaded by Chris from rawpixel.com, image id 22769428, https://www.rawpixel.com/image/22769428
-  Cut to 4:3 and reduced. Licence: CC0 on rawpixel (stated by Chris, 2026-11-21). Downloaded 2026-11-21.
+- rp_matisse_dance.jpg: Henri Matisse, *La danse (first version)*, 1909, oil on canvas.
+  Downloaded by Chris from rawpixel.com, image id 22769428,
+  https://www.rawpixel.com/image/22769428/henri-matisses-danse-first-version-1909
+  Cut to 4:3 and reduced. Licence: CC0 on rawpixel (verified by Chris, 2026-11-22). Downloaded 2026-11-21.
