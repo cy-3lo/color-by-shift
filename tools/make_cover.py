@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "game" / "data"
@@ -81,11 +81,13 @@ def crop(img: np.ndarray, aspect: float, ax: float, ay: float) -> Image.Image:
 
 
 def shade(img: Image.Image, side: str, reach: float, strength: float = 0.82) -> Image.Image:
-    """Darkens toward one side (bottom or left), so that the title reads."""
+    """Darkens toward one side (top, bottom or left), so that the title reads."""
     w, h = img.size
     a = np.asarray(img).astype(float)
     if side == "bottom":
         t = np.clip((np.arange(h) / h - (1 - reach)) / reach, 0, 1)[:, None, None]
+    elif side == "top":
+        t = np.clip((reach - np.arange(h) / h) / reach, 0, 1)[:, None, None]
     else:
         t = np.clip((reach - np.arange(w) / w) / reach, 0, 1)[None, :, None]
     t = strength * t**1.3
@@ -115,13 +117,29 @@ def draw_title(
     size: int,
     tagline: bool,
     ink: tuple[int, int, int] = TEXT,
+    right: bool = False,
 ) -> None:
-    """Title, tagline under it, and the level's colours as small squares (if a level)."""
+    """Title, tagline under it, and the level's colours as small squares (if a level). With
+    right, x is the right edge and both lines are flush right."""
     d = ImageDraw.Draw(img)
     big = font(size, 800)
-    d.text((x, y), TITLE, font=big, fill=ink)
     small = font(round(size * 0.3), 600)
     ty = y + round(size * 1.22)
+    if right:
+        # a soft dark glow behind the letters only, so that the painting stays as it is
+        mask = Image.new("L", img.size, 0)
+        m = ImageDraw.Draw(mask)
+        m.text((x, y), TITLE, font=big, fill=255, anchor="ra")
+        if tagline:
+            m.text((x - 3, ty), TAGLINE, font=small, fill=255, anchor="ra")
+        glow = mask.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(size * 0.22))
+        glow = glow.point(lambda v: min(255, round(v * 1.6 * 0.8)))
+        img.paste(Image.new("RGB", img.size, BACK), (0, 0), glow)
+        d.text((x, y), TITLE, font=big, fill=ink, anchor="ra")
+        if tagline:
+            d.text((x - 3, ty), TAGLINE, font=small, fill=ink, anchor="ra")
+        return
+    d.text((x, y), TITLE, font=big, fill=ink)
     if tagline:
         d.text((x + 3, ty), TAGLINE, font=small, fill=ink)
     if level is None:
@@ -143,6 +161,7 @@ def main() -> None:
     ap.add_argument("--mid", type=float, default=0.5, help="where foam turns into the scan")
     ap.add_argument("--ink", default="#ff8a1f", help="colour of the title and tagline")
     ap.add_argument("--palette", action="store_true", help="the level's colours under the title")
+    ap.add_argument("--title-at", choices=["top-right", "bottom-left"], default="top-right")
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -150,10 +169,14 @@ def main() -> None:
     pic = blend(foam_image(level, labels), scan, a.mid)
 
     cover = crop(pic, 630 / 500, a.anchor, 0.5).resize((630, 500), Image.LANCZOS)
-    cover = shade(cover, "bottom", 0.5, 0.9)
-    squares = level if a.palette else None
-    y = 500 - 34 - round(60 * (2.05 if a.palette else 1.62))
-    draw_title(cover, squares, 30, y, 60, tagline=True, ink=hex_rgb(a.ink))
+    ink = hex_rgb(a.ink)
+    if a.title_at == "top-right":  # over the sky, flush right
+        draw_title(cover, None, 630 - 28, 22, 60, tagline=True, ink=ink, right=True)
+    else:
+        cover = shade(cover, "bottom", 0.5, 0.9)
+        squares = level if a.palette else None
+        y = 500 - 34 - round(60 * (2.05 if a.palette else 1.62))
+        draw_title(cover, squares, 30, y, 60, tagline=True, ink=ink)
     cover.save(out / f"cover_{a.level}.png")
 
     # banner: the title on the left, then whole paintings, each from cells to scan
