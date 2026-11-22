@@ -12,4 +12,5 @@ res = 192             # width of the quantised picture
 colours = ["#6a5236", "#6c604c", "#58564f", "#8c8779", "#7f461b", "#2e4832"]
 lighten = 0.8         # gamma applied to the scan and the colours (below 1: lighter)
 ink = "#6a5236"       # title and tagline: the dark brown of the ground
-white = "#e9e5da"     # the pale highlight as shown (the scan keeps its own whites)
+white = "#e9e5da"     # the pale highlight as shown in the cells
+highlights = 0.7      # the scan's highlights drawn toward that white (0: unchanged)

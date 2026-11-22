@@ -100,7 +100,19 @@ def banner_picture(width: int, cells: int, seed: int):
         i = max(range(len(colours)), key=lambda k: luminance(colours[k]))
         colours[i] = hex_rgb(entry["white"])
     ink = hex_rgb(entry["ink"]) if entry.get("ink") else None
-    return colours, np.asarray(target), labels, light(scan), entry["key"], ink
+    shown = light(scan).astype(float)
+    if entry.get("highlights") and entry.get("white"):
+        # the scan's grey highlights drawn toward the white: weight rises from the 60th to
+        # the 99th percentile of luminance, up to `highlights`, and falls with chroma
+        lum = shown @ np.array([0.2126, 0.7152, 0.0722])
+        lo, hi = np.percentile(lum, [60, 99])
+        u = np.clip((lum - lo) / (hi - lo), 0, 1)
+        chroma = shown.max(-1) - shown.min(-1)  # greys and whites only, not the tan floor
+        grey = np.clip(1 - (chroma - 8) / 22, 0, 1)
+        wgt = float(entry["highlights"]) * (u * u * (3 - 2 * u)) * grey
+        shown += wgt[..., None] * (np.array(hex_rgb(entry["white"]), float) - shown)
+    shown = shown.round().astype(np.uint8)
+    return colours, np.asarray(target), labels, shown, entry["key"], ink
 
 
 def compose(
