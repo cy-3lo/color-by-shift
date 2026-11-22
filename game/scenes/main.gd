@@ -16,6 +16,10 @@ extends Control
 ## Levels: a press on the level number shows every level on a grid (grey solved, white with a
 ## lock still closed, orange current); levels open one by one (sim/progress.gd), kept in
 ## user://progress.json.
+## Zoom: pinch with two fingers (or the mouse wheel) to zoom up to zoom.max, move them (or drag
+## with the right or middle button) to pan; one finger still drags cells; the zoom goes back
+## to 1 on a new level and when the picture is recovered. On a small screen the bar grows so
+## that a button is at least strip.button_css CSS pixels wide.
 ## Options after "--": --level=ID, --solved (shows the level recovered, to look at the
 ## reward), --smoke (headless: solve every level by drags). In a browser:
 ## index.html?level=ID&solved.
@@ -30,7 +34,15 @@ var at := 0
 var level: FoamLevel
 var session: Session
 
-var rect := Rect2()  ## the picture on screen
+var rect := Rect2()  ## the picture on screen (larger than base when zoomed)
+var base := Rect2()  ## the picture's place at zoom 1, also the window onto it when zoomed
+var zoom := 1.0
+var pan := Vector2.ZERO  ## corner of the zoomed picture from base.position (both <= 0)
+var shapes_dirty := true  ## shape_px and centre_px to recompute after a zoom
+var touches := {}  ## finger index -> position
+var pinch := {}  ## at the start of a pinch: zoom, pan, middle, distance (empty: no pinch)
+var pinch_lock := false  ## a pinch happened: the emulated mouse is ignored until every finger is up
+var panning := false  ## right or middle button held: the mouse pans
 var strip := Rect2()  ## the strip (right) or the bar (bottom)
 var boxes := {}  ## "number", "par", "info" -> Rect2: the boxes of the bar above the buttons
 var unit := 1.0  ## scale of the interface (larger when the window is taller than wide)
@@ -62,7 +74,9 @@ var tada_player: AudioStreamPlayer
 var credits := {}
 
 var picture: ColorRect
+var view: Control  ## clips the zoomed picture to base
 var tiles: Control  ## the cells of the move under way, drawn above the picture
+var marks: Control  ## the hint edge, above the picture, clipped like it
 var overlay: Control
 var material_: ShaderMaterial
 var cell_image: Image
@@ -115,17 +129,25 @@ func _ready() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
+	view = Control.new()
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view.clip_contents = true
+	add_child(view)
 	picture = ColorRect.new()
 	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	material_ = ShaderMaterial.new()
 	material_.shader = SHADER
 	picture.material = material_
-	add_child(picture)
+	view.add_child(picture)
 	tiles = Control.new()
 	tiles.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tiles.clip_contents = true
 	tiles.draw.connect(_draw_tiles)
-	add_child(tiles)
+	view.add_child(tiles)
+	marks = Control.new()
+	marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marks.draw.connect(_draw_marks)
+	view.add_child(marks)
 	overlay = Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -197,6 +219,8 @@ func _load(k: int) -> void:
 		return
 	session = Session.new(level)
 	var n := level.foam.n_cells
+	zoom = 1.0
+	pan = Vector2.ZERO
 	last_action = now
 	cell_area = Hint.areas(level)
 	hint_for = PackedByteArray()
@@ -233,15 +257,33 @@ func _layout() -> void:
 		return
 	var size_ := get_viewport_rect().size
 	portrait = size_.y > size_.x
-	# the base window is 1280 x 720; a tall window keeps 1280 across, so its icons grow
-	unit = clampf(1.4 * size_.y / size_.x, 1.0, 3.2) if portrait else 1.0
+	var st: Dictionary = cfg["strip"]
+	var pad0 := float(st["pad"])
+	# a button at least button_css CSS pixels wide (in units of the 1280 x 720 canvas)
+	var need := float(st["button_css"]) / _css_per_unit(size_)
+	var n_b := BUTTONS.size()
+	var two_rows := false
+	var compact := false  ## landscape too low for the full strip: number and par side by side
+	if portrait:  # a tall window keeps 1280 across, so its icons grow
+		unit = clampf(1.4 * size_.y / size_.x, 1.0, 3.2)
+		two_rows = (size_.x - pad0 * unit * (n_b + 1)) / n_b < need
+	else:
+		var side0 := (float(st["width"]) - 3.0 * pad0) * 0.5
+		unit = maxf(1.0, need / side0)
+		var tall := 5.0 * pad0 + float(st["number_height"]) + float(st["par_height"]) + 3.0 * side0 + 60.0
+		if unit * tall > size_.y:  # four rows of squares: number and par, then the buttons
+			compact = true
+			unit = maxf(1.0, minf(unit, size_.y / (5.0 * pad0 + 4.0 * side0)))
 	var m := float(cfg["picture"]["margin"])
 	if portrait:
-		var bh := float(cfg["strip"]["bar_height"]) * unit
+		var bh := float(st["bar_height"]) * unit
+		if two_rows:  # three columns of two
+			var side2 := minf((size_.x - 4.0 * pad0 * unit) / 3.0, need * 1.1)
+			bh = 2.0 * side2 + 3.0 * pad0 * unit
 		strip = Rect2(0.0, size_.y - bh, size_.x, bh)
 		room = Rect2(0.0, 0.0, size_.x, size_.y - bh)
 	else:
-		var sw := float(cfg["strip"]["width"])
+		var sw := float(st["width"]) * unit
 		strip = Rect2(size_.x - sw, 0.0, sw, size_.y)
 		room = Rect2(0.0, 0.0, size_.x - sw, size_.y)
 	var w := minf(room.size.x - 2.0 * m, (room.size.y - 2.0 * m) * level.foam.aspect)
@@ -249,39 +291,36 @@ func _layout() -> void:
 		w = minf(w, (room.size.y - 2.0 * m - 170.0 * unit) * level.foam.aspect)
 	var h := w / level.foam.aspect
 	var top := m if portrait else (room.size.y - h) * 0.5
-	rect = Rect2(Vector2((room.size.x - w) * 0.5, top).round(), Vector2(w, h))
-	picture.position = rect.position
-	picture.size = rect.size
-	tiles.position = rect.position
-	tiles.size = rect.size
-	var to_px := rect.size / Vector2(level.foam.aspect, 1.0)
-	shape_px.clear()
-	centre_px.resize(level.foam.n_cells)
-	for c in level.foam.n_cells:
-		var pts := PackedVector2Array()
-		var sum := Vector2.ZERO
-		for q in level.shapes[c]:
-			pts.append(q * to_px)
-			sum += q * to_px
-		shape_px.append(pts)
-		centre_px[c] = sum / pts.size()
-	material_.set_shader_parameter("picture_px", rect.size)
+	base = Rect2(Vector2((room.size.x - w) * 0.5, top).round(), Vector2(w, h))
+	view.position = base.position
+	view.size = base.size
+	marks.size = base.size
 	material_.set_shader_parameter("line_px", float(cfg["picture"]["line_px"]) * unit)
 	material_.set_shader_parameter("outline_px", float(cfg["picture"]["outline_px"]) * unit)
-	site_px.resize(level.foam.n_cells)
-	for i in level.foam.n_cells:
-		site_px[i] = rect.position + level.foam.sites[i] / Vector2(level.foam.aspect, 1.0) * rect.size
+	_place()
 	# one style for everything in the bar: boxes of the same width, the same gap between them
 	var pad := float(cfg["strip"]["pad"]) * unit
 	var names := BUTTONS
 	buttons = {}
 	boxes = {}
-	if portrait:  # boxes in a row under the picture, the six square buttons in the bar
+	if portrait and two_rows:  # three columns of two: back over next, undo over redo ...
+		var side := (strip.size.y - 3.0 * pad)
+		side = minf(side * 0.5, (strip.size.x - 4.0 * pad) / 3.0)
+		var gap := (strip.size.x - 3.0 * side) / 4.0
+		for k in names.size():
+			var x := gap + (k / 2) * (side + gap)
+			buttons[names[k]] = Rect2(x, strip.position.y + pad + (k % 2) * (side + pad), side, side)
+		var y0 := base.end.y + pad
+		var hh := strip.position.y - y0 - pad
+		boxes["number"] = Rect2(gap, y0, side, hh * 0.5 - pad * 0.5)
+		boxes["par"] = Rect2(gap, y0 + hh * 0.5 + pad * 0.5, side, hh * 0.5 - pad * 0.5)
+		boxes["info"] = Rect2(gap + side + gap, y0, size_.x - 3.0 * gap - side, hh)
+	elif portrait:  # boxes in a row under the picture, the six square buttons in the bar
 		var side := minf(strip.size.y - 2.0 * pad, (strip.size.x - pad * (names.size() + 1)) / names.size())
 		var gap := (strip.size.x - side * names.size()) / (names.size() + 1)
 		for k in names.size():
 			buttons[names[k]] = Rect2(gap + k * (side + gap), strip.get_center().y - side * 0.5, side, side)
-		var y0 := rect.end.y + pad
+		var y0 := base.end.y + pad
 		var hh := strip.position.y - y0 - pad
 		boxes["number"] = Rect2(gap, y0, side, hh * 0.5 - pad * 0.5)
 		boxes["par"] = Rect2(gap, y0 + hh * 0.5 + pad * 0.5, side, hh * 0.5 - pad * 0.5)
@@ -294,10 +333,16 @@ func _layout() -> void:
 		for k in names.size():
 			var y := size_.y - (n_rows - k / 2) * (side + pad)
 			buttons[names[k]] = Rect2(x + (k % 2) * (side + pad), y, side, side)
-		boxes["number"] = Rect2(x, pad, wide, float(cfg["strip"]["number_height"]))
-		boxes["par"] = Rect2(x, boxes["number"].end.y + pad, wide, float(cfg["strip"]["par_height"]))
+		if compact:
+			boxes["number"] = Rect2(x, pad, side, side)
+			boxes["par"] = Rect2(x + side + pad, pad, side, side)
+		else:
+			boxes["number"] = Rect2(x, pad, wide, float(st["number_height"]) * unit)
+			boxes["par"] = Rect2(x, boxes["number"].end.y + pad, wide, float(st["par_height"]) * unit)
 		var y1: float = boxes["par"].end.y + pad
-		boxes["info"] = Rect2(x, y1, wide, buttons[names[0]].position.y - pad - y1)
+		var hi: float = buttons[names[0]].position.y - pad - y1
+		if hi >= 60.0 * unit:  # the painter and title, when there is room
+			boxes["info"] = Rect2(x, y1, wide, hi)
 	# panels (credits, settings) cover the picture's part of the window
 	panel_rect = room.grow(-m)
 	var rw := minf(panel_rect.size.x * 0.6, 420.0 * unit)
@@ -317,6 +362,64 @@ func _layout() -> void:
 		"fullscreen": Rect2(c.x - rw * 0.5, c.y + 0.5 * rh + 2.0 * pad, rw, rh),
 	}
 	overlay.queue_redraw()
+
+
+## CSS pixels per unit of the canvas (the browser's window, or the screen's scale on desktop).
+func _css_per_unit(size_: Vector2) -> float:
+	var css := 0.0
+	if OS.has_feature("web"):
+		css = float(str(JavaScriptBridge.eval("window.innerWidth", true)))
+	else:
+		css = DisplayServer.window_get_size().x / maxf(DisplayServer.screen_get_scale(), 1.0)
+	return css / size_.x if css > 0.0 else 1.0
+
+
+## Places the picture for the present zoom and pan (kept inside base) and what follows it.
+func _place() -> void:
+	zoom = clampf(zoom, 1.0, float(cfg["zoom"]["max"]))
+	var big := base.size * zoom
+	pan = pan.clamp(base.size - big, Vector2.ZERO)
+	rect = Rect2(base.position + pan, big)
+	picture.position = pan
+	picture.size = big
+	tiles.position = pan
+	tiles.size = big
+	material_.set_shader_parameter("picture_px", big)
+	site_px.resize(level.foam.n_cells)
+	for i in level.foam.n_cells:
+		site_px[i] = rect.position + level.foam.sites[i] / Vector2(level.foam.aspect, 1.0) * big
+	shapes_dirty = true
+	if pinch.is_empty():
+		_shapes()
+	marks.queue_redraw()
+	overlay.queue_redraw()
+
+
+## Outlines of the cells in pixels from the picture's corner (after a zoom; skipped while
+## pinching, done at the end of it).
+func _shapes() -> void:
+	if not shapes_dirty:
+		return
+	shapes_dirty = false
+	var to_px := rect.size / Vector2(level.foam.aspect, 1.0)
+	shape_px.clear()
+	centre_px.resize(level.foam.n_cells)
+	for c in level.foam.n_cells:
+		var pts := PackedVector2Array()
+		var sum := Vector2.ZERO
+		for q in level.shapes[c]:
+			pts.append(q * to_px)
+			sum += q * to_px
+		shape_px.append(pts)
+		centre_px[c] = sum / pts.size()
+
+
+## Zooms to z keeping the point p of the screen over the same place of the picture.
+func _zoom_at(p: Vector2, z: float) -> void:
+	var u := (p - base.position - pan) / zoom
+	zoom = clampf(z, 1.0, float(cfg["zoom"]["max"]))
+	pan = p - base.position - u * zoom
+	_place()
 
 
 ## Writes the colours of the cells (row 0) and marks the cells of the move under way (row 2).
@@ -376,6 +479,9 @@ func _apply() -> void:
 	if solved_at >= 0.0 and not was:
 		_tada()
 		progress.mark_solved(at)
+		zoom = 1.0  # the painting is seen whole
+		pan = Vector2.ZERO
+		_place()
 	if rewinding:
 		if session.history.is_empty():
 			rewinding = false
@@ -444,9 +550,10 @@ func press(pos: Vector2) -> void:
 			panel = ""
 		overlay.queue_redraw()
 		return
-	if solved_at >= 0.0:
+	if solved_at >= 0.0 or not base.has_point(pos):
 		return
 	_settle()
+	_shapes()
 	var u := level.cell_at((pos - rect.position) / rect.size)
 	if u < 0:
 		return
@@ -564,16 +671,31 @@ func _go(k: int) -> void:
 func _input(event: InputEvent) -> void:
 	if level == null or session == null:
 		return
-	if (event is InputEventMouseButton or event is InputEventKey) and event.pressed:
+	if (event is InputEventMouseButton or event is InputEventKey or event is InputEventScreenTouch) and event.pressed:
 		last_action = now  # the hint waits for a pause
-	# a finger arrives as a mouse (input_devices/pointing/emulate_mouse_from_touch)
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		_touch(event)
+		return
+	# a finger arrives as a mouse too (input_devices/pointing/emulate_mouse_from_touch)
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if pinch_lock:
+			return
 		if event.pressed:
 			press(event.position)
 		else:
 			release()
+	elif event is InputEventMouseButton and event.pressed and panel.is_empty() and base.has_point(event.position) \
+			and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		var step := pow(float(cfg["zoom"]["wheel_step"]), maxf(event.factor, 1.0))
+		_zoom_at(event.position, zoom * (step if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / step))
+	elif event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]:
+		panning = event.pressed and base.has_point(event.position) and panel.is_empty()
 	elif event is InputEventMouseMotion:
-		drag(event.position)
+		if panning:
+			pan += event.relative
+			_place()
+		elif not pinch_lock:
+			drag(event.position)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_ESCAPE:
@@ -589,6 +711,42 @@ func _input(event: InputEvent) -> void:
 				_press_button("prev")
 			KEY_DOWN:
 				_press_button("next")
+
+
+## Fingers: two of them pinch (zoom about their middle, pan with it); a pinch cancels the drag
+## of the first finger, and the emulated mouse is ignored until every finger is up.
+func _touch(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			touches[event.index] = event.position
+		else:
+			touches.erase(event.index)
+		if touches.size() == 2 and event.pressed and panel.is_empty():
+			if phase == Phase.DRAG:  # the first finger's drag: taken back
+				committed = false
+				if pending.x >= 0:
+					phase = Phase.BACK
+				else:
+					_drop()
+			var f: Array = touches.values()
+			pinch = {"zoom": zoom, "pan": pan, "mid": (f[0] + f[1]) * 0.5, "d": maxf(f[0].distance_to(f[1]), 1.0)}
+			pinch_lock = true
+		elif touches.size() < 2 and not pinch.is_empty():
+			pinch = {}
+			_shapes()
+			marks.queue_redraw()
+		if touches.is_empty():
+			pinch_lock = false
+	elif event is InputEventScreenDrag:
+		touches[event.index] = event.position
+		if pinch.is_empty() or touches.size() < 2:
+			return
+		var f: Array = touches.values()
+		var mid: Vector2 = (f[0] + f[1]) * 0.5
+		var u: Vector2 = (pinch["mid"] - base.position - pinch["pan"]) / pinch["zoom"]
+		zoom = clampf(pinch["zoom"] * f[0].distance_to(f[1]) / pinch["d"], 1.0, float(cfg["zoom"]["max"]))
+		pan = mid - base.position - u * zoom
+		_place()
 
 
 func _process(delta: float) -> void:
@@ -667,7 +825,7 @@ func _tile(from: int, to: int, grow: float) -> PackedVector2Array:
 
 
 func _draw_tiles() -> void:
-	if moving.is_empty() or eased <= 0.0 or level == null:
+	if moving.is_empty() or eased <= 0.0 or level == null or shapes_dirty:
 		return
 	var lift := float(cfg["drag"]["lift"]) * sin(PI * eased)
 	var line := _c("line")
@@ -751,16 +909,8 @@ func _draw_overlay() -> void:
 	var accent := _c("accent")
 	var solved := solved_at >= 0.0
 	if solved:
-		overlay.draw_rect(rect.grow(6.0), accent, false, 3.0)
-	if hint_shown >= 0:  # an orange edge, breathing slowly
-		var hc: Dictionary = cfg["hint"]
-		var col := Color.html(hc["colour"])
-		col.a = 0.65 + 0.35 * sin(TAU * (now - last_action) / float(hc["pulse_s"]))
-		var edge := PackedVector2Array()
-		for q in shape_px[hint_shown]:
-			edge.append(rect.position + q)
-		edge.append(edge[0])
-		overlay.draw_polyline(edge, col, float(hc["width_px"]) * unit, true)
+		overlay.draw_rect(base.grow(6.0), accent, false, 3.0)
+	marks.queue_redraw()
 	overlay.draw_rect(strip, _c("panel"))
 	for name_ in boxes:
 		var lit: bool = name_ == "number" and panel == "levels"
@@ -782,7 +932,8 @@ func _draw_overlay() -> void:
 		about.append([level.title, 13.0, mid])
 		if not level.date.is_empty():
 			about.append([level.date, 12.0, mid])
-	_lines(boxes["info"], about)
+	if boxes.has("info"):
+		_lines(boxes["info"], about)
 	# buttons
 	for name_ in buttons:
 		var r: Rect2 = buttons[name_]
@@ -797,6 +948,20 @@ func _draw_overlay() -> void:
 		overlay.draw_texture(tex, (r.get_center() - tex.get_size() * 0.5).round(), _c("background") if hot else on)
 	if not panel.is_empty():
 		_draw_panel()
+
+
+## The hint: an orange edge around a cell, breathing slowly (clipped to the picture's window).
+func _draw_marks() -> void:
+	if level == null or hint_shown < 0 or shapes_dirty:
+		return
+	var hc: Dictionary = cfg["hint"]
+	var col := Color.html(hc["colour"])
+	col.a = 0.65 + 0.35 * sin(TAU * (now - last_action) / float(hc["pulse_s"]))
+	var edge := PackedVector2Array()
+	for q in shape_px[hint_shown]:
+		edge.append(pan + q)
+	edge.append(edge[0])
+	marks.draw_polyline(edge, col, float(hc["width_px"]) * unit, true)
 
 
 ## The credits, or the settings, over the picture.
@@ -877,8 +1042,46 @@ func _drag_move(m: Vector3i) -> bool:
 	return false
 
 
+## Headless check of the pinch: spreading two fingers about a point zooms in and keeps that
+## point over the same place of the picture; it takes back a drag under way; when the fingers
+## are up, the mouse is listened to again. Then the wheel, and the reset on a new level.
+func _smoke_pinch() -> bool:
+	_load(0)
+	var c := base.get_center()
+	press(site_px[0])
+	var a := c + Vector2(-40, 0)
+	var b := c + Vector2(40, 0)
+	var before := (c - rect.position) / rect.size
+	for e in [[0, a, true], [1, b, true]]:
+		var t := InputEventScreenTouch.new()
+		t.index = e[0]
+		t.position = e[1]
+		t.pressed = e[2]
+		_touch(t)
+	var good := phase != Phase.DRAG and pinch_lock
+	for k in [0, 1]:
+		var d := InputEventScreenDrag.new()
+		d.index = k
+		d.position = c + Vector2(-80 if k == 0 else 80, 0)
+		_touch(d)
+	var after := (c - rect.position) / rect.size
+	good = good and absf(zoom - 2.0) < 1e-3 and before.distance_to(after) < 1e-3
+	for k in [0, 1]:
+		var t := InputEventScreenTouch.new()
+		t.index = k
+		t.pressed = false
+		_touch(t)
+	good = good and not pinch_lock and pinch.is_empty() and not shapes_dirty and zoom > 1.9
+	_zoom_at(c, 100.0)
+	good = good and absf(zoom - float(cfg["zoom"]["max"])) < 1e-6 and rect.encloses(base)
+	_load(0)
+	good = good and zoom == 1.0 and rect == base
+	print("SMOKE pinch: %s" % ("zoom and pan OK" if good else "FAILED"))
+	return good
+
+
 func _smoke() -> void:
-	var ok := true
+	var ok := _smoke_pinch()
 	for k in ids.size():
 		_load(k)
 		var path := "res://tests/golden/%s.json" % ids[k]

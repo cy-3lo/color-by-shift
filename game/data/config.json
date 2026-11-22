@@ -1,6 +1,6 @@
 {
   "picture": {"margin": 15, "line_px": 1.6, "outline_px": 3.0},
-  "strip": {"width": 172, "bar_height": 150, "pad": 12, "radius": 10, "icon": 0.6, "number_height": 110, "number_size": 52, "label_size": 13, "par_height": 44},
+  "strip": {"button_css": 64, "width": 172, "bar_height": 150, "pad": 12, "radius": 10, "icon": 0.6, "number_height": 110, "number_size": 52, "label_size": 13, "par_height": 44},
   "colours": {
     "background": "#1c1c22", "panel": "#26262e", "line": "#101014", "text": "#ece9e0",
     "mid": "#9694a0", "dim": "#5c5a68", "button": "#3a3a46", "accent": "#f0b45a", "hole": "#121217"
@@ -24,6 +24,7 @@
     ]
   },
   "levels": {"open_all_par": 2, "done": "#7c7a86", "open": "#ece9e0", "current": "#ff8a1f", "ink": "#1c1c22"},
+  "zoom": {"max": 4.0, "wheel_step": 1.15},
   "hint": {"after_s": 6.0, "colour": "#ff8a1f", "width_px": 3.5, "pulse_s": 1.6},
   "start_level": ""
 }
