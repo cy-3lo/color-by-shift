@@ -88,6 +88,7 @@ Title "Color by Shift" (Chris, 2026-11-21; the repo and the Python package keep 
 - 2026-11-22: Chris: no thicker outline around the title's cell; on the cover the scan shows on 20 % of the picture (--share, passage width 0.2); the Degas lightened (gamma 0.8 on scan and colours, lighten in docs/itch/banner.toml) with the title and tagline in the dark brown of the ground #6a5236 (ink in banner.toml).
 - 2026-11-22: Chris: Degas banner whites whiter: the lightest colour shown as #e9e5da (white in docs/itch/banner.toml; the title's cell and the pale cells), the scan unchanged.
 - 2026-11-22: Chris: the Degas scan's highlights brightened too: grey and white pixels above the 60th percentile of luminance drawn toward the white (up to 0.7, highlights in banner.toml), fading out with chroma so the tan floor keeps its colour (a first try without the chroma limit whitened the floor).
+- 2026-11-22: README.md written (for jam players and judges first, then builders): pitch, how to play and controls, the rules behind it, the 15 paintings with sources and licences, building and tests, repository layout, credits, licence. Left open: the itch.io link, any AI-use statement the jam may ask for.
 ## Deadline and jam
 
 - GitHub Game Off 2026, theme SHIFT. Submissions close 1 December 2026 at 21:37 UTC (13:37 PST). Target submission: Monday 30 November, evening (Paris time).
